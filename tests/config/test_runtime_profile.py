@@ -35,6 +35,18 @@ def test_forex_does_not_use_binance_orderbook():
     assert is_crypto_symbol("BTC/USDT") is True
 
 
+def test_runtime_profile_binance_backend_ignores_mt5_enabled(monkeypatch):
+    """EXECUTION_BACKEND=binance يمنع سحب التنفيذ إلى MT5."""
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("EXECUTION_BACKEND", "binance")
+    monkeypatch.setenv("MT5_ENABLED", "true")
+    settings = load_settings("dev", reload=True)
+    profile = resolve_runtime_profile(settings)
+    assert profile.uses_mt5 is False
+    assert profile.execution_backend == "binance"
+    assert profile.heartbeat_provider == "binance"
+
+
 def test_get_runtime_profile_uses_loaded_settings(monkeypatch):
     monkeypatch.setenv("ENV", "dev")
     monkeypatch.setenv("EXECUTION_BACKEND", "binance")

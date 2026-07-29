@@ -1003,12 +1003,15 @@ class TradeExecutor:
             pnl = (position.entry_price - price) * position.amount
             exit_side = OrderSide.BUY
 
+        # صفقات ورقية تُغلق محلياً دائماً — حتى لو أصبح الوضع live لاحقاً
+        force_paper = bool(getattr(position, "is_paper", False))
         self.order_manager.create_market_order(
             position.symbol,
             exit_side,
             position.amount,
             reference_price=price,
             allow_without_stops=True,
+            force_paper=force_paper,
         )
         self.position_manager.remove(position.symbol)
         self.risk.record_closed_trade(pnl)

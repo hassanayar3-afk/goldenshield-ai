@@ -94,8 +94,7 @@ class AlertDispatcher:
         sign = "+" if pnl >= 0 else ""
         plain = f"[INFO] إغلاق {symbol}\nPnL: {sign}{pnl:.2f} USDT | {reason}"
         log_operation(plain)
-        if self._blocked():
-            return False
+        # تأكيد الإغلاق يُرسل دائماً — حتى بعد إيقاف المستخدم
         return self.telegram.send_message(format_trade_close_message(symbol, pnl, reason))
 
     def kill_switch_activated(self, reason: str) -> bool:

@@ -268,15 +268,28 @@ class TelegramDashboard:
             self.runtime.resume()
             return self.render_main()
         if data == "act:panic":
-            self.runtime.stop_permanently(reason="dashboard_panic")
+            # أغلق أولاً ثم أوقف — حتى تصل تنبيهات الإغلاق قبل حجب الإشارات
             symbols = list(self.executor.position_manager.open_symbols())
             prices = self._fetch_prices(symbols) if symbols else {}
-            self.panic.trigger(prices, reason="لوحة التحكم — طوارئ")
+            try:
+                result = self.panic.trigger(prices, reason="لوحة التحكم — طوارئ")
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("فشل طوارئ الإغلاق")
+                return DashboardView(
+                    format_action_result("طوارئ", f"تعذر الإغلاق: {exc}"),
+                    back_to_main_keyboard(),
+                )
+            self.runtime.stop_permanently(reason="dashboard_panic")
+            detail = result.message if result.message else (
+                "تم إغلاق جميع المراكز. إيقاف كامل — لن تُرسل إشارات ولن يُعاد التشغيل تلقائياً."
+            )
+            if result.triggered:
+                detail = (
+                    f"{result.message}\n"
+                    "إيقاف كامل — لن تُرسل إشارات ولن يُعاد التشغيل تلقائياً."
+                )
             return DashboardView(
-                format_action_result(
-                    "طوارئ",
-                    "تم إغلاق جميع المراكز. إيقاف كامل — لن تُرسل إشارات ولن يُعاد التشغيل تلقائياً.",
-                ),
+                format_action_result("طوارئ", detail),
                 main_menu_keyboard(paused=True),
             )
         if data.startswith("sym:"):
@@ -298,7 +311,19 @@ class TelegramDashboard:
             )
         prices = self._fetch_prices([symbol])
         price = prices.get(symbol, self.market.prices.get(symbol, position.entry_price))
-        closed = self.executor.close_position(symbol, price, reason="إغلاق يدوي — لوحة التحكم")
+        try:
+            closed = self.executor.close_position(
+                symbol, price, reason="إغلاق يدوي — لوحة التحكم"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("فشل إغلاق يدوي لـ %s", symbol)
+            return DashboardView(
+                format_action_result(
+                    "إغلاق فشل ❌",
+                    f"{symbol}: {exc}",
+                ),
+                back_to_main_keyboard(),
+            )
         if closed:
             return DashboardView(
                 format_action_result("إغلاق ناجح ✅", f"تم إغلاق {symbol} @ {price:,.2f}"),

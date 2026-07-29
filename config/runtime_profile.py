@@ -25,9 +25,13 @@ def resolve_runtime_profile(settings: Settings | None = None) -> RuntimeProfile:
     if backend not in {"mt5", "binance"}:
         backend = "binance"
 
-    uses_mt5 = bool(s.mt5_enabled or backend == "mt5")
-    if uses_mt5:
-        backend = "mt5"
+    # EXECUTION_BACKEND=binance صراحةً → مسار Binance فقط (لا يُسحب إلى MT5)
+    if backend == "binance":
+        uses_mt5 = False
+    else:
+        uses_mt5 = bool(s.mt5_enabled or backend == "mt5")
+        if uses_mt5:
+            backend = "mt5"
 
     heartbeat = "mt5" if uses_mt5 else "binance"
     return RuntimeProfile(

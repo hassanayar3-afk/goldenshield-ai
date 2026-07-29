@@ -30,6 +30,7 @@ class OrderManager:
         stop_loss: float | None = None,
         take_profit: float | None = None,
         allow_without_stops: bool = False,
+        force_paper: bool = False,
     ) -> Order:
         if amount <= 0:
             raise ExecutionError(f"حجم الأمر غير صالح: {amount}")
@@ -51,19 +52,20 @@ class OrderManager:
                 "Zero-SL/TP Denial: لا يُرسل أمر دخول بلا Stop Loss و Take Profit"
             )
 
+        use_paper = force_paper or settings.execution_mode != "live"
         order = Order(
             symbol=symbol,
             side=side,
             amount=round(amount, 8),
             order_type=OrderType.MARKET,
             price=reference_price,
-            is_paper=settings.execution_mode != "live",
+            is_paper=use_paper,
             protective_sl=float(stop_loss) if stop_loss else None,
             protective_tp=float(take_profit) if take_profit else None,
         )
         self._orders[order.id] = order
 
-        if settings.execution_mode == "live":
+        if not use_paper:
             self._submit_live_order(order, stop_loss=stop_loss, take_profit=take_profit)
         else:
             order.mark_filled(reference_price)
@@ -93,7 +95,15 @@ class OrderManager:
 
         if not settings.binance_api_key or not settings.binance_api_secret:
             order.mark_rejected()
-            raise ExecutionError("مفاتيح Binance مطلوبة للتنفيذ الحي (أو فعّل MT5)")
+            raise ExecutionError("مفاتيح Binance مطلوبة للتنفيذ الحي")
+
+        # رموز غير كريبتو لا تُغلق/تُنفَّذ على Spot Binance
+        sym = str(order.symbol or "")
+        if sym.startswith(("FOREX/", "STOCK/")):
+            order.mark_rejected()
+            raise ExecutionError(
+                f"{sym} غير مدعوم على Binance Spot — خلفية التنفيذ binance فقط"
+            )
 
         exchange = get_exchange()
         try:
