@@ -234,7 +234,25 @@ class TelegramCommandHandler:
         # أزل ساعة التحميل فوراً — قبل أي عمل ثقيل
         self.telegram.answer_callback_query(callback_id)
 
-        view = self.dashboard.handle_callback(data)
+        try:
+            view = self.dashboard.handle_callback(data)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("فشل معالجة زر تيليجرام data=%s", data)
+            from operations.dashboard_templates import format_action_result
+            from operations.telegram_keyboards import back_to_main_keyboard
+
+            err_text = format_action_result("خطأ", str(exc))
+            if isinstance(message_id, int):
+                ok = self.telegram.edit_message_text(
+                    message_id,
+                    err_text,
+                    reply_markup=back_to_main_keyboard(),
+                )
+                if ok:
+                    return True
+            self.telegram.send_message(err_text, reply_markup=back_to_main_keyboard())
+            return True
+
         ok = False
         if isinstance(message_id, int):
             ok = self.telegram.edit_message_text(

@@ -12,6 +12,7 @@ PATCHES: dict[str, str] = {
     "ENV": "dev",
     "EXECUTION_MODE": "paper",
     "EXECUTION_BACKEND": "binance",
+    "MT5_ENABLED": "false",
     "AUTO_ENTRY_MIN_PERCENT": "95",
     "MANUAL_ENTRY_REQUIRED": "false",
     "IRON_PROTOCOL_ENABLED": "true",

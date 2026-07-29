@@ -35,12 +35,14 @@ def emergency_flat(
         reference = price_map.get(position.symbol, position.entry_price)
         pnl = _position_pnl(position, reference)
         close_side = OrderSide.SELL if position.side == OrderSide.BUY else OrderSide.BUY
+        force_paper = bool(getattr(position, "is_paper", False))
         order_manager.create_market_order(
             position.symbol,
             close_side,
             position.amount,
             reference_price=reference,
             allow_without_stops=True,
+            force_paper=force_paper,
         )
         position_manager.remove(position.symbol)
         results.append(
