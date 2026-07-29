@@ -101,6 +101,11 @@ class SymbolRegistry:
                 )
 
         for pair, mt5 in self._mt5_map.items():
+            # لا تحقن فوركس/أسهم تلقائياً إلا إذا كان MT5 مفعّلاً
+            from config.settings import get_settings
+
+            if not bool(getattr(get_settings(), "mt5_enabled", False)):
+                break
             if pair.startswith("FOREX/"):
                 self._ensure(
                     SymbolSpec(
@@ -114,8 +119,6 @@ class SymbolRegistry:
                 )
             elif pair.startswith("STOCK/"):
                 ticker = mt5
-                from config.settings import get_settings
-
                 enable_stocks = get_settings().bot_admin_full_access
                 self._ensure(
                     SymbolSpec(

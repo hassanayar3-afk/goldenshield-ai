@@ -231,20 +231,42 @@ class TelegramCommandHandler:
             self.telegram.answer_callback_query(callback_id, "غير مصرح")
             return False
 
-        # أزل ساعة التحميل فوراً — قبل أي عمل ثقيل
-        self.telegram.answer_callback_query(callback_id)
+        try:
+            # أزل ساعة التحميل فوراً — قبل أي عمل ثقيل
+            self.telegram.answer_callback_query(callback_id)
 
-        view = self.dashboard.handle_callback(data)
-        ok = False
-        if isinstance(message_id, int):
-            ok = self.telegram.edit_message_text(
-                message_id,
-                view.text,
-                reply_markup=view.keyboard,
-            )
-        if not ok:
-            self.telegram.send_message(view.text, reply_markup=view.keyboard)
-        return True
+            view = self.dashboard.handle_callback(data)
+            ok = False
+            if isinstance(message_id, int):
+                ok = self.telegram.edit_message_text(
+                    message_id,
+                    view.text,
+                    reply_markup=view.keyboard,
+                    chat_id=chat_id or None,
+                )
+            if not ok:
+                self.telegram.send_message(
+                    view.text,
+                    reply_markup=view.keyboard,
+                    chat_id=chat_id or None,
+                )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("فشل معالجة زر Telegram (%s): %s", data, exc)
+            try:
+                self.telegram.answer_callback_query(
+                    callback_id, "فشل التنفيذ — أعد المحاولة", show_alert=True
+                )
+            except Exception:
+                pass
+            try:
+                self.telegram.send_message(
+                    f"⚠️ فشل زر <code>{data}</code>: {exc}",
+                    chat_id=chat_id or None,
+                )
+            except Exception:
+                pass
+            return False
 
     def poll_once(self, *, long_poll: bool = False) -> int:
         if not self._enabled or not self._updates_url:

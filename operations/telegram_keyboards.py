@@ -44,7 +44,8 @@ def main_menu_keyboard(*, paused: bool) -> dict:
                 {"text": "📋 التقرير", "callback_data": "view:report"},
                 toggle,
             ],
-            [{"text": "🚨 طوارئ — إغلاق الكل", "callback_data": "act:panic"}],
+            [{"text": "❌ إغلاق كل الصفقات", "callback_data": "act:close_all"}],
+            [{"text": "🚨 طوارئ — إيقاف كامل", "callback_data": "act:panic"}],
         ]
     }
 

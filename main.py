@@ -575,8 +575,8 @@ async def run_bot() -> None:
             registry.add_stock(ticker, enabled=True)
         active_symbols = registry.active_pairs()
         print(f"📋 صلاحيات كاملة + MT5: {len(active_symbols)} رمز نشط")
-    elif settings.bot_admin_full_access:
-        # وضع Binance فقط — لا فوركس/أسهم
+    else:
+        # وضع Binance فقط — لا فوركس/أسهم أبداً
         active_symbols = [
             s for s in registry.active_pairs()
             if not str(s).startswith(("FOREX/", "STOCK/"))

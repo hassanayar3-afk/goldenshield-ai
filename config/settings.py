@@ -311,7 +311,7 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        bot_auto_sync_mt5=os.getenv("BOT_AUTO_SYNC_MT5", "true")
+        bot_auto_sync_mt5=os.getenv("BOT_AUTO_SYNC_MT5", "false")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},

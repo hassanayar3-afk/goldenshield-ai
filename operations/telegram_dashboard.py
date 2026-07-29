@@ -267,18 +267,62 @@ class TelegramDashboard:
                 )
             self.runtime.resume()
             return self.render_main()
-        if data == "act:panic":
-            self.runtime.stop_permanently(reason="dashboard_panic")
+        if data == "act:close_all":
             symbols = list(self.executor.position_manager.open_symbols())
-            prices = self._fetch_prices(symbols) if symbols else {}
-            self.panic.trigger(prices, reason="لوحة التحكم — طوارئ")
+            if not symbols:
+                return DashboardView(
+                    format_action_result("إغلاق", "لا توجد مراكز مفتوحة."),
+                    main_menu_keyboard(paused=self.runtime.paused),
+                )
+            # أسعار من الكاش أولاً لتسريع الاستجابة
+            prices = dict(self.market.prices)
+            missing = [s for s in symbols if s not in prices or prices.get(s, 0) <= 0]
+            if missing:
+                prices.update(self._fetch_prices(missing))
+            closed: list[str] = []
+            for symbol in symbols:
+                position = self.executor.position_manager.get(symbol)
+                if position is None:
+                    continue
+                price = prices.get(symbol) or position.entry_price
+                if self.executor.close_position(
+                    symbol, float(price), reason="إغلاق الكل — لوحة التحكم"
+                ):
+                    closed.append(symbol)
             return DashboardView(
                 format_action_result(
+                    "إغلاق الكل ✅",
+                    f"أُغلق {len(closed)} مركز: {', '.join(closed) if closed else '—'}",
+                ),
+                main_menu_keyboard(paused=self.runtime.paused),
+            )
+        if data == "act:panic":
+            # أغلق أولاً وحدّث الواجهة؛ الإيقاف الدائم بعد إرجاع الرسالة
+            symbols = list(self.executor.position_manager.open_symbols())
+            prices = dict(self.market.prices)
+            missing = [s for s in symbols if s not in prices or prices.get(s, 0) <= 0]
+            if missing:
+                try:
+                    prices.update(self._fetch_prices(missing))
+                except Exception:
+                    pass
+            try:
+                self.panic.trigger(prices, reason="لوحة التحكم — طوارئ")
+            except Exception as exc:
+                logger.warning("panic.trigger فشل: %s", exc)
+            view = DashboardView(
+                format_action_result(
                     "طوارئ",
-                    "تم إغلاق جميع المراكز. إيقاف كامل — لن تُرسل إشارات ولن يُعاد التشغيل تلقائياً.",
+                    "تم إغلاق المراكز المتاحة. إيقاف كامل — شغّل 00_START.bat للعودة.",
                 ),
                 main_menu_keyboard(paused=True),
             )
+            # أوقف بعد تجهيز الرسالة حتى يصل الرد للمستخدم
+            try:
+                self.runtime.stop_permanently(reason="dashboard_panic")
+            except Exception as exc:
+                logger.warning("stop_permanently فشل: %s", exc)
+            return view
         if data.startswith("sym:"):
             return self.render_symbol(decode_symbol(data.split(":", 1)[1]))
         if data.startswith("pos:"):

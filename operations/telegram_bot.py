@@ -57,13 +57,21 @@ class TelegramBot:
         parse_mode: str = "HTML",
         reply_markup: dict | None = None,
         disable_preview: bool = True,
+        chat_id: str | None = None,
     ) -> int | None:
-        if not self.configured:
+        if not self.configured and not (self._api_base and (chat_id or self.chat_id)):
             logger.debug("Telegram غير مُعدّ — تخطي الإرسال")
             return None
+        target = chat_id or self.chat_id
+        if not self._api_base or not target:
+            return None
+
+        # حد تيليجرام
+        if len(text) > 4000:
+            text = text[:3990] + "…"
 
         payload: dict[str, Any] = {
-            "chat_id": self.chat_id,
+            "chat_id": target,
             "text": text,
             "parse_mode": parse_mode,
             "disable_web_page_preview": disable_preview,
@@ -83,12 +91,17 @@ class TelegramBot:
         *,
         parse_mode: str = "HTML",
         reply_markup: dict | None = None,
+        chat_id: str | None = None,
     ) -> bool:
-        if not self.configured:
+        target = chat_id or self.chat_id
+        if not self._api_base or not target:
             return False
 
+        if len(text) > 4000:
+            text = text[:3990] + "…"
+
         payload: dict[str, Any] = {
-            "chat_id": self.chat_id,
+            "chat_id": target,
             "message_id": message_id,
             "text": text,
             "parse_mode": parse_mode,
@@ -96,21 +109,24 @@ class TelegramBot:
         }
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
-        return self._call("editMessageText", payload) is not None
+        result = self._call("editMessageText", payload)
+        if result is not None:
+            return True
+        # "message is not modified" يُعامل كنجاح عملي
+        return False
 
     def answer_callback_query(
         self,
-        callback_query_id: str,
-        text: str = "",
+        callback_id: str,
+        text: str | None = None,
         *,
         show_alert: bool = False,
     ) -> bool:
-        payload: dict[str, Any] = {
-            "callback_query_id": callback_query_id,
-            "show_alert": show_alert,
-        }
+        payload: dict[str, Any] = {"callback_query_id": callback_id}
         if text:
-            payload["text"] = text
+            payload["text"] = text[:200]
+        if show_alert:
+            payload["show_alert"] = True
         return self._call("answerCallbackQuery", payload) is not None
 
     def reply_markup_json(self, markup: dict) -> str:
