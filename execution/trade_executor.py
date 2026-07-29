@@ -715,6 +715,7 @@ class TradeExecutor:
             amount,
             reference_price=price,
             allow_without_stops=True,
+            force_paper=bool(getattr(position, "is_paper", False)),
         )
         self.position_manager.reduce_amount(symbol, amount)
         self.risk.record_closed_trade(pnl)
