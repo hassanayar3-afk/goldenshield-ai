@@ -568,13 +568,20 @@ async def run_bot() -> None:
                 print(f"🔄 MT5 sync: أُضيف {len(added)} رمز — {', '.join(added)}")
         except Exception as exc:
             logger.warning("MT5 auto-sync skipped: %s", exc)
-    if settings.bot_admin_full_access:
+    if settings.bot_admin_full_access and settings.mt5_enabled:
         for pair in ("EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"):
             registry.add_forex(pair, enabled=True)
         for ticker in ("AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META"):
             registry.add_stock(ticker, enabled=True)
         active_symbols = registry.active_pairs()
-        print(f"📋 صلاحيات كاملة: {len(active_symbols)} رمز نشط")
+        print(f"📋 صلاحيات كاملة + MT5: {len(active_symbols)} رمز نشط")
+    elif settings.bot_admin_full_access:
+        # وضع Binance فقط — لا فوركس/أسهم
+        active_symbols = [
+            s for s in registry.active_pairs()
+            if not str(s).startswith(("FOREX/", "STOCK/"))
+        ]
+        print(f"📋 وضع Binance فقط: {len(active_symbols)} رمز كريبتو")
 
     if profile.uses_mt5:
         try:

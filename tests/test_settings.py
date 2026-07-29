@@ -28,14 +28,12 @@ def test_load_settings_production():
 
 def test_trading_pairs_match_defaults():
     settings = load_settings("dev", reload=True)
-    # 14 عملة رقمية + ذهب/فضة/نفط عبر XM
-    assert len(settings.trading_pairs) == 17
+    # 14 عملة رقمية — Binance فقط
+    assert len(settings.trading_pairs) == 14
     assert settings.trading_pairs[:3] == ["BTC/USDT", "ETH/USDT", "BNB/USDT"]
     assert "SOL/USDT" in settings.trading_pairs
     assert "DOGE/USDT" in settings.trading_pairs
-    assert "FOREX/XAUUSD" in settings.trading_pairs
-    assert "FOREX/XAGUSD" in settings.trading_pairs
-    assert "FOREX/USOIL" in settings.trading_pairs
+    assert all(not p.startswith(("FOREX/", "STOCK/")) for p in settings.trading_pairs)
     assert settings.news_filter_enabled is True
     assert settings.vix_threshold == 30.0
     assert settings.execution_mode == "paper"

@@ -1,5 +1,5 @@
 pairs:
-  # عملات رقمية — Binance Spot + XM MT5
+  # عملات رقمية فقط — Binance Spot / Demo
   - BTC/USDT
   - ETH/USDT
   - BNB/USDT
@@ -14,7 +14,3 @@ pairs:
   - LTC/USDT
   - TRX/USDT
   - ATOM/USDT
-  # معادن وطاقة — XM MT5
-  - FOREX/XAUUSD
-  - FOREX/XAGUSD
-  - FOREX/USOIL
