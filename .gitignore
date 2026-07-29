@@ -17,5 +17,8 @@ storage/logs/*.log
 node_modules/
 .dart_tool/
 
+# أسرار فقط — اسمح بـ .env.example
 .env
-.env.*
+.env.local
+.env.*.local
+!.env.example
