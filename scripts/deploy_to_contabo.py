@@ -98,8 +98,10 @@ def production_env() -> str:
 
     values = {
         "ENV": "production",
-        "EXECUTION_MODE": "paper",
+        # live + demo = حساب الديمو (أموال وهمية) — ليس الحساب الحقيقي
+        "EXECUTION_MODE": "live",
         "EXECUTION_BACKEND": "binance",
+        "BINANCE_DEMO_TRADING": "true",
         "MT5_ENABLED": "false",
         "MANUAL_ENTRY_REQUIRED": "false",
         "AUTO_ENTRY_MIN_PERCENT": "95",
@@ -112,7 +114,7 @@ def production_env() -> str:
         "BOT_AUTO_SYNC_MT5": "false",
         "TELEGRAM_TOKEN": local.get("TELEGRAM_TOKEN", ""),
         "TELEGRAM_BOT_USERNAME": local.get("TELEGRAM_BOT_USERNAME", "GoldenShield_2026_bot"),
-        "TELEGRAM_CHAT_ID": "",  # ورقي — لا يرسل لمحادثتك الشخصية (يمنع الاختلاط مع MT5)
+        "TELEGRAM_CHAT_ID": local.get("TELEGRAM_CHAT_ID", ""),
         "TELEGRAM_BACKUP_CHANNEL_ID": local.get("TELEGRAM_BACKUP_CHANNEL_ID", "-1004462420308"),
         "TELEGRAM_SEND_CYCLE_SIGNALS": "false",
         "TELEGRAM_SIGNALS_ONLY": "true",
@@ -120,6 +122,8 @@ def production_env() -> str:
         "DB_PATH": "storage/db/goldenshield.db",
         "BINANCE_API_KEY": local.get("BINANCE_API_KEY", ""),
         "BINANCE_API_SECRET": local.get("BINANCE_API_SECRET", ""),
+        "BINANCE_API_KEY_2": local.get("BINANCE_API_KEY_2", ""),
+        "BINANCE_API_SECRET_2": local.get("BINANCE_API_SECRET_2", ""),
         "WATCHDOG_ENABLED": "true",
         "WATCHDOG_CHAT_ID": local.get("WATCHDOG_CHAT_ID") or local.get("TELEGRAM_CHAT_ID", ""),
         "WATCHDOG_WINDOWS_HOST": local.get("WATCHDOG_WINDOWS_HOST", "169.58.15.36"),

@@ -67,7 +67,8 @@ if [ ! -f .env ]; then
 else
   # فرض إعدادات Demo على .env الموجود
   grep -q '^BINANCE_DEMO_TRADING=' .env && sed -i 's/^BINANCE_DEMO_TRADING=.*/BINANCE_DEMO_TRADING=true/' .env || echo 'BINANCE_DEMO_TRADING=true' >> .env
-  grep -q '^EXECUTION_MODE=' .env && sed -i 's/^EXECUTION_MODE=.*/EXECUTION_MODE=paper/' .env || echo 'EXECUTION_MODE=paper' >> .env
+  # live + demo = أوامر على حساب الديمو (أموال وهمية)
+  grep -q '^EXECUTION_MODE=' .env && sed -i 's/^EXECUTION_MODE=.*/EXECUTION_MODE=live/' .env || echo 'EXECUTION_MODE=live' >> .env
   grep -q '^EXECUTION_BACKEND=' .env && sed -i 's/^EXECUTION_BACKEND=.*/EXECUTION_BACKEND=binance/' .env || echo 'EXECUTION_BACKEND=binance' >> .env
   grep -q '^MT5_ENABLED=' .env && sed -i 's/^MT5_ENABLED=.*/MT5_ENABLED=false/' .env || echo 'MT5_ENABLED=false' >> .env
   echo "تم تحديث أعلام Demo على .env الحالي"
@@ -101,16 +102,18 @@ README = """GoldenShield AI — حزمة Contabo Demo
 
 ======= إعدادات Demo الإلزامية =======
 BINANCE_DEMO_TRADING=true
-EXECUTION_MODE=paper
+EXECUTION_MODE=live
 EXECUTION_BACKEND=binance
 MT5_ENABLED=false
+
+(live هنا = أوامر على demo-api فقط لأن BINANCE_DEMO_TRADING=true — ليست أموال حقيقية)
 
 ملف .env.demo قالب جاهز — انسخه إلى /opt/goldenshield/.env إن لم يكن موجوداً
 ثم عدّل TELEGRAM_* و BINANCE_* إن احتجت.
 
 ======= ملاحظات =======
 - لا تشغّل بوتين على نفس TELEGRAM_CHAT_ID معاً (محلي + سيرفر)
-- Live الحقيقي يحتاج مفاتيح api.binance.com منفصلة لاحقاً
+- الحساب الحقيقي يحتاج BINANCE_DEMO_TRADING=false ومفاتيح api.binance.com منفصلة لاحقاً
 """
 
 
@@ -137,7 +140,7 @@ def _build_env_demo() -> str:
         "# GoldenShield — Contabo Demo template",
         "# Demo only — NOT live Binance production",
         "ENV=production",
-        "EXECUTION_MODE=paper",
+        "EXECUTION_MODE=live",
         "EXECUTION_BACKEND=binance",
         "BINANCE_DEMO_TRADING=true",
         "MT5_ENABLED=false",
@@ -169,7 +172,7 @@ def _build_env_demo() -> str:
             if k in keep and v.strip():
                 lines_out.append(f"{k}={v.strip()}")
     lines_out.append("BINANCE_DEMO_TRADING=true")
-    lines_out.append("EXECUTION_MODE=paper")
+    lines_out.append("EXECUTION_MODE=live")
     return "\n".join(lines_out) + "\n"
 
 

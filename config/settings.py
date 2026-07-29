@@ -230,7 +230,7 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         binance_api_secret=os.getenv("BINANCE_API_SECRET") or None,
         binance_api_key_2=os.getenv("BINANCE_API_KEY_2") or None,
         binance_api_secret_2=os.getenv("BINANCE_API_SECRET_2") or None,
-        binance_demo_trading=os.getenv("BINANCE_DEMO_TRADING", "false")
+        binance_demo_trading=os.getenv("BINANCE_DEMO_TRADING", "true")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
