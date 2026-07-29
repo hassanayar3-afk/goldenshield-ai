@@ -132,6 +132,17 @@ class ApiWatchdog:
                     "options": {"defaultType": "spot"},
                 }
             )
+            # مفاتيح Demo Trading تعمل فقط على demo-api
+            if bool(getattr(settings, "binance_demo_trading", False)):
+                try:
+                    exchange.enable_demo_trading(True)
+                except Exception:
+                    try:
+                        exchange.urls["api"] = dict(exchange.urls.get("api") or {})
+                        exchange.urls["api"]["public"] = "https://demo-api.binance.com/api/v3"
+                        exchange.urls["api"]["private"] = "https://demo-api.binance.com/api/v3"
+                    except Exception:
+                        pass
             exchange.fetch_balance()
             return True
         except Exception:
