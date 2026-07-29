@@ -1,0 +1,97 @@
+risk_per_trade_pct: 1.0
+kill_switch_daily_pct: -3.0
+gradual_growth_threshold_pct: 20.0
+max_daily_trades: 10
+# سيطرة: سقف العمليات + تهدئة بعد كل صفقة
+max_trades_per_hour: 3
+post_trade_cooldown_minutes: 20
+# أمان: جلسات السيولة العالية فقط (Kill Zones)
+kill_zones_enabled: true
+kill_zones_sessions:
+  - london
+  - london_ny_overlap
+  - new_york
+# بوابات جودة الدخول (تصفية هرمية)
+quality_gates_enabled: true
+volume_spike_multiplier: 1.5
+# انزلاق أقصى كنسبة مئوية من السعر (مؤسسي: 0.1%)
+max_slippage_pct: 0.1
+# Trailing Stop بعد Multi-Target
+trailing_stop_enabled: true
+trailing_stop_factor: 0.5
+loss_streak_limit: 3
+cooldown_hours: 24
+min_account_balance: 100.0
+monte_carlo_simulations: 1000
+monte_carlo_min_win_rate: 0.35
+# —— v1.1.2 حماية وقف الخسارة ——
+pre_execution_gate_enabled: true
+emergency_protocols_enabled: true
+emergency_atr_sl_enabled: true
+emergency_atr_mult: 1.5
+emergency_atr_period: 14
+emergency_atr_timeframe: "15m"
+risk_distance_filter_enabled: true
+risk_distance_max_sl_pct: 0.05
+sl_rr_lock_enabled: true
+sl_rr_lock_ratio: 3.0
+volatility_guard_enabled: true
+volatility_guard_expand_mult: 1.5
+require_sl_on_all_chunks: true
+close_naked_tickets: true
+manage_positions_during_halt: true
+
+# —— v1.2 مؤسسي (OFF افتراضياً — فعّل بعد أسبوع استقرار) ——
+adx_filter_enabled: false
+adx_min_trend: 20
+adx_period: 14
+adx_timeframe: "15m"
+market_correlation_filter_enabled: false
+panic_mode_block_long: true
+partial_scaling_enabled: false
+partial_scaling_initial_pct: 50
+partial_scaling_add_pct: 50
+partial_scaling_trigger_r: 0.5
+micro_simulation_enabled: false
+micro_simulation_lookback: 10
+micro_simulation_min_winrate: 0.5
+profit_cap_enabled: false
+profit_cap_daily_pct: 3.0
+smart_trade_report_enabled: false
+
+# —— v1.3 إضافات مؤسسية (طبقات — أعلام مستقلة) ——
+institutional_v13:
+  api_failover_enabled: true
+  analysis_exec_isolation_enabled: true
+  health_heartbeat_hourly_enabled: true
+  network_outage_shield_enabled: true
+  network_outage_seconds: 10
+  compound_streak_scaling_enabled: true
+  compound_win_streak_trigger: 2
+  compound_loss_streak_trigger: 1
+  compound_win_risk_pct: 1.2
+  compound_loss_risk_pct: 0.5
+  flash_crash_enabled: true
+  flash_crash_pct: 5.0
+  flash_crash_window_seconds: 60
+  btc_dominance_filter_enabled: true
+  spoofing_detector_enabled: true
+  macd_rsi_divergence_enabled: true
+  structural_trailing_enabled: true
+  multi_tier_tp_enabled: true
+  multi_tier_tp1_pct: 0.40
+  multi_tier_tp2_pct: 0.40
+  multi_tier_runner_pct: 0.20
+  emergency_derisk_enabled: false
+  emergency_derisk_r_threshold: -0.7
+  emergency_derisk_close_fraction: 0.5
+  vol_based_risk_scaling_enabled: false
+  vol_atr_high_pct: 2.5
+  vol_atr_extreme_pct: 4.0
+  vol_risk_mid_mult: 0.7
+  vol_risk_low_mult: 0.5
+  funding_guard_enabled: false
+  weekend_flat_enabled: false
+  weekend_flat_weekday_utc: 5
+  weekend_flat_hour_utc: 20
+

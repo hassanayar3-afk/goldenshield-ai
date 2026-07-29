@@ -1,0 +1,130 @@
+##### PROCESS
+'$' is not recognized as an internal or external command,
+operable program or batch file.
+
+##### BOT_DIR_EXISTS
+YES
+
+##### TOP_FILES
+Name                       Length LastWriteTime        
+----                       ------ -------------        
+.github                           7/29/2026 12:28:02 AM
+audit                             7/29/2026 12:28:33 AM
+config                            7/29/2026 12:28:32 AM
+core                              7/29/2026 12:28:33 AM
+data                              7/29/2026 12:28:33 AM
+database                          7/29/2026 12:28:33 AM
+deployment                        7/29/2026 12:28:01 AM
+docs                              7/29/2026 12:28:01 AM
+execution                         7/29/2026 12:28:49 AM
+intelligence                      7/29/2026 12:28:01 AM
+operations                        7/29/2026 12:28:42 AM
+risk                              7/29/2026 12:28:41 AM
+saas                              7/29/2026 12:28:01 AM
+scripts                           7/29/2026 12:28:01 AM
+storage                           7/29/2026 12:28:32 AM
+tests                             7/29/2026 12:28:01 AM
+.dockerignore              238    7/17/2026 12:48:51 AM
+.env.demo                  798    7/29/2026 12:28:02 AM
+.env.example               3416   7/29/2026 12:23:56 AM
+.gitignore                 195    7/17/2026 12:48:50 AM
+00_APPLY_CONTABO_DEMO.sh   2015   7/29/2026 12:28:02 AM
+00_START.bat               1399   7/17/2026 12:48:51 AM
+00_STOP.bat                143    7/17/2026 12:48:51 AM
+00_TEST_MT5.bat            849    7/17/2026 12:48:51 AM
+00_??????_MT5.bat          578    7/17/2026 12:48:51 AM
+00_???_MT5.bat             1373   7/17/2026 12:48:51 AM
+docker-compose.prod.yml    593    7/17/2026 12:48:51 AM
+docker-compose.yml         429    7/17/2026 12:48:51 AM
+Dockerfile                 418    7/17/2026 12:48:51 AM
+INSTALL_AUTOSTART.bat      692    7/17/2026 12:48:50 AM
+main.py                    33787  7/29/2026 12:04:48 AM
+pytest.ini                 75     7/17/2026 12:48:51 AM
+README.md                  8115   7/29/2026 12:05:10 AM
+README_CONTABO_DEMO_AR.txt 1080   7/29/2026 12:28:02 AM
+requirements.txt           200    7/17/2026 12:48:51 AM
+run.bat                    94     7/17/2026 12:48:50 AM
+run.ps1                    127    7/17/2026 12:48:51 AM
+SESSION_STATE.md           1574   7/29/2026 12:04:51 AM
+???_??????_CHECK.bat       388    7/17/2026 12:48:51 AM
+
+##### ENV_SAFE
+NO_ENV
+
+##### ENV_SECRETS_PRESENT
+NO_ENV
+
+##### KEY_MODULES
+OK main.py
+OK data\\exchange_client.py
+OK risk\\advanced_shields.py
+OK execution\\smart_exits.py
+OK core\\market_filters_extra.py
+OK config\\risk_params.yaml
+OK config\\settings.py
+OK requirements.txt
+
+##### BUILD_TAG
+BUILD_TAG = "2026-07-29-v13-institutional"
+
+##### DEMO_WIRE
+- ?????? demo.binance.com ???? ??? ??? enable_demo_trading(True).
+demo = bool(getattr(settings, "binance_demo_trading", False))
+# Demo: ?????? ???? ???????? ?????? ?? demo-api
+exchange.enable_demo_trading(True)
+exchange.urls["api"]["public"] = "https://demo-api.binance.com/api/v3"
+exchange.urls["api"]["private"] = "https://demo-api.binance.com/api/v3"
+exchange.urls["api"]["v1"] = "https://demo-api.binance.com/api/v1"
+
+##### RECENT_LOGS
+Name           Length LastWriteTime        
+----           ------ -------------        
+errors.log     451014 7/29/2026 2:16:27 AM 
+operations.log      0 7/29/2026 12:28:49 AM
+
+
+
+---TAIL---
+2026-07-29 02:25:26,396 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/GBPUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:26,754 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/GBPUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:27,915 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/NZDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:28,320 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/NZDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:28,777 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/NZDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:29,217 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/NZDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:30,409 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCAD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:30,826 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCAD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:31,235 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCAD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:31,546 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDCAD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:32,584 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCHF: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:33,004 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCHF: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:33,389 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDCHF: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:33,782 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDCHF: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:35,005 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDJPY: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:35,373 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDJPY: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:35,727 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USDJPY: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:36,155 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDJPY: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:37,297 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USOIL: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:37,693 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USOIL: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:38,087 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/USOIL: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:38,509 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USOIL: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:39,841 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAGUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:40,221 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAGUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:40,550 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAGUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:40,847 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/XAGUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:41,909 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAUUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:42,357 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAUUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:42,882 | WARNING | data.forex_market_data | forex MT5 OHLCV failed for FOREX/XAUUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:25:43,262 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/XAUUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:07,845 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/AUDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:08,187 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/EURUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:08,517 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/GBPUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:08,927 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/NZDUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:09,246 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDCAD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:09,567 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDCHF: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:09,985 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USDJPY: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:10,343 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/USOIL: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:10,720 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/XAGUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+2026-07-29 02:26:11,284 | WARNING | data.forex_market_data | forex MT5 ticker failed for FOREX/XAUUSD: MT5_ENABLED=false �?" U,U. USU?U?O1U`UZU, OU,O�O"O� O"O1O_
+
+##### EXTRA_COPIES
+

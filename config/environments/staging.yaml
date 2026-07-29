@@ -1,0 +1,6 @@
+app:
+  loop_interval_seconds: 60
+  log_level: INFO
+
+database:
+  path: storage/db/goldenshield_staging.db

@@ -1,0 +1,25 @@
+# أحداث اقتصادية High Impact — حدّث التواريخ بانتظام (UTC)
+# remote_feed_url: (اختياري) رابط JSON بنفس صيغة economic_calendar.remote.example.json
+
+# remote_feed_url: "https://your-server.com/calendar.json"
+
+events:
+  - name: US CPI (Consumer Price Index)
+    impact: high
+    scheduled_utc: "2026-07-15T12:30:00+00:00"
+
+  - name: US Non-Farm Payrolls (NFP)
+    impact: high
+    scheduled_utc: "2026-08-01T12:30:00+00:00"
+
+  - name: FOMC Interest Rate Decision
+    impact: high
+    scheduled_utc: "2026-09-17T18:00:00+00:00"
+
+  - name: US GDP Advance Estimate
+    impact: high
+    scheduled_utc: "2026-10-30T12:30:00+00:00"
+
+  - name: ECB Interest Rate Decision
+    impact: high
+    scheduled_utc: "2026-11-06T12:15:00+00:00"

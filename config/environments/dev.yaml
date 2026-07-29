@@ -1,0 +1,6 @@
+app:
+  loop_interval_seconds: 60
+  log_level: DEBUG
+
+database:
+  path: storage/db/goldenshield_dev.db

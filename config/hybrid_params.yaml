@@ -1,0 +1,14 @@
+news_filter_enabled: true
+# توقف قبل وبعد أخبار High Impact (دقائق) — مؤسسي v1.3: 30
+news_blackout_minutes: 30
+
+vix_threshold: 30.0
+bonds_yield_spike_pct: 3.0
+
+fear_greed_extreme_low: 20
+fear_greed_extreme_high: 80
+
+whale_wall_multiplier: 3.0
+institutional_min_levels: 2
+
+sentiment_anomaly_threshold: 2.0

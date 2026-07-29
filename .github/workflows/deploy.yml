@@ -1,0 +1,56 @@
+# نشر Contabo عند الطلب أو push إلى main/master
+# GitHub Secrets المطلوبة:
+#   CONTABO_HOST, CONTABO_USER, CONTABO_SSH_KEY
+# اختياري: CONTABO_PORT (افتراضي 22)
+
+name: Deploy Contabo
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+concurrency:
+  group: deploy-contabo
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "CONTABO_HOST غير مضبوط — تخطي النشر"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        if: steps.check.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: ${{ secrets.CONTABO_USER }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          port: ${{ secrets.CONTABO_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/goldenshield
+            if [ -d .git ]; then
+              git fetch --all --prune
+              BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+              git reset --hard "origin/${BRANCH}" || git pull --ff-only
+            fi
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            docker compose ps
+            docker exec goldenshield-bot python deployment/health_check.py || true
+            docker logs --tail 40 goldenshield-bot || true

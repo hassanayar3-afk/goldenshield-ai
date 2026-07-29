@@ -1,0 +1,53 @@
+# فحص البنية كل 10 دقائق — يعمل حتى لو توقفت الحاوية (SSH خارجي)
+# Secrets: CONTABO_HOST, CONTABO_USER, CONTABO_SSH_KEY, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+
+name: Infrastructure Watchdog
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Contabo SSH
+        id: ssh
+        env:
+          HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Remote infrastructure check
+        if: steps.ssh.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: ${{ secrets.CONTABO_USER }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          port: ${{ secrets.CONTABO_PORT || 22 }}
+          script_stop: false
+          script: |
+            cd /opt/goldenshield
+            bash deployment/run_infrastructure_watchdog.sh || true
+
+      - name: Alert if Contabo unreachable
+        if: steps.ssh.outputs.skip != 'true' && failure()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$CHAT" ]; then exit 0; fi
+          curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            -d chat_id="${CHAT}" \
+            -d parse_mode=HTML \
+            --data-urlencode text="🛡️ <b>GoldenShield</b>
+          🚨 <b>خلل في البنية</b>
+          ❌ <b>سيرفر Contabo</b>
+             <i>لا يمكن الاتصال عبر SSH — السيرفر مغلق أو الشبكة مقطوعة</i>
+          <i>تحقق من VPS أو اتصل بالدعم.</i>"

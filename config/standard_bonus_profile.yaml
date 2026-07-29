@@ -1,0 +1,9 @@
+# ملحق حسابات Standard/Bonus — افتراضي: معطّل عبر .env
+standard_bonus:
+  tp_scale_factor: 1.20
+  min_move_points: 20
+  max_spread_pct: 0.10
+  max_cost_to_expected_profit_pct: 10.0
+  min_signal_percent: 90
+  risk_from_real_balance_only: true
+  reference_spread_points: 1.6

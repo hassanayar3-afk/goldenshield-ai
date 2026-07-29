@@ -1,0 +1,6 @@
+app:
+  loop_interval_seconds: 15
+  log_level: WARNING
+
+database:
+  path: storage/db/goldenshield.db

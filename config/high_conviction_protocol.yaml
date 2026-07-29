@@ -1,0 +1,29 @@
+# بروتوكول التنفيذ عالي الخطورة — وضع High Conviction (افتراضي: معطّل عبر .env)
+high_conviction:
+  risk_per_trade_pct: 3.0
+  scaling_in:
+    enabled: true
+    initial_risk_pct: 1.0
+    add_risk_pct: 2.0
+    require_breakeven_before_add: true
+  gates:
+    min_signal_percent: 100
+    require_mtf_alignment: true
+    news_blackout_minutes: 30
+    max_daily_hc_trades: 2
+    cooldown_hours_after_hc: 4
+    block_after_any_loss: true
+    max_hc_consecutive_wins: 2
+    allowed_symbols: []
+    min_atr_pct: 0.15
+    max_slippage_points: 0.5
+    allowed_sessions:
+      - london
+      - london_ny_overlap
+    block_sideways_regime: true
+  whale:
+    require_with_trend: true
+  sentiment:
+    require_sentiment_ok: true
+  logging:
+    risk_mode_tag: high_conviction

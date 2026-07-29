@@ -1,0 +1,5 @@
+# إعدادات مرحلة التجربة — لا تُخفّض فلاتر الجودة أو المخاطر
+trial_mode: true
+trial_journal_enabled: true
+# إرفاق SL/TP على وسيط MT5 (يظهر في تطبيق الهاتف)
+mt5_attach_sl_tp: true

@@ -1,0 +1,18 @@
+# محرك التنفيذ — المرحلة 5
+execution_mode: paper          # paper | live
+paper_account_balance: 10000.0
+default_sl_pct: 0.03
+default_rr_ratio: 3.0
+dark_pool_max_chunk_usdt: 500.0
+max_concurrent_positions: 12
+# احتياطي للمسار الكلاسيكي؛ Multi-Tier v1.3 يستخدم 40/40/20 عند التفعيل
+partial_exit_pct: 0.40
+breakeven_enabled: true
+
+# مجموعات الارتباط — مركز واحد فقط لكل مجموعة
+correlation_groups:
+  - [BTC/USDT, ETH/USDT]
+  - [SOL/USDT, AVAX/USDT, ADA/USDT, LINK/USDT]
+  - [BNB/USDT, XRP/USDT]
+  - [DOGE/USDT, LTC/USDT, TRX/USDT]
+  - [DOT/USDT, MATIC/USDT, ATOM/USDT]
