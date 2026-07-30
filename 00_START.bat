@@ -1,15 +1,19 @@
 @echo off
-title GoldenShield Supervisor
+chcp 65001 >nul
+title GoldenShield Binance Demo
 cd /d "%~dp0"
 set PYTHONPATH=%~dp0
 set PYTHONIOENCODING=utf-8
-echo === GoldenShield MT5/XM - auto restart ===
+echo === GoldenShield Binance Demo ===
 echo Folder: %CD%
-echo build:2026-07-15-forex-mt5-first
 echo.
-if not exist requirements.txt (
-  echo [ERROR] requirements.txt not found in this folder.
-  echo Wrong folder. Extract zip fully to C:\GoldenShield
+if not exist main.py (
+  echo [ERROR] main.py missing — extract ZIP fully to this folder
+  pause
+  exit /b 1
+)
+if not exist .env (
+  echo [ERROR] .env missing
   pause
   exit /b 1
 )
@@ -17,7 +21,7 @@ where py >nul 2>&1
 if errorlevel 1 (
   where python >nul 2>&1
   if errorlevel 1 (
-    echo [ERROR] Python not installed.
+    echo [ERROR] Python not installed
     pause
     exit /b 1
   )
@@ -25,37 +29,19 @@ if errorlevel 1 (
 ) else (
   set PY=py
 )
-echo Using %PY% ...
-%PY% -m pip install -r requirements.txt MetaTrader5
+echo Installing requirements once...
+%PY% -m pip install -r requirements.txt
 if errorlevel 1 (
-  echo [ERROR] pip install failed
-  pause
-  exit /b 1
+  echo [WARN] pip install had issues — continuing
 )
-if not exist storage\db\backups mkdir storage\db\backups
-if not exist storage\logs mkdir storage\logs
-if not exist storage\runtime mkdir storage\runtime
-%PY% scripts\bootstrap_storage.py
-if errorlevel 1 (
-  echo [ERROR] database bootstrap failed
-  pause
-  exit /b 1
+if exist scripts\bootstrap_storage.py (
+  %PY% scripts\bootstrap_storage.py
 )
-%PY% scripts\lifecycle.py clear-stop
+echo.
+echo Starting bot (Ctrl+C to stop loop)...
 :loop
-if exist storage\runtime\user_stopped.flag (
-  echo [STOP] Stopped by you.
-  pause
-  exit /b 0
-)
-echo Keep MetaTrader5 OPEN and logged in to XM.
 %PY% -u main.py
-set EXIT_CODE=%ERRORLEVEL%
-if exist storage\runtime\user_stopped.flag (
-  echo [STOP] Stopped by you.
-  pause
-  exit /b 0
-)
-echo [!] Bot exited code %EXIT_CODE% - restart in 15s
-timeout /t 15 /nobreak
+echo.
+echo Bot exited — restart in 5s
+timeout /t 5 /nobreak >nul
 goto loop
