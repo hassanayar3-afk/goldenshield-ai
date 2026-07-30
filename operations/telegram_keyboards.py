@@ -126,6 +126,8 @@ def position_trade_keyboard(symbol: str) -> dict:
 def positions_list_keyboard(
     positions: list,
     prices: dict[str, float],
+    *,
+    live: bool = False,
 ) -> dict:
     """أزرار الصفقات: القوة عند الدخول + نسبة الربح/الخسارة."""
     from core.constants import score_to_percent
@@ -151,7 +153,6 @@ def positions_list_keyboard(
         strength_txt = str(strength) if strength > 0 else "—"
         name = pos.symbol.split("/")[0]
         pnl_sign = "+" if pnl_pct >= 0 else ""
-        # مثال: 🟢 BTC ق90 +1.2%
         text = f"{icon} {name} ق{strength_txt} {pnl_sign}{pnl_pct:.1f}%"
         if len(text.encode("utf-8")) > 64:
             text = f"{icon} {name} {pnl_sign}{pnl_pct:.1f}%"
@@ -166,6 +167,15 @@ def positions_list_keyboard(
             row = []
     if row:
         rows.append(row)
+    if live:
+        rows.append(
+            [
+                {"text": "🔴 بث حي يعمل", "callback_data": "view:positions"},
+                {"text": "🔄 تحديث الآن", "callback_data": "view:positions"},
+            ]
+        )
+    else:
+        rows.append([{"text": "🔄 تحديث", "callback_data": "view:positions"}])
     rows.append([{"text": "◀️ الرئيسية", "callback_data": "view:main"}])
     return {"inline_keyboard": rows}
 

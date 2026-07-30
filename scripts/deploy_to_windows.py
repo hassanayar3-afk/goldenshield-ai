@@ -128,7 +128,7 @@ def main() -> int:
 
     run(ssh, r'powershell -NoProfile -Command "Get-ChildItem C:\GoldenShield | Select-Object Name,Length | Format-Table -AutoSize"')
     run(ssh, r'powershell -NoProfile -Command "Test-Path C:\GoldenShield\requirements.txt; Test-Path C:\GoldenShield\main.py; Test-Path C:\GoldenShield\00_START.bat"')
-    run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py -m pip install -r requirements.txt MetaTrader5"', timeout=900)
+    run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py -m pip install -r requirements.txt"', timeout=900)
     run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py scripts\bootstrap_storage.py"', timeout=120)
 
     ssh.close()

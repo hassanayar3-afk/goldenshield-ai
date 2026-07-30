@@ -197,6 +197,13 @@ class MT5Bridge:
         )
 
     def connect(self) -> None:
+        raise ExecutionError(
+            "MetaTrader ملغى — GoldenShield يعمل على Binance Demo فقط "
+            "(EXECUTION_BACKEND=binance + BINANCE_DEMO_TRADING=true)."
+        )
+
+    def _legacy_connect_disabled(self) -> None:
+        """مسار MT5 القديم — يُبقى للتوافق مع الاختبارات القديمة إن لزم."""
         settings = get_settings()
         if not settings.mt5_enabled:
             raise ExecutionError("MT5_ENABLED=false — لم يُفعَّل الربط بعد")

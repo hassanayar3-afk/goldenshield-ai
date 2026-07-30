@@ -7,16 +7,17 @@ from config.runtime_profile import (
 from config.settings import load_settings
 
 
-def test_runtime_profile_mt5_when_backend_mt5(monkeypatch):
+def test_runtime_profile_ignores_mt5_backend(monkeypatch):
+    """حتى لو طُلب MT5 في البيئة — التشغيل يبقى Binance فقط."""
     monkeypatch.setenv("ENV", "dev")
     monkeypatch.setenv("EXECUTION_BACKEND", "mt5")
-    monkeypatch.setenv("MT5_ENABLED", "false")
+    monkeypatch.setenv("MT5_ENABLED", "true")
     settings = load_settings("dev", reload=True)
-    assert settings.mt5_enabled is True
     profile = resolve_runtime_profile(settings)
-    assert profile.uses_mt5 is True
-    assert profile.heartbeat_provider == "mt5"
-    assert profile.requires_binance_ping is False
+    assert profile.uses_mt5 is False
+    assert profile.execution_backend == "binance"
+    assert profile.heartbeat_provider == "binance"
+    assert profile.requires_binance_ping is True
 
 
 def test_runtime_profile_binance_default(monkeypatch):

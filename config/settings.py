@@ -287,12 +287,8 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         mt5_server=os.getenv("MT5_SERVER") or None,
         mt5_broker=os.getenv("MT5_BROKER") or "XM",
         execution_backend=str(os.getenv("EXECUTION_BACKEND") or "binance").strip().lower(),
-        # توحيد: EXECUTION_BACKEND=mt5 يفعّل MT5 حتى لو MT5_ENABLED ناقص في .env
-        mt5_enabled=(
-            os.getenv("MT5_ENABLED", "false").strip().lower()
-            in {"1", "true", "yes", "on"}
-            or str(os.getenv("EXECUTION_BACKEND") or "binance").strip().lower() == "mt5"
-        ),
+        # MetaTrader ملغى — يبقى الحقل للتوافق مع الاختبارات القديمة فقط
+        mt5_enabled=False,
         trial_mode=os.getenv("TRIAL_MODE", str(trial.get("trial_mode", "false")))
         .strip()
         .lower()

@@ -40,7 +40,7 @@ def test_soft_auto_when_threshold_90() -> None:
 
 
 def test_soft_slot_limit() -> None:
-    ok, reason = is_auto_entry_allowed(9, 3, soft_min=90)
+    ok, reason = is_auto_entry_allowed(9, 5, soft_min=90)
     assert ok is False
     assert "ناعمة" in reason or "يدوي" in reason
 

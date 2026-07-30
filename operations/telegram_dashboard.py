@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -85,6 +86,12 @@ class TelegramDashboard:
         self.telegram = telegram or Bot()
         self._price_fetcher = price_fetcher
         self.market = MarketState()
+        # بث حي لمراكز التيليجرام (تحديث تلقائي للرسالة)
+        self._live_positions_msg_id: int | None = None
+        self._live_positions_chat_id: str | None = None
+        self._live_positions_enabled: bool = False
+        self._live_positions_last_ts: float = 0.0
+        self._live_interval_seconds: float = 5.0
 
     def update_market(
         self,
@@ -164,17 +171,65 @@ class TelegramDashboard:
             market_keyboard([e["symbol"] for e in all_entries], entries=all_entries),
         )
 
-    def render_positions(self) -> DashboardView:
+    def render_positions(self, *, live: bool = True) -> DashboardView:
         positions = self.executor.position_manager.all()
-        # أسعار مخزّنة من آخر دورة — بدون جلب شبكة عند كل ضغط زر
         prices = dict(self.market.prices)
+        symbols = [p.symbol for p in positions]
+        if live and symbols:
+            try:
+                fresh = self._fetch_prices(symbols)
+                prices.update(fresh)
+                self.market.prices.update(fresh)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("live positions price fetch: %s", exc)
         for pos in positions:
             prices.setdefault(pos.symbol, pos.entry_price)
 
+        header = "🔴 <b>مراكزي — بث حي</b>\n<i>يتحدّث السعر تلقائياً كل ~5 ثوانٍ</i>\n\n"
+        body = format_positions_list(positions, prices)
+        text = header + body if positions else body
         return DashboardView(
-            format_positions_list(positions, prices),
-            positions_list_keyboard(positions, prices),
+            text,
+            positions_list_keyboard(positions, prices, live=True),
         )
+
+    def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
+        self._live_positions_enabled = True
+        self._live_positions_msg_id = message_id
+        self._live_positions_chat_id = chat_id
+        self._live_positions_last_ts = 0.0
+
+    def disable_live_positions(self) -> None:
+        self._live_positions_enabled = False
+        self._live_positions_msg_id = None
+        self._live_positions_chat_id = None
+
+    @property
+    def live_positions_active(self) -> bool:
+        return bool(
+            self._live_positions_enabled and self._live_positions_msg_id is not None
+        )
+
+    def tick_live_positions(self) -> bool:
+        """يحدّث رسالة المراكز الحية إن حان الوقت. يُستدعى من حلقة تيليجرام."""
+        if not self.live_positions_active:
+            return False
+        now = time.monotonic()
+        if now - self._live_positions_last_ts < self._live_interval_seconds:
+            return False
+        self._live_positions_last_ts = now
+        try:
+            view = self.render_positions(live=True)
+            ok = self.telegram.edit_message_text(
+                int(self._live_positions_msg_id),
+                view.text,
+                reply_markup=view.keyboard,
+                chat_id=self._live_positions_chat_id,
+            )
+            return bool(ok)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("tick_live_positions: %s", exc)
+            return False
 
     def render_report(self) -> DashboardView:
         text = format_daily_report_telegram(
@@ -249,12 +304,15 @@ class TelegramDashboard:
 
     def handle_callback(self, data: str) -> DashboardView:
         if data == "view:main":
+            self.disable_live_positions()
             return self.render_main()
         if data == "view:market":
+            self.disable_live_positions()
             return self.render_market()
         if data == "view:positions":
-            return self.render_positions()
+            return self.render_positions(live=True)
         if data == "view:report":
+            self.disable_live_positions()
             return self.render_report()
         if data == "act:pause":
             self.runtime.pause()
@@ -354,7 +412,7 @@ class TelegramDashboard:
         )
 
     def _manual_enter(self, symbol: str) -> DashboardView:
-        """دخول إجباري — يفتح الصفقة حتى لو الدرجة ضعيفة (شرط: Algo أخضر على MT5)."""
+        """دخول إجباري — يفتح الصفقة حتى لو الدرجة ضعيفة (Binance Demo)."""
         from core.analyzer import AnalysisResult
 
         if self.runtime.paused:

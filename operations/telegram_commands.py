@@ -245,11 +245,15 @@ class TelegramCommandHandler:
                     chat_id=chat_id or None,
                 )
             if not ok:
-                self.telegram.send_message(
+                sent_id = self.telegram.send_message(
                     view.text,
                     reply_markup=view.keyboard,
                     chat_id=chat_id or None,
                 )
+                if data == "view:positions" and isinstance(sent_id, int):
+                    self.dashboard.enable_live_positions(sent_id, chat_id or None)
+            elif data == "view:positions" and isinstance(message_id, int):
+                self.dashboard.enable_live_positions(message_id, chat_id or None)
             return True
         except Exception as exc:  # noqa: BLE001
             logger.exception("فشل معالجة زر Telegram (%s): %s", data, exc)
@@ -341,7 +345,12 @@ class TelegramCommandHandler:
             logger.info("Telegram long-poll thread started")
             while not self._stop_poll.is_set():
                 try:
-                    self.poll_once(long_poll=True)
+                    # عند البث الحي: مهلة أقصر لتحديث الأسعار بسرعة
+                    live = self.dashboard.live_positions_active
+                    self.poll_once(long_poll=not live)
+                    self.dashboard.tick_live_positions()
+                    if live:
+                        time.sleep(1.0)
                 except Exception as exc:
                     logger.warning("خطأ في حلقة Telegram: %s", exc)
                     time.sleep(1.0)
