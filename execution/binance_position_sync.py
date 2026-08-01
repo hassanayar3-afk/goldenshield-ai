@@ -96,6 +96,7 @@ def sync_binance_spot_positions(executor) -> list[str]:
                 continue
 
             sl, tp = calculate_sl_tp(entry, side="buy")
+            score = _lookup_signal_score(executor, symbol)
             position = Position(
                 symbol=symbol,
                 side=OrderSide.BUY,
@@ -105,7 +106,7 @@ def sync_binance_spot_positions(executor) -> list[str]:
                 take_profit=tp,
                 opened_at=datetime.now(timezone.utc),
                 is_paper=bool(getattr(settings, "binance_demo_trading", False)),
-                signal_score=0,
+                signal_score=int(score or 0),
                 entry_filters="synced_from_binance_balance",
             )
             executor.position_manager.add(position)
@@ -124,6 +125,30 @@ def sync_binance_spot_positions(executor) -> list[str]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("sync_binance_spot_positions: %s", exc)
         return added
+
+
+def _lookup_signal_score(executor, symbol: str) -> int:
+    """حاول استرجاع قوة الدخول من آخر صفقة محفوظة لنفس الزوج."""
+    try:
+        repo = getattr(executor, "trade_repo", None)
+        if repo is None:
+            return 0
+        with repo._db.connect() as conn:  # noqa: SLF001
+            row = conn.execute(
+                """
+                SELECT signal_score FROM trades
+                WHERE symbol = ? AND COALESCE(signal_score, 0) > 0
+                ORDER BY opened_at DESC
+                LIMIT 1
+                """,
+                (symbol,),
+            ).fetchone()
+        if row is None:
+            return 0
+        return int(row["signal_score"] if hasattr(row, "keys") else row[0] or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("lookup signal_score %s: %s", symbol, exc)
+        return 0
 
 
 def _estimate_entry(exchange, symbol: str, qty: float, free_qty) -> float:

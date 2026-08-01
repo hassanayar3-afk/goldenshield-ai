@@ -128,10 +128,12 @@ def positions_list_keyboard(
     prices: dict[str, float],
     *,
     live: bool = False,
+    live_scores: dict[str, int] | None = None,
 ) -> dict:
-    """أزرار الصفقات: القوة عند الدخول + نسبة الربح/الخسارة."""
+    """أزرار الصفقات: القوة + نسبة الربح/الخسارة."""
     from core.constants import score_to_percent
 
+    live_scores = live_scores or {}
     rows: list[list[dict]] = []
     row: list[dict] = []
     for pos in positions:
@@ -149,7 +151,13 @@ def positions_list_keyboard(
                 else 0.0
             )
         icon = "🟢" if pnl_pct >= 0 else "🔴"
-        strength = score_to_percent(pos.signal_score) if pos.signal_score > 0 else 0
+        entry_score = int(getattr(pos, "signal_score", 0) or 0)
+        live_sc = int(live_scores.get(pos.symbol, 0) or 0)
+        strength = (
+            score_to_percent(entry_score)
+            if entry_score > 0
+            else (score_to_percent(live_sc) if live_sc > 0 else 0)
+        )
         strength_txt = str(strength) if strength > 0 else "—"
         name = pos.symbol.split("/")[0]
         pnl_sign = "+" if pnl_pct >= 0 else ""

@@ -333,6 +333,21 @@ def _line(icon: str, label: str, value: str, extra: str = "") -> str:
     return base
 
 
+def _position_strength_display(
+    position: Position,
+    *,
+    live_score: int = 0,
+) -> tuple[str, str]:
+    """(عنوان، قيمة) لقوة الصفقة — دخول محفوظ أو قوة السوق الحالية."""
+    entry = int(getattr(position, "signal_score", 0) or 0)
+    live = int(live_score or 0)
+    if entry > 0:
+        return "قوة الدخول", f"{score_to_percent(entry)}/100"
+    if live > 0:
+        return "قوة السوق الآن", f"{score_to_percent(live)}/100"
+    return "قوة الدخول", "—"
+
+
 def format_trade_setup_card(
     *,
     symbol: str,
@@ -446,8 +461,8 @@ def format_position_card(
     *,
     current_price: float,
     balance: float,
+    live_score: int = 0,
 ) -> str:
-    from core.constants import score_to_percent
     from data.symbol_routing import display_symbol, format_price
 
     if position.side.value == "buy":
@@ -482,8 +497,9 @@ def format_position_card(
     be = "مفعّل" if position.breakeven_applied else "انتظار"
     partial = "تم" if position.partial_exit_done else "لا"
     opened = position.opened_at.strftime("%Y-%m-%d %H:%M") if position.opened_at else "—"
-    strength = score_to_percent(position.signal_score) if position.signal_score > 0 else 0
-    strength_txt = f"{strength}/100" if strength > 0 else "—"
+    strength_label, strength_txt = _position_strength_display(
+        position, live_score=live_score
+    )
     sl_pct = _pct_change(position.entry_price, position.stop_loss)
     tp_pct = _pct_change(position.entry_price, position.take_profit)
 
@@ -493,7 +509,7 @@ def format_position_card(
             DIVIDER,
             f"<b>{coin}</b>  ·  {side_ar}  ·  {escape(mode)}",
             "",
-            f"⚡  <b>قوة الدخول</b>  ·  <code>{escape(strength_txt)}</code>",
+            f"⚡  <b>{strength_label}</b>  ·  <code>{escape(strength_txt)}</code>",
             f"{pnl_icon}  <b>النتيجة الآن</b>  ·  "
             f"<code>{sign}{unrealized:,.2f} $</code>  ·  "
             f"<code>{pnl_sign}{pnl_pct:.2f}%</code>",
@@ -535,14 +551,16 @@ def format_position_card(
 def format_positions_list(
     positions: list[Position],
     prices: dict[str, float],
+    *,
+    live_scores: dict[str, int] | None = None,
 ) -> str:
-    from core.constants import score_to_percent
     from data.symbol_routing import display_symbol
 
+    live_scores = live_scores or {}
     lines = [
         _header("صفقاتي المفتوحة"),
         "",
-        "<i>كل زر يعرض: القوة عند الدخول + نسبة الربح/الخسارة الآن</i>",
+        "<i>كل زر يعرض: القوة + نسبة الربح/الخسارة الآن</i>",
         "",
     ]
     if not positions:
@@ -572,12 +590,13 @@ def format_positions_list(
         sign = "+" if unrealized >= 0 else ""
         pnl_sign = "+" if pnl_pct >= 0 else ""
         icon = "🟢" if unrealized >= 0 else "🔴"
-        strength = score_to_percent(pos.signal_score) if pos.signal_score > 0 else 0
-        strength_txt = f"{strength}/100" if strength > 0 else "—"
+        strength_label, strength_txt = _position_strength_display(
+            pos, live_score=int(live_scores.get(pos.symbol, 0) or 0)
+        )
         coin = escape(display_symbol(pos.symbol))
         lines.append(
             f"{icon} <b>{coin}</b>  ·  {side_ar}\n"
-            f"   ⚡ قوة الدخول: <code>{escape(strength_txt)}</code>\n"
+            f"   ⚡ {strength_label}: <code>{escape(strength_txt)}</code>\n"
             f"   💰 الآن: <code>{sign}{unrealized:,.2f} $</code>  "
             f"(<code>{pnl_sign}{pnl_pct:.2f}%</code>)\n"
             f"   دخلت {pos.entry_price:,.2f} → الآن {current:,.2f}\n"

@@ -216,7 +216,21 @@ class TelegramDashboard:
             "🔴 <b>مراكزي — بث حي</b>\n"
             f"<i>يتحدّث السعر تلقائياً كل ~{interval} ثانية</i>\n\n"
         )
-        body = format_positions_list(positions, prices)
+        live_scores = {
+            sym: int(e.get("score", 0) or 0)
+            for sym, e in self.market.entries.items()
+        }
+        # إن كانت قوة الدخول محفوظة صفراً (مزامنة) — عبّئ من آخر تحليل للعرض والحفظ
+        for pos in positions:
+            if int(getattr(pos, "signal_score", 0) or 0) <= 0:
+                sc = int(live_scores.get(pos.symbol, 0) or 0)
+                if sc > 0:
+                    pos.signal_score = sc
+                    try:
+                        self.executor._persist_open_trade(pos)  # noqa: SLF001
+                    except Exception:
+                        pass
+        body = format_positions_list(positions, prices, live_scores=live_scores)
         if not positions:
             body = (
                 "لا توجد مراكز مسجّلة.\n"
@@ -225,7 +239,9 @@ class TelegramDashboard:
         text = header + body
         return DashboardView(
             text,
-            positions_list_keyboard(positions, prices, live=True),
+            positions_list_keyboard(
+                positions, prices, live=True, live_scores=live_scores
+            ),
         )
 
     def _live_positions_interval(self) -> float:
@@ -459,8 +475,25 @@ class TelegramDashboard:
         if symbol in live:
             self.market.prices[symbol] = live[symbol]
         balance = self.executor.get_account_balance()
+        live_score = 0
+        entry = self.market.entries.get(symbol) or {}
+        try:
+            live_score = int(entry.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            live_score = 0
+        if int(getattr(position, "signal_score", 0) or 0) <= 0 and live_score > 0:
+            position.signal_score = live_score
+            try:
+                self.executor._persist_open_trade(position)  # noqa: SLF001
+            except Exception:
+                pass
         return DashboardView(
-            format_position_card(position, current_price=current, balance=balance),
+            format_position_card(
+                position,
+                current_price=current,
+                balance=balance,
+                live_score=live_score,
+            ),
             position_trade_keyboard(symbol),
         )
 
