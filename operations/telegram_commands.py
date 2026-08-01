@@ -346,9 +346,16 @@ class TelegramCommandHandler:
             while not self._stop_poll.is_set():
                 try:
                     # عند البث الحي: مهلة أقصر لتحديث الأسعار بسرعة
-                    live = self.dashboard.live_positions_active
+                    live = (
+                        self.dashboard.live_positions_active
+                        or bool(getattr(self.dashboard, "_live_signals_enabled", False))
+                    )
                     self.poll_once(long_poll=not live)
                     self.dashboard.tick_live_positions()
+                    try:
+                        self.dashboard.tick_live_signals()
+                    except Exception as live_exc:  # noqa: BLE001
+                        logger.debug("tick_live_signals: %s", live_exc)
                     if live:
                         time.sleep(1.0)
                 except Exception as exc:

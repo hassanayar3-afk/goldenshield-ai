@@ -261,6 +261,68 @@ def format_watchlist_digest(all_entries: list[dict]) -> str:
     return format_market_overview(all_entries)
 
 
+def format_live_signals_board(
+    all_entries: list[dict],
+    *,
+    interval_seconds: int = 15,
+    updated_at: str = "",
+) -> str:
+    """لوحة إشارات حية مضغوطة — كل الأزواج بما فيها WAIT."""
+    from data.symbol_routing import display_symbol
+
+    ordered = sorted(
+        all_entries,
+        key=lambda e: (-int(e.get("score", 0) or 0), str(e.get("symbol") or "")),
+    )
+    ready = [
+        e
+        for e in ordered
+        if str(e.get("signal")) in {"BUY SIGNAL", "SELL SIGNAL"}
+        and meets_signal_minimum(int(e.get("score", 0) or 0))
+        and e.get("passed") is not False
+    ]
+    stamp = escape(updated_at) if updated_at else "—"
+    lines = [
+        _header("بث حي — الإشارات"),
+        "",
+        f"<i>يتحدّث تلقائياً كل ~{int(interval_seconds)} ثانية</i>",
+        f"<b>آخر تحديث:</b> <code>{stamp}</code>",
+        f"<b>المراقبة:</b> {len(ordered)}  ·  <b>جاهزة:</b> {len(ready)}",
+        "",
+    ]
+    if not ordered:
+        lines.append("لا توجد بيانات بعد — انتظر دورة التحليل.")
+        return "\n".join(lines)
+
+    for entry in ordered:
+        score = int(entry.get("score", 0) or 0)
+        percent = score_to_percent(score)
+        signal = str(entry.get("signal") or "WAIT")
+        coin = escape(display_symbol(str(entry.get("symbol") or "?")))
+        if signal == "BUY SIGNAL":
+            icon, label = "🟢", "شراء"
+        elif signal == "SELL SIGNAL":
+            icon, label = "🔴", "بيع"
+        elif signal == "REJECTED":
+            icon, label = "🚫", "مرفوض"
+        else:
+            icon, label = "⚪", "انتظر"
+        stars = simple_strength_stars(score, maximum=10)
+        lines.append(
+            f"{icon} <b>{coin}</b>  {escape(label)}  "
+            f"<code>{percent}/100</code>  {stars}"
+        )
+
+    lines.extend(
+        [
+            "",
+            "<i>التلقائي من 95/100 (درجة 10) فقط — أقل من ذلك يدوي أو انتظار</i>",
+            "<i>اضغط «📡 الإشارات» من القائمة للتفاصيل</i>",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _line(icon: str, label: str, value: str, extra: str = "") -> str:
     """سطر واحد منظم ومحاذي: أيقونة + تسمية ثابتة العرض + قيمة."""
     label_pad = f"{label:<8}"

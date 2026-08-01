@@ -60,7 +60,12 @@ def apply_iron_protocol(settings: Settings) -> Settings:
 
         # Live: فرض كل صمامات الحماية — لا يمكن إضعافها من .env
         if str(getattr(settings, "execution_mode", "")).lower() == "live":
+            backend = str(getattr(settings, "execution_backend", "") or "").lower()
+            uses_mt5 = bool(getattr(settings, "mt5_enabled", False)) and backend != "binance"
             for key, value in IRON_LIVE_FORCED.items():
+                # Binance Demo/Live: لا نفرض مفاتيح MT5 غير المستخدمة
+                if key == "mt5_attach_sl_tp" and not uses_mt5:
+                    continue
                 current = getattr(settings, key, None)
                 if current != value:
                     updates[key] = value

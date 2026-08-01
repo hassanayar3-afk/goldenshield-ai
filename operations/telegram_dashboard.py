@@ -19,6 +19,7 @@ from core.analyzer import MarketAnalyzer
 from operations.dashboard_templates import (
     format_action_result,
     format_entry_block_reason,
+    format_live_signals_board,
     format_main_dashboard,
     format_position_card,
     format_positions_list,
@@ -92,6 +93,13 @@ class TelegramDashboard:
         self._live_positions_enabled: bool = False
         self._live_positions_last_ts: float = 0.0
         self._live_interval_seconds: float = 5.0
+        # بث حي للإشارات (كل الأزواج بما فيها WAIT)
+        self._live_signals_msg_id: int | None = None
+        self._live_signals_chat_id: str | None = None
+        self._live_signals_enabled: bool = False
+        self._live_signals_last_ts: float = 0.0
+        self._live_signals_last_text: str = ""
+        self._live_signals_interval_seconds: float = 15.0
 
     def update_market(
         self,
@@ -230,6 +238,120 @@ class TelegramDashboard:
         except Exception as exc:  # noqa: BLE001
             logger.debug("tick_live_positions: %s", exc)
             return False
+
+    def _live_signals_wanted(self) -> bool:
+        import os
+
+        raw = os.getenv("TELEGRAM_LIVE_SIGNALS", "true").strip().lower()
+        return raw in {"1", "true", "yes", "on"}
+
+    def _live_signals_interval(self) -> float:
+        import os
+
+        try:
+            settings = get_settings()
+            base = float(getattr(settings, "loop_interval_seconds", 15) or 15)
+        except Exception:
+            base = 15.0
+        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "").strip()
+        if raw:
+            try:
+                return max(5.0, float(raw))
+            except ValueError:
+                pass
+        return max(5.0, base)
+
+    def render_live_signals(self) -> DashboardView:
+        from datetime import datetime, timezone
+
+        active_pairs = get_symbol_registry().active_pairs()
+        all_entries = [
+            self.market.entries[s]
+            for s in active_pairs
+            if s in self.market.entries
+        ]
+        interval = int(self._live_signals_interval())
+        stamp = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+        text = format_live_signals_board(
+            all_entries,
+            interval_seconds=interval,
+            updated_at=stamp,
+        )
+        symbols = [e["symbol"] for e in all_entries]
+        return DashboardView(
+            text,
+            market_keyboard(symbols, entries=all_entries)
+            if symbols
+            else {
+                "inline_keyboard": [
+                    [{"text": "🔄 تحديث", "callback_data": "view:market"}],
+                    [{"text": "◀️ الرئيسية", "callback_data": "view:main"}],
+                ]
+            },
+        )
+
+    def ensure_live_signals(self) -> bool:
+        """ينشئ رسالة بث حي للإشارات إن لم تكن موجودة."""
+        if not self._live_signals_wanted():
+            return False
+        if self._live_signals_enabled and self._live_signals_msg_id is not None:
+            return True
+        try:
+            view = self.render_live_signals()
+            msg_id = self.telegram.send_message(view.text, reply_markup=view.keyboard)
+            if msg_id is None:
+                return False
+            self._live_signals_enabled = True
+            self._live_signals_msg_id = int(msg_id)
+            self._live_signals_chat_id = None
+            self._live_signals_last_ts = time.monotonic()
+            self._live_signals_last_text = view.text
+            self._live_signals_interval_seconds = self._live_signals_interval()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ensure_live_signals: %s", exc)
+            return False
+
+    def publish_live_signals(self, *, force: bool = False) -> bool:
+        """يحدّث لوحة الإشارات الحية بعد كل دورة تحليل."""
+        if not self._live_signals_wanted():
+            return False
+        try:
+            if not self.ensure_live_signals():
+                return False
+            now = time.monotonic()
+            interval = self._live_signals_interval()
+            self._live_signals_interval_seconds = interval
+            if (
+                not force
+                and (now - self._live_signals_last_ts) < max(5.0, interval - 1.0)
+            ):
+                return False
+            view = self.render_live_signals()
+            if view.text == self._live_signals_last_text and not force:
+                self._live_signals_last_ts = now
+                return True
+            self.telegram.edit_message_text(
+                int(self._live_signals_msg_id),
+                view.text,
+                reply_markup=view.keyboard,
+                chat_id=self._live_signals_chat_id,
+            )
+            # حتى لو «message is not modified» نعتبر التحديث ناجحاً
+            self._live_signals_last_ts = now
+            self._live_signals_last_text = view.text
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("publish_live_signals: %s", exc)
+            return False
+
+    def tick_live_signals(self) -> bool:
+        """نبضة من خيط تيليجرام — يحافظ على التحديث كل ~15 ثانية."""
+        if not self._live_signals_wanted():
+            return False
+        if not (self._live_signals_enabled and self._live_signals_msg_id is not None):
+            return False
+        return self.publish_live_signals(force=False)
 
     def render_report(self) -> DashboardView:
         text = format_daily_report_telegram(

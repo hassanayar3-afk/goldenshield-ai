@@ -16,17 +16,23 @@ HOST = os.environ["WIN_HOST"]
 USER = os.environ["WIN_USER"]
 PASSWORD = os.environ["WIN_PASSWORD"]
 
+KEEP_ROOT = r"C:\GoldenShield_Binance"
+
 REL_FILES = [
+    "main.py",
     "core/constants.py",
     "config/runtime_profile.py",
     "config/settings.py",
     "config/mt5_symbol_map.yaml",
+    "config/trading_pairs.yaml",
     "operations/telegram_dashboard.py",
     "operations/telegram_keyboards.py",
     "operations/telegram_commands.py",
     "operations/telegram_admin.py",
     "operations/bot_admin.py",
     "operations/message_templates.py",
+    "operations/dashboard_templates.py",
+    "risk/iron_protocol.py",
     "execution/mt5_bridge.py",
     "scripts/windows_package.py",
 ]
@@ -97,6 +103,10 @@ $map['MT5_ENABLED'] = 'false'
 $map['BOT_AUTO_SYNC_MT5'] = 'false'
 $map['MT5_ATTACH_SL_TP'] = 'false'
 $map['TELEGRAM_SIGNALS_ONLY'] = 'false'
+$map['TELEGRAM_SEND_CYCLE_SIGNALS'] = 'true'
+$map['TELEGRAM_LIVE_SIGNALS'] = 'true'
+$map['TELEGRAM_LIVE_SIGNALS_SECONDS'] = '15'
+$map['LOOP_INTERVAL_SECONDS'] = '15'
 $drop = @('MT5_LOGIN','MT5_PASSWORD','MT5_SERVER','MT5_BROKER','MT5_TERMINAL_PATH')
 $out = New-Object System.Collections.Generic.List[string]
 foreach ($line in $lines) {
@@ -107,7 +117,7 @@ foreach ($line in $lines) {
   if ($map.ContainsKey($k)) { $out.Add("$k=$($map[$k])"); $map.Remove($k) }
   else { $out.Add($line) }
 }
-foreach ($k in @('EXECUTION_MODE','EXECUTION_BACKEND','BINANCE_DEMO_TRADING','MT5_ENABLED','BOT_AUTO_SYNC_MT5','MT5_ATTACH_SL_TP','TELEGRAM_SIGNALS_ONLY')) {
+foreach ($k in @('EXECUTION_MODE','EXECUTION_BACKEND','BINANCE_DEMO_TRADING','MT5_ENABLED','BOT_AUTO_SYNC_MT5','MT5_ATTACH_SL_TP','TELEGRAM_SIGNALS_ONLY','TELEGRAM_SEND_CYCLE_SIGNALS','TELEGRAM_LIVE_SIGNALS','TELEGRAM_LIVE_SIGNALS_SECONDS','LOOP_INTERVAL_SECONDS')) {
   if ($map.ContainsKey($k)) { $out.Add("$k=$($map[$k])") }
 }
 Set-Content -Path $envPath -Value $out -Encoding UTF8
@@ -126,7 +136,13 @@ def main() -> int:
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(HOST, username=USER, password=PASSWORD, timeout=45, allow_agent=False, look_for_keys=False)
 
-    root = find_bot_root(ssh)
+    # المسار الرسمي الحالي: Binance Demo package
+    _, probe = run(
+        ssh,
+        "powershell -NoProfile -Command "
+        f"\"if(Test-Path '{KEEP_ROOT}\\main.py'){{ '{KEEP_ROOT}' }} else {{ '' }}\"",
+    )
+    root = KEEP_ROOT if KEEP_ROOT.lower() in probe.lower() else find_bot_root(ssh)
     print("REMOTE_ROOT=", root)
 
     sftp = ssh.open_sftp()
@@ -156,11 +172,12 @@ def main() -> int:
         "Get-Process python*,py -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue\"",
     )
 
-    # شغّل البوت في خلفية منفصلة
+    # شغّل البوت في خلفية منفصلة (مسار Python الكامل على Contabo)
+    py = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
     run(
         ssh,
         "powershell -NoProfile -Command "
-        f"\"Start-Process -FilePath 'py' -ArgumentList '-u','main.py' -WorkingDirectory '{root}' "
+        f"\"Start-Process -FilePath '{py}' -ArgumentList '-u','main.py' -WorkingDirectory '{root}' "
         "-WindowStyle Minimized\"",
     )
     run(

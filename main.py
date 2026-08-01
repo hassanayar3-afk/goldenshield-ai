@@ -614,8 +614,16 @@ async def run_bot() -> None:
     print(f"--- 🛡️ {startup_plain} ---")
     if telegram_handler.enabled and not settings.telegram_signals_only:
         telegram_handler.dashboard.send_main_menu()
+        try:
+            telegram_handler.dashboard.ensure_live_signals()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ensure_live_signals عند الإقلاع: %s", exc)
     elif telegram_handler.enabled and settings.telegram_signals_only:
         print("📲 تيليجرام: وضع إشارات/صفقات فقط (بدون قائمة وتشغيل)")
+        try:
+            telegram_handler.dashboard.ensure_live_signals()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ensure_live_signals عند الإقلاع: %s", exc)
     else:
         startup_html = format_startup_message(
             env=settings.env,
@@ -778,6 +786,11 @@ async def run_bot() -> None:
             _maybe_send_qualified_signals_list(telegram_handler, cycle_entries)
             _maybe_send_watchlist_digest(telegram_handler, cycle_entries)
             _maybe_send_alive_pulse(telegram_handler, cycle_entries)
+            # بث حي لكل الأزواج (بما فيها WAIT) — تحديث الرسالة كل ~15 ثانية
+            try:
+                telegram_handler.dashboard.publish_live_signals(force=True)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("publish_live_signals فشل: %s", exc)
         else:
             _maybe_send_alive_pulse(telegram_handler, [])
         _flush_opened_trades_list()

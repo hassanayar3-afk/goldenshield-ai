@@ -32,17 +32,19 @@ def main() -> int:
         look_for_keys=False,
     )
     code = r'''
+import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 from config.settings import load_settings
 from core.constants import score_to_percent, is_auto_entry_allowed
 
 s = load_settings(reload=True)
-print('send_cycle_signals', getattr(s, 'telegram_send_cycle_signals', None))
-print('signals_only', getattr(s, 'telegram_signals_only', None))
-print('paused_files', list(Path('storage/runtime').glob('*')) if Path('storage/runtime').exists() else [])
-for score in (8,9,10):
+print("send_cycle_signals", getattr(s, "telegram_send_cycle_signals", None))
+print("signals_only", getattr(s, "telegram_signals_only", None))
+print("paused_files", list(Path("storage/runtime").glob("*")) if Path("storage/runtime").exists() else [])
+for score in (8, 9, 10):
     ok, reason = is_auto_entry_allowed(score, 0)
-    print('score', score, 'percent', score_to_percent(score), 'auto', ok, reason)
+    print("score", score, "percent", score_to_percent(score), "auto", ok, reason)
 '''
     remote = KEEP + r"\_diag3.py"
     sftp = ssh.open_sftp()
@@ -50,12 +52,10 @@ for score in (8,9,10):
         f.write(code)
     sftp.close()
     run(ssh, f'powershell -NoProfile -Command "Set-Location \'{KEEP}\'; & \'{PY}\' _diag3.py"')
-
-    # آخر أخطاء صفقات
     run(
         ssh,
         "powershell -NoProfile -Command "
-        f"\"Select-String -Path '{KEEP}\\storage\\logs\\*.log' -Pattern 'Insufficient|create_order|AUTO|تلقائي|entry|OPEN|Order' |"
+        f"\"Select-String -Path '{KEEP}\\storage\\logs\\*.log' -Pattern 'Insufficient|create_order|AUTO|entry|OPEN|Order' |"
         " Select-Object -Last 40 | ForEach-Object { $_.Line }\"",
     )
     ssh.close()
