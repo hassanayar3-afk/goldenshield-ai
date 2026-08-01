@@ -221,15 +221,25 @@ def build_zip(local: dict[str, str]) -> Path:
             if rel.name in {
                 "00_START.bat",
                 "00_STOP.bat",
+                "00_START_KEEP_OPEN.bat",
+                "00_START_VISIBLE.vbs",
                 "فحص_المجلد_CHECK.bat",
                 "README_BINANCE_AR.txt",
             }:
                 continue
             zf.write(path, arcname=str(rel).replace("\\", "/"))
 
-        zf.writestr("00_START.bat", START_BINANCE)
-        zf.writestr("00_STOP.bat", STOP_BINANCE)
-        zf.writestr("فحص_المجلد_CHECK.bat", CHECK_BAT)
+        zf.writestr("00_START.bat", (ROOT / "00_START.bat").read_text(encoding="utf-8"))
+        zf.writestr("00_STOP.bat", (ROOT / "00_STOP.bat").read_text(encoding="utf-8"))
+        zf.writestr(
+            "00_START_KEEP_OPEN.bat",
+            (ROOT / "00_START_KEEP_OPEN.bat").read_text(encoding="utf-8"),
+        )
+        zf.writestr(
+            "00_START_VISIBLE.vbs",
+            (ROOT / "00_START_VISIBLE.vbs").read_text(encoding="utf-8"),
+        )
+        zf.writestr("فحص_المجلد_CHECK.bat", (ROOT / "فحص_المجلد_CHECK.bat").read_text(encoding="utf-8"))
         zf.writestr("README_BINANCE_AR.txt", README)
         zf.writestr(".env", production_env(local))
         # نسخة آمنة بلا أسرار للأرشفة المحلية إن لزم
