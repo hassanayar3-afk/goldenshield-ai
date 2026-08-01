@@ -1,5 +1,4 @@
 @echo off
-REM يشغّل START داخل نافذة تبقى مفتوحة دائماً حتى لو حدث خطأ
+REM Opens classic CMD window that stays open (not PowerShell)
 cd /d "%~dp0"
-title GoldenShield Launcher
-cmd /k "cd /d \"%~dp0\" && call 00_START.bat"
+start "GoldenShield Binance Demo" /D "%~dp0" cmd.exe /k "00_START.bat"
