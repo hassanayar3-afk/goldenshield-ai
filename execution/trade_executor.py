@@ -578,7 +578,11 @@ class TradeExecutor:
                         pass
                     return self._reject(
                         result.symbol,
-                        "إغلاق وقائي: تعذّر تأكيد Stop Loss على التذكرة",
+                        (
+                            "تعذّر تثبيت وقف الخسارة على Binance Spot بعد الشراء، "
+                            "فأُغلق الأمر فوراً لحماية رأس المال. "
+                            "أعد المحاولة — إن تكرر راجع الرصيد/الدقة أو سجلات البوت."
+                        ),
                         snapshot=snapshot,
                     )
                 filled_amount += order.amount

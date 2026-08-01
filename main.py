@@ -111,6 +111,15 @@ def _init_persistence(settings) -> None:
     restored = _executor.restore_open_positions()
     if restored:
         logger.info("Open positions restored: %s", restored)
+    try:
+        from execution.binance_position_sync import sync_binance_spot_positions
+
+        synced = sync_binance_spot_positions(_executor)
+        if synced:
+            logger.info("Binance holdings synced: %s", ", ".join(synced))
+            print(f"🔄 مزامنة أرصدة Binance → مراكز: {', '.join(synced)}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("binance position sync: %s", exc)
 
     _backup_manager = BackupManager(settings.db_path)
 
@@ -590,6 +599,15 @@ async def run_bot() -> None:
     if is_user_stopped():
         print("🛑 البوت متوقف بقرارك — شغّل 00_START.bat لإعادة التشغيل.")
         sys.exit(0)
+
+    try:
+        from operations.single_instance import acquire_single_instance_lock
+
+        if not acquire_single_instance_lock():
+            print("🛑 بوت آخر يعمل بالفعل — أوقف النسخ المكررة ثم أعد التشغيل.")
+            sys.exit(0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("single instance lock: %s", exc)
 
     preflight = run_pre_flight(connection_monitor=_connection_monitor)
     for check in preflight.checks:

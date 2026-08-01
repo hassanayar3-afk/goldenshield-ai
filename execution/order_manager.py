@@ -142,81 +142,160 @@ class OrderManager:
         stop_loss: float,
         take_profit: float | None,
     ) -> bool:
-        """يضع وقف خسارة (وهدف اختياري) بعد تعبئة أمر السوق على Binance."""
+        """يضع وقف خسارة (وهدف اختياري) بعد تعبئة أمر السوق على Binance Spot.
+
+        ملاحظة Spot: لا يمكن حجز نفس الكمية مرتين (SL كامل + TP كامل).
+        لذلك نفضّل OCO، وإلا نؤكّد SL على المنصة وندع TP للبوت برمجياً.
+        """
         try:
             close_side = "sell" if order.side == OrderSide.BUY else "buy"
             fill = float(order.fill_price or order.price or 0)
             if fill <= 0 or order.amount <= 0:
                 return False
 
-            # STOP_MARKET / STOP_LOSS — يختلف دعمها حسب السوق؛ فشل → False
+            symbol = order.symbol
+            try:
+                exchange.load_markets()
+            except Exception:
+                pass
+
+            amount = float(order.amount)
+            sl = float(stop_loss)
+            tp = float(take_profit) if take_profit and float(take_profit) > 0 else 0.0
+            try:
+                amount = float(exchange.amount_to_precision(symbol, amount))
+                sl = float(exchange.price_to_precision(symbol, sl))
+                if tp > 0:
+                    tp = float(exchange.price_to_precision(symbol, tp))
+            except Exception as prec_exc:  # noqa: BLE001
+                logger.debug("precision fallback %s: %s", symbol, prec_exc)
+
+            if amount <= 0 or sl <= 0:
+                return False
+
+            # حد سعر التنفيذ بعد تفعيل الوقف (أوسع قليلاً لضمان التعبئة)
+            if close_side == "sell":
+                sl_limit = sl * 0.999
+                tp_limit = tp
+            else:
+                sl_limit = sl * 1.001
+                tp_limit = tp
+            try:
+                sl_limit = float(exchange.price_to_precision(symbol, sl_limit))
+                if tp_limit > 0:
+                    tp_limit = float(exchange.price_to_precision(symbol, tp_limit))
+            except Exception:
+                pass
+
             stop_ok = False
             tp_ok = False
-            try:
-                exchange.create_order(
-                    order.symbol,
-                    "STOP_MARKET",
-                    close_side,
-                    order.amount,
-                    None,
-                    {"stopPrice": stop_loss},
-                )
-                stop_ok = True
-            except Exception:
+            last_err = ""
+
+            # 1) OCO إن أمكن — يضع SL+TP معاً على Spot
+            if tp > 0:
                 try:
-                    # بديل شائع على Spot: STOP_LOSS_LIMIT قرب سعر الوقف
-                    limit_price = stop_loss
                     exchange.create_order(
-                        order.symbol,
-                        "STOP_LOSS_LIMIT",
+                        symbol,
+                        "limit",
                         close_side,
-                        order.amount,
-                        limit_price,
-                        {"stopPrice": stop_loss},
+                        amount,
+                        tp_limit,
+                        {
+                            "stopPrice": sl,
+                            "stopLimitPrice": sl_limit,
+                            "timeInForce": "GTC",
+                            "type": "oco",
+                        },
                     )
                     stop_ok = True
-                except Exception as exc:
-                    logger.warning(
-                        "فشل أمر وقف Binance لـ %s: %s", order.symbol, exc
-                    )
-                    stop_ok = False
-
-            if take_profit and take_profit > 0 and stop_ok:
-                try:
-                    exchange.create_order(
-                        order.symbol,
-                        "TAKE_PROFIT_MARKET",
-                        close_side,
-                        order.amount,
-                        None,
-                        {"stopPrice": take_profit},
-                    )
                     tp_ok = True
-                except Exception:
+                    logger.info("Binance OCO attached %s sl=%s tp=%s", symbol, sl, tp)
+                except Exception as exc:
+                    last_err = str(exc)
+                    logger.debug("OCO failed %s: %s", symbol, exc)
                     try:
+                        # صيغة CCXT الموحّدة أحياناً
                         exchange.create_order(
-                            order.symbol,
-                            "limit",
+                            symbol,
+                            "market",
                             close_side,
-                            order.amount,
-                            take_profit,
+                            amount,
+                            None,
+                            {
+                                "stopLossPrice": sl,
+                                "takeProfitPrice": tp,
+                            },
                         )
+                        stop_ok = True
                         tp_ok = True
-                    except Exception as exc:
-                        logger.warning(
-                            "فشل أمر TP Binance لـ %s: %s", order.symbol, exc
-                        )
-                        tp_ok = False
-            elif not take_profit or take_profit <= 0:
-                tp_ok = False
+                    except Exception as exc2:
+                        last_err = str(exc2)
+                        logger.debug("unified SL/TP failed %s: %s", symbol, exc2)
 
-            order.protective_sl = stop_loss
-            order.protective_tp = take_profit
-            # كلاهما إلزامي — فشل أي منهما = غير مؤكد
-            return bool(stop_ok and tp_ok)
+            # 2) وقف فقط — كافٍ للتأكيد (TP يُدار من البوت عبر manage_positions)
+            if not stop_ok:
+                for order_type, price, params in (
+                    (
+                        "STOP_LOSS_LIMIT",
+                        sl_limit,
+                        {"stopPrice": sl, "timeInForce": "GTC"},
+                    ),
+                    (
+                        "stop_loss_limit",
+                        sl_limit,
+                        {"stopPrice": sl, "timeInForce": "GTC"},
+                    ),
+                    ("STOP_LOSS", None, {"stopPrice": sl}),
+                    ("stop_loss", None, {"stopPrice": sl}),
+                ):
+                    try:
+                        if price is None:
+                            exchange.create_order(
+                                symbol, order_type, close_side, amount, None, params
+                            )
+                        else:
+                            exchange.create_order(
+                                symbol, order_type, close_side, amount, price, params
+                            )
+                        stop_ok = True
+                        logger.info(
+                            "Binance SL attached %s type=%s stop=%s",
+                            symbol,
+                            order_type,
+                            sl,
+                        )
+                        break
+                    except Exception as exc:
+                        last_err = str(exc)
+                        logger.debug("SL type %s failed %s: %s", order_type, symbol, exc)
+
+            # 3) TP اختياري بكمية صغيرة فقط إن نجح SL ولم نستخدم OCO
+            # (لا نحجز كامل الكمية مرة ثانية)
+            if stop_ok and tp > 0 and not tp_ok:
+                # نترك TP برمجياً — تسجيل فقط
+                logger.info(
+                    "Binance TP سيُدار برمجياً لـ %s (Spot لا يحجز نفس الكمية مرتين)",
+                    symbol,
+                )
+                tp_ok = True  # مقبول: البوت يغلق عند take_profit
+
+            order.protective_sl = sl
+            order.protective_tp = tp if tp > 0 else take_profit
+            if stop_ok:
+                return True
+
+            logger.warning(
+                "فشل إرفاق وقف Binance لـ %s amount=%s sl=%s err=%s",
+                symbol,
+                amount,
+                sl,
+                last_err,
+            )
+            return False
         except Exception as exc:  # noqa: BLE001
             logger.warning("_attach_binance_protective_stops: %s", exc)
             return False
+
     def _submit_mt5_order(
         self,
         order: Order,

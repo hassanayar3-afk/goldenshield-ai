@@ -28,6 +28,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _callback_alert_text(html_text: str) -> str:
+    """نص قصير لتنبيه تيليجرام (بدون HTML)."""
+    import re
+
+    plain = re.sub(r"<[^>]+>", "", html_text or "")
+    plain = " ".join(plain.replace("\n", " ").split())
+    if not plain:
+        return "تم"
+    return plain[:180]
+
+
 class TelegramCommandHandler:
     def __init__(
         self,
@@ -228,14 +239,34 @@ class TelegramCommandHandler:
         settings = get_settings()
 
         if chat_id != str(settings.telegram_chat_id) and not can_control_bot(chat_id):
-            self.telegram.answer_callback_query(callback_id, "غير مصرح")
+            self.telegram.answer_callback_query(callback_id, "غير مصرح", show_alert=True)
             return False
 
+        # دخول/إغلاق: لا نُفرغ الزر قبل النتيجة — حتى يظهر سبب الرفض بوضوح
+        needs_result_alert = data.startswith(("enter:", "close:", "act:close_all", "act:panic"))
+
         try:
-            # أزل ساعة التحميل فوراً — قبل أي عمل ثقيل
-            self.telegram.answer_callback_query(callback_id)
+            if not needs_result_alert:
+                # أزل ساعة التحميل فوراً للأزرار الخفيفة
+                self.telegram.answer_callback_query(callback_id)
 
             view = self.dashboard.handle_callback(data)
+
+            if needs_result_alert:
+                # تنبيه منبثق مختصر + رسالة ثابتة (لا تُمسَح ببث الإشارات الحي)
+                alert_txt = _callback_alert_text(view.text)
+                self.telegram.answer_callback_query(
+                    callback_id,
+                    alert_txt,
+                    show_alert=True,
+                )
+                self.telegram.send_message(
+                    view.text,
+                    reply_markup=view.keyboard,
+                    chat_id=chat_id or None,
+                )
+                return True
+
             ok = False
             if isinstance(message_id, int):
                 ok = self.telegram.edit_message_text(
@@ -259,7 +290,7 @@ class TelegramCommandHandler:
             logger.exception("فشل معالجة زر Telegram (%s): %s", data, exc)
             try:
                 self.telegram.answer_callback_query(
-                    callback_id, "فشل التنفيذ — أعد المحاولة", show_alert=True
+                    callback_id, f"فشل: {exc}"[:180], show_alert=True
                 )
             except Exception:
                 pass

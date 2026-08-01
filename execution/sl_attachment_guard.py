@@ -66,7 +66,25 @@ def ensure_fill_has_sl_or_close(
         else:
             confirmed = bool(getattr(order, "stops_confirmed", False))
             if not confirmed:
-                confirmed = _confirm_binance_stops_flag(order)
+                # محاولة إرفاق أخيرة على Binance قبل الإغلاق الوقائي
+                try:
+                    exchange = getattr(order_manager, "_last_exchange", None)
+                    if exchange is None:
+                        from data.exchange_client import get_exchange
+
+                        exchange = get_exchange()
+                    confirmed = bool(
+                        order_manager._attach_binance_protective_stops(  # noqa: SLF001
+                            exchange,
+                            order,
+                            stop_loss=sl,
+                            take_profit=tp if tp > 0 else None,
+                        )
+                    )
+                    order.stops_confirmed = confirmed
+                except Exception as retry_exc:  # noqa: BLE001
+                    logger.warning("إعادة إرفاق SL فشلت: %s", retry_exc)
+                    confirmed = _confirm_binance_stops_flag(order)
 
         if confirmed:
             order.protective_sl = sl

@@ -449,9 +449,21 @@ class TelegramDashboard:
             self.disable_live_positions()
             return self.render_market()
         if data == "view:positions":
+            try:
+                from execution.binance_position_sync import sync_binance_spot_positions
+
+                sync_binance_spot_positions(self.executor)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("positions sync on view: %s", exc)
             return self.render_positions(live=True)
         if data == "view:report":
             self.disable_live_positions()
+            try:
+                from execution.binance_position_sync import sync_binance_spot_positions
+
+                sync_binance_spot_positions(self.executor)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("report sync: %s", exc)
             return self.render_report()
         if data == "act:pause":
             self.runtime.pause()
@@ -632,8 +644,14 @@ class TelegramDashboard:
             return DashboardView(text, view.keyboard)
 
         reason = exec_result.reason or exec_result.message or "سبب غير معروف"
+        detail = (
+            f"الزوج: {symbol}\n"
+            f"السبب: {reason}\n"
+            f"السعر: {price:.6f} · الدرجة: {score}/10 · الإشارة: {signal}\n"
+            "لم تُفتح الصفقة. يمكنك المحاولة لاحقاً أو اختيار زوج آخر."
+        )
         return DashboardView(
-            format_action_result("رفض الدخول الإجباري", reason),
+            format_action_result("رفض الدخول الإجباري", detail),
             trade_entry_keyboard(symbol, can_enter=True),
         )
 
