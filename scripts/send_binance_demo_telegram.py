@@ -17,6 +17,7 @@ from scripts.build_binance_demo_package import (  # noqa: E402
     README,
     START_BINANCE,
     STOP_BINANCE,
+    _bat,
     build_zip,
     load_local_env,
 )
@@ -32,19 +33,15 @@ def send_zip(zip_path: Path, *, token: str, chat_ids: list[str]) -> bool:
         return False
 
     caption = (
-        "🛡️ GoldenShield — حزمة كاملة Binance Demo\n"
-        f"الملف: {ZIP_NAME} ({size_mb:.1f} MB)\n\n"
-        "✅ المشروع كامل + START ثابت (CMD وليس PowerShell)\n"
-        "✅ Binance Demo فقط — ليس حقيقي — بدون MT5\n\n"
-        "التثبيت:\n"
-        "1) احذف المجلد القديم\n"
-        "2) Extract All إلى C:\\GoldenShield_Binance\n"
-        "3) شغّل 00_START_VISIBLE.vbs\n"
-        "   أو 00_START_KEEP_OPEN.bat\n"
-        "4) اترك نافذة CMD السوداء مفتوحة\n"
-        "5) تيليجرام: /start\n\n"
-        "إذا ظهرت نافذة زرقاء وتختفي = لا تستخدمها\n"
-        "شغّل 00_START_VISIBLE.vbs فقط واتركها مفتوحة"
+        "FIX pack - CMD start files repaired (CRLF)\n"
+        f"{ZIP_NAME} ({size_mb:.1f} MB)\n\n"
+        "IMPORTANT:\n"
+        "1) Do NOT run from Telegram Desktop folder\n"
+        "2) Extract ALL to C:\\GoldenShield_Binance\n"
+        "3) Run 00_START_VISIBLE.vbs\n"
+        "4) Keep the black CMD window open\n"
+        "5) Telegram: /start\n\n"
+        "Binance Demo only + Cognitive Hedge (no MetaTrader)"
     )
 
     url = f"https://api.telegram.org/bot{token}/sendDocument"
@@ -81,26 +78,36 @@ def main() -> int:
     zip_path = build_zip(local)
     print("ZIP=", zip_path, f"({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # مزامنة ملفات البدء المحلية مع الحزمة
-    (ROOT / "00_START.bat").write_text(START_BINANCE, encoding="utf-8")
-    (ROOT / "00_STOP.bat").write_text(STOP_BINANCE, encoding="utf-8")
-    (ROOT / "فحص_المجلد_CHECK.bat").write_text(CHECK_BAT, encoding="utf-8")
-    (ROOT / "README_BINANCE_AR.txt").write_text(README, encoding="utf-8")
+    # مزامنة ملفات البدء المحلية (CRLF)
+    (ROOT / "00_START.bat").write_bytes(_bat(START_BINANCE))
+    (ROOT / "00_STOP.bat").write_bytes(_bat(STOP_BINANCE))
+    (ROOT / "فحص_المجلد_CHECK.bat").write_bytes(_bat(CHECK_BAT))
+    (ROOT / "README_BINANCE_AR.txt").write_text(README, encoding="utf-8", newline="\n")
+
+    # تحقق سريع أن الـ ZIP فيه CRLF
+    import zipfile
+
+    with zipfile.ZipFile(zip_path) as zf:
+        raw = zf.read("00_START.bat")
+        print("START_CRLF", raw.count(b"\r\n"), "LF_ONLY_LINES", raw.count(b"\n") - raw.count(b"\r\n"))
+        if b"\r\n" not in raw:
+            print("ERROR: START.bat still LF-only")
+            return 2
 
     targets: list[str] = []
     for cid in (chat, os.getenv("TELEGRAM_BACKUP_CHANNEL_ID") or ""):
         if cid and cid not in targets:
             targets.append(cid)
 
-    # رسالة تمهيدية قصيرة
     for cid in targets:
         requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data={
                 "chat_id": cid,
                 "text": (
-                    "📦 جارٍ إرسال حزمة GoldenShield النظيفة\n"
-                    "Binance Demo فقط — بدون MetaTrader وبدون حساب حقيقي"
+                    "Sending FIXED GoldenShield package\n"
+                    "Do NOT run from Telegram Downloads folder.\n"
+                    "Extract to C:\\GoldenShield_Binance then run 00_START_VISIBLE.vbs"
                 ),
             },
             timeout=60,

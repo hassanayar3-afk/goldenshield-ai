@@ -1,0 +1,105 @@
+=== PATHS ===
+FOUND C:\GoldenShield_Binance
+  audit
+  config
+  core
+  data
+  database
+  deployment
+  execution
+  intelligence
+  operations
+  risk
+  scripts
+  storage
+  __pycache__
+  .env
+  .env.example
+  .env.example.binance
+  .gitignore
+  00_START.bat
+  00_STOP.bat
+  AGENTS.md
+  INSTALL_AUTOSTART.bat
+  main.py
+  README.md
+  README_BINANCE_AR.txt
+  requirements.txt
+MISS C:\GoldenShield
+=== PROCESSES ===
+=== STOP FLAG ===
+C:\GoldenShield_Binance\storage\runtime\user_stopped.flag : False
+C:\GoldenShield\storage\runtime\user_stopped.flag : False
+=== ENV FLAGS ===
+EXECUTION_MODE=live
+EXECUTION_BACKEND=binance
+BINANCE_DEMO_TRADING=true
+MT5_ENABLED=false
+TELEGRAM_SIGNALS_ONLY=false
+LOOP_INTERVAL_SECONDS=15
+MANUAL_ENTRY_REQUIRED=false
+AUTO_ENTRY_MIN_PERCENT=90
+MT5_ATTACH_SL_TP=false
+TELEGRAM_LIVE_SIGNALS=true
+TELEGRAM_LIVE_SIGNALS_SECONDS=15
+=== OPERATIONS LOG TAIL ===
+2026-08-01 08:42:19,335 | INFO | __main__ | Restored risk state (balance=1646.50, kill=False, losses=0)
+2026-08-01 08:42:19,352 | INFO | __main__ | Database ready: storage/db/goldenshield.db
+2026-08-01 08:42:19,354 | INFO | operations.symbol_registry | Symbol registry: 14 active symbol(s)
+2026-08-01 08:42:19,355 | INFO | operations.telegram_commands | Telegram long-poll thread started
+2026-08-01 08:42:24,673 | INFO | operations | [INFO] O�U,O�USO� USU^U.US
+dY"< O�U,O�USO� GoldenShield �?" 2026-08-01
+OU,O�O�USO_: 1646.50 USDT
+O�O"O- OU,USU^U.: +0.00 USDT
+OrO3OO�Oc OU,USU^U.: -0.00 USDT
+O�OU?US OU,USU^U.: +0.00 USDT (+0.00%)
+O�U?U,OO� OU,USU^U.: 0
+OrO3OO�O� U.O�O�OU,USOc: 0
+O�O�O"OO- U.O�O�OU,USOc: 0
+Kill Switch: O�USO� U.U?O1U`U, �o.
+U.O�OU�O� U.U?O�U^O-Oc: 0
+O3O�U,OO� O�O_U,USU,: 0
+Win Rate: 0.0% (0W/0L)
+O�U?OU, O�U^O�: -
+U.O�U^O3O� OU,OU+O�U,OU,: 0.0000%
+2026-08-01 08:42:25,019 | INFO | __main__ | U+O3OrOc OO-O�USOO�USOc: goldenshield_20260801_064225.db
+2026-08-01 08:42:25,854 | INFO | __main__ | O�U?U?O1O� OU,U+O3OrOc O�U,U% U,U+OOc OU,O�O�O'USU?: goldenshield_20260801_064225.db
+2026-08-01 08:42:25,855 | INFO | __main__ | GDrive: OO1 GDRIVE_CREDENTIALS_PATH U^ GDRIVE_FOLDER_ID U?US .env
+2026-08-01 08:42:54,918 | INFO | __main__ | Restored risk state (balance=1646.50, kill=False, losses=0)
+2026-08-01 08:42:54,933 | INFO | __main__ | Database ready: storage/db/goldenshield.db
+2026-08-01 08:42:54,935 | INFO | operations.symbol_registry | Symbol registry: 14 active symbol(s)
+2026-08-01 08:42:54,936 | INFO | operations.telegram_commands | Telegram long-poll thread started
+2026-08-01 08:43:00,446 | INFO | operations | [INFO] O�U,O�USO� USU^U.US
+dY"< O�U,O�USO� GoldenShield �?" 2026-08-01
+OU,O�O�USO_: 1646.50 USDT
+O�O"O- OU,USU^U.: +0.00 USDT
+OrO3OO�Oc OU,USU^U.: -0.00 USDT
+O�OU?US OU,USU^U.: +0.00 USDT (+0.00%)
+O�U?U,OO� OU,USU^U.: 0
+OrO3OO�O� U.O�O�OU,USOc: 0
+O�O�O"OO- U.O�O�OU,USOc: 0
+Kill Switch: O�USO� U.U?O1U`U, �o.
+U.O�OU�O� U.U?O�U^O-Oc: 0
+O3O�U,OO� O�O_U,USU,: 0
+Win Rate: 0.0% (0W/0L)
+O�U?OU, O�U^O�: -
+U.O�U^O3O� OU,OU+O�U,OU,: 0.0000%
+2026-08-01 08:43:00,876 | INFO | __main__ | U+O3OrOc OO-O�USOO�USOc: goldenshield_20260801_064300.db
+2026-08-01 08:43:01,745 | INFO | __main__ | O�U?U?O1O� OU,U+O3OrOc O�U,U% U,U+OOc OU,O�O�O'USU?: goldenshield_20260801_064300.db
+2026-08-01 08:43:01,745 | INFO | __main__ | GDrive: OO1 GDRIVE_CREDENTIALS_PATH U^ GDRIVE_FOLDER_ID U?US .env
+2026-08-01 08:43:35,582 | INFO | operations | [INFO] dY�? Health Check (O3OO1Oc)
+Provider: binance
+Ping: 230 ms
+U.O�OU�O�: 0
+O�OU�O�Oc�%^ 0 MB
+O�OrO� OrO�O�: U,O O�OrO�OO�
+=== ERRORS LOG TAIL ===
+2026-07-30 07:04:43,335 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-07-30 07:04:47,210 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-07-30 07:04:47,920 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-07-30 07:04:53,990 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-07-30 07:04:58,711 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-07-30 07:04:59,470 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-01 08:36:38,524 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-01 08:38:05,968 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-01 08:40:46,775 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}

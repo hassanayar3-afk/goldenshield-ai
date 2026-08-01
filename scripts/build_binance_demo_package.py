@@ -62,9 +62,9 @@ EXCLUDE_NAME_SUBSTR = (
 )
 
 
-README = """GoldenShield — Binance Demo ONLY (full clean package)
+README = """GoldenShield — Binance Demo ONLY (full package + Cognitive Hedge)
 ====================================================
-This package opens trades on Binance Demo only.
+This package opens trades on Binance Spot Demo only.
 No MetaTrader / no XM / no forex / no real-money Live account.
 
 INSTALL on Windows:
@@ -76,73 +76,94 @@ INSTALL on Windows:
 5) In Telegram send: /start
 6) To stop: 00_STOP.bat
 
-WHY a blue PowerShell window appeared and closed:
-- Windows sometimes opens .bat in Terminal/PowerShell
-- If the bot exits immediately, that window closes at once
-- Use 00_START_VISIBLE.vbs so a real CMD window stays open
-
 Package settings:
 - EXECUTION_BACKEND=binance
 - BINANCE_DEMO_TRADING=true
-- MT5_ENABLED=false
+- MetaTrader disabled (hard)
 - Telegram signals from 85/100
 - Auto entry from 90/100
-- Live board every 15 seconds
+- Live positions board every ~1 second
+- Live signals board every ~15 seconds
+
+New Cognitive Hedge layers (additive):
+- Shadow Stress parallel hypotheses (~15m watch)
+- Trap cooldown after 3 shadow fails (1h)
+- Black Box loss snapshot + Telegram
+- Order book imbalance gate
+- Fractional exits ~30/40/30
+- Adaptive weights (+/-20%)
+- Macro Fear&Greed + whale soft gate
+- Risk committee (rules; LLM off by default)
+
+See docs/COGNITIVE_HEDGE_LAYERS_AR.md inside the package.
 """
+
+def _bat(text: str) -> bytes:
+    """ملفات CMD يجب أن تكون CRLF + ASCII بدون BOM."""
+    cleaned = (
+        text.replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("—", "-")
+        .replace("–", "-")
+        .replace("“", '"')
+        .replace("”", '"')
+        .replace("…", "...")
+    )
+    return cleaned.replace("\n", "\r\n").encode("ascii", "replace")
+
 
 START_BINANCE = r"""@echo off
 chcp 65001 >nul
 title GoldenShield Binance Demo
 cd /d "%~dp0"
-set PYTHONPATH=%~dp0
-set PYTHONIOENCODING=utf-8
+set "PYTHONPATH=%~dp0"
+set "PYTHONIOENCODING=utf-8"
 echo === GoldenShield Binance Demo ===
 echo Folder: %CD%
 echo.
-if not exist main.py (
-  echo [ERROR] main.py missing — extract ZIP fully to this folder
-  pause
-  exit /b 1
-)
-if not exist .env (
-  echo [ERROR] .env missing
-  pause
-  exit /b 1
-)
+if not exist "main.py" goto :missing_main
+if not exist ".env" goto :missing_env
+set "GS_PY="
 where py >nul 2>&1
-if errorlevel 1 (
+if not errorlevel 1 set "GS_PY=py"
+if not defined GS_PY (
   where python >nul 2>&1
-  if errorlevel 1 (
-    echo [ERROR] Python not installed
-    pause
-    exit /b 1
-  )
-  set PY=python
-) else (
-  set PY=py
+  if not errorlevel 1 set "GS_PY=python"
 )
+if not defined GS_PY goto :missing_python
 echo Installing requirements once...
-%PY% -m pip install -r requirements.txt
-if errorlevel 1 (
-  echo [WARN] pip install had issues — continuing
-)
-if exist scripts\bootstrap_storage.py (
-  %PY% scripts\bootstrap_storage.py
-)
+"%GS_PY%" -m pip install -r requirements.txt
+if exist "scripts\bootstrap_storage.py" "%GS_PY%" scripts\bootstrap_storage.py
 echo.
-echo Starting bot (Ctrl+C to stop loop)...
+echo Starting bot - keep this window open
+echo.
 :loop
-%PY% -u main.py
+"%GS_PY%" -u main.py
 echo.
-echo Bot exited — restart in 5s
+echo Bot exited - restart in 5s
 timeout /t 5 /nobreak >nul
 goto loop
+
+:missing_main
+echo [ERROR] main.py missing - extract ZIP fully to C:\GoldenShield_Binance
+pause
+exit /b 1
+
+:missing_env
+echo [ERROR] .env missing
+pause
+exit /b 1
+
+:missing_python
+echo [ERROR] Python not installed
+pause
+exit /b 1
 """
 
 STOP_BINANCE = r"""@echo off
 chcp 65001 >nul
 title Stop GoldenShield Binance Demo
-echo Stopping GoldenShield (python main.py)...
+echo Stopping GoldenShield python main.py ...
 powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 echo Done.
 echo Binance Demo account stays on the exchange.
@@ -159,6 +180,8 @@ def should_skip(rel: Path) -> bool:
         return True
     if rel.name == ".env":
         return True
+    if rel.name == ".env.cognitive.example":
+        return True  # يُضاف يدوياً لاحقاً مرة واحدة
     low = str(rel).lower().replace("\\", "/")
     if any(s in low for s in EXCLUDE_NAME_SUBSTR):
         return True
@@ -187,6 +210,9 @@ def should_skip(rel: Path) -> bool:
         "data/forex_market_data.py",
         "data/stock_market_data.py",
         "config/mt5_symbol_map.yaml",
+        "execution/mt5_bridge.py",
+        "scripts/test_mt5_connect.py",
+        "scripts/windows_boot.py",
     }:
         return True
     return False
@@ -230,19 +256,39 @@ def build_zip(local: dict[str, str]) -> Path:
                 continue
             zf.write(path, arcname=str(rel).replace("\\", "/"))
 
-        zf.writestr("00_START.bat", (ROOT / "00_START.bat").read_text(encoding="utf-8"))
-        zf.writestr("00_STOP.bat", (ROOT / "00_STOP.bat").read_text(encoding="utf-8"))
-        zf.writestr(
-            "00_START_KEEP_OPEN.bat",
-            (ROOT / "00_START_KEEP_OPEN.bat").read_text(encoding="utf-8"),
+        keep_open = _bat(
+            '@echo off\n'
+            'cd /d "%~dp0"\n'
+            'start "GoldenShield Binance Demo" /D "%~dp0" cmd.exe /k "00_START.bat"\n'
         )
-        zf.writestr(
-            "00_START_VISIBLE.vbs",
-            (ROOT / "00_START_VISIBLE.vbs").read_text(encoding="utf-8"),
-        )
-        zf.writestr("فحص_المجلد_CHECK.bat", (ROOT / "فحص_المجلد_CHECK.bat").read_text(encoding="utf-8"))
-        zf.writestr("README_BINANCE_AR.txt", README)
-        zf.writestr(".env", production_env(local))
+        visible = (
+            'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
+            'Set sh = CreateObject("WScript.Shell")\r\n'
+            'folder = fso.GetParentFolderName(WScript.ScriptFullName)\r\n'
+            'cmd = "cmd.exe /k cd /d """ & folder & """ && title GoldenShield Binance Demo && call 00_START.bat"\r\n'
+            'sh.Run cmd, 1, False\r\n'
+        ).encode("ascii")
+        check = _bat(CHECK_BAT)
+        zf.writestr("00_START.bat", _bat(START_BINANCE))
+        zf.writestr("00_STOP.bat", _bat(STOP_BINANCE))
+        zf.writestr("00_START_KEEP_OPEN.bat", keep_open)
+        zf.writestr("00_START_VISIBLE.vbs", visible)
+        zf.writestr("فحص_المجلد_CHECK.bat", check)
+        zf.writestr("README_BINANCE_AR.txt", README.replace("\n", "\r\n").encode("utf-8"))
+        zf.writestr(".env", production_env(local).replace("\n", "\r\n"))
+        # توثيق الركائز المعرفية (docs/ مستثناة عادة)
+        cognitive_doc = ROOT / "docs" / "COGNITIVE_HEDGE_LAYERS_AR.md"
+        if cognitive_doc.is_file():
+            zf.writestr(
+                "docs/COGNITIVE_HEDGE_LAYERS_AR.md",
+                cognitive_doc.read_text(encoding="utf-8"),
+            )
+        cognitive_env = ROOT / ".env.cognitive.example"
+        if cognitive_env.is_file():
+            zf.writestr(
+                ".env.cognitive.example",
+                cognitive_env.read_text(encoding="utf-8"),
+            )
         # نسخة آمنة بلا أسرار للأرشفة المحلية إن لزم
         zf.writestr(
             ".env.example.binance",
