@@ -370,6 +370,18 @@ class TelegramCommandHandler:
         if not self._enabled or self._poll_thread is not None:
             return
 
+        # أزل webhook إن وُجد حتى يعمل getUpdates (سبب شائع لأزرار ميتة)
+        try:
+            settings = get_settings()
+            if settings.telegram_token:
+                requests.get(
+                    f"https://api.telegram.org/bot{settings.telegram_token}/deleteWebhook",
+                    params={"drop_pending_updates": False},
+                    timeout=10,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("deleteWebhook: %s", exc)
+
         self._stop_poll.clear()
 
         def _run() -> None:

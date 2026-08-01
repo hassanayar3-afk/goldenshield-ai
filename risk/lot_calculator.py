@@ -22,7 +22,8 @@ class LotCalculator:
         risk_pct: float | None = None,
         side: str = "buy",
     ) -> tuple[float, float, float]:
-        if current_price <= 0 or self.balance < self.min_balance:
+        # الحد الأدنى للرصيد يُفحص في RiskEngine — هنا نحسب الحجم من الرصيد الفعلي فقط
+        if current_price <= 0 or self.balance <= 0:
             return 0.0, 0.0, 0.0
 
         settings = get_settings()

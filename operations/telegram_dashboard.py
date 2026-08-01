@@ -119,7 +119,23 @@ class TelegramDashboard:
         view = self.render_main()
         return self.telegram.send_message(view.text, reply_markup=view.keyboard)
 
+    def _maybe_sync_spot_holdings(self, *, force: bool = False) -> None:
+        """مزامنة أرصدة Spot → المراكز (مخنوقة زمنياً حتى لا تبطئ الأزرار)."""
+        try:
+            now = time.monotonic()
+            last = float(getattr(self, "_last_spot_sync_ts", 0.0) or 0.0)
+            empty = self.executor.position_manager.count() == 0
+            if not force and not empty and (now - last) < 45.0:
+                return
+            from execution.binance_position_sync import sync_binance_spot_positions
+
+            sync_binance_spot_positions(self.executor)
+            self._last_spot_sync_ts = now
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("spot holdings sync: %s", exc)
+
     def render_main(self) -> DashboardView:
+        self._maybe_sync_spot_holdings()
         settings = get_settings()
         active_pairs = get_symbol_registry().active_pairs()
         state = self.risk.state
@@ -180,14 +196,7 @@ class TelegramDashboard:
         )
 
     def render_positions(self, *, live: bool = True) -> DashboardView:
-        # إن كانت الذاكرة فارغة — زامن من Binance مرة واحدة (سريع نسبياً)
-        if self.executor.position_manager.count() == 0:
-            try:
-                from execution.binance_position_sync import sync_binance_spot_positions
-
-                sync_binance_spot_positions(self.executor)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("positions auto-sync: %s", exc)
+        self._maybe_sync_spot_holdings(force=self.executor.position_manager.count() == 0)
 
         positions = self.executor.position_manager.all()
         prices = dict(self.market.prices)
@@ -406,10 +415,10 @@ class TelegramDashboard:
         # عرض سريع: بدون Monte Carlo / evaluate_entry عند كل ضغطة
         balance = self.executor.get_account_balance()
         reasons = self.market.reasons.get(symbol, ())
-        can_enter = (
-            not self.runtime.paused
-            and not self.executor.position_manager.has(symbol)
-        )
+        has_pos = self.executor.position_manager.has(symbol)
+        # Spot: إشارة بيع مع مركز طويل = خروج مسموح (وليس فتح شورت)
+        sell_exit = signal == "SELL SIGNAL" and has_pos
+        can_enter = (not self.runtime.paused) and ((not has_pos) or sell_exit)
         block_reason = ""
         if not can_enter:
             block_reason = format_entry_block_reason(
@@ -417,7 +426,7 @@ class TelegramDashboard:
                 score=score,
                 premium=bool(entry.get("premium")),
                 paused=self.runtime.paused,
-                has_position=self.executor.position_manager.has(symbol),
+                has_position=has_pos,
                 approval_approved=True,
                 approval_reason="",
             )
@@ -567,17 +576,15 @@ class TelegramDashboard:
     def _manual_enter(self, symbol: str) -> DashboardView:
         """دخول إجباري — يفتح الصفقة حتى لو الدرجة ضعيفة (Binance Demo)."""
         from core.analyzer import AnalysisResult
+        from execution.models.order import OrderSide
 
         if self.runtime.paused:
             return DashboardView(
                 format_action_result("دخول", "التداول موقوف — اضغط ▶️ تشغيل أولاً."),
                 back_to_main_keyboard(),
             )
-        if self.executor.position_manager.has(symbol):
-            return DashboardView(
-                format_action_result("دخول", f"يوجد مركز مفتوح على {symbol}"),
-                back_to_main_keyboard(),
-            )
+
+        self._maybe_sync_spot_holdings(force=True)
 
         cached = self.market.entries.get(symbol) or {}
         price = float(cached.get("price") or self.market.prices.get(symbol) or 0.0)
@@ -600,6 +607,19 @@ class TelegramDashboard:
                 signal = str(cached["signal"])
             else:
                 signal = "BUY SIGNAL"
+
+        # Spot: بيع على مركز طويل موجود = إغلاق وليس رفض
+        existing = self.executor.position_manager.get(symbol)
+        if existing is not None:
+            if signal == "SELL SIGNAL" and existing.side == OrderSide.BUY:
+                return self._close_position(symbol)
+            return DashboardView(
+                format_action_result(
+                    "دخول",
+                    f"يوجد مركز مفتوح على {symbol}. للإغلاق استخدم مراكزي ← إغلاق.",
+                ),
+                position_trade_keyboard(symbol),
+            )
 
         if price <= 0:
             return DashboardView(

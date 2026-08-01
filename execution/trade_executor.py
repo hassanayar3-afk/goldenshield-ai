@@ -107,6 +107,91 @@ class TradeExecutor:
             logger.exception("فشل جلب الرصيد — استخدام رصيد paper")
             return settings.paper_account_balance
 
+    def _fit_amount_to_spot_balance(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        amount: float,
+        price: float,
+    ) -> tuple[float, str]:
+        """يحدّ الحجم حسب الرصيد الحر على Binance Spot — يمنع insufficient balance."""
+        try:
+            settings = get_settings()
+            if settings.execution_mode != "live" and not bool(
+                getattr(settings, "binance_demo_trading", False)
+            ):
+                return max(float(amount or 0.0), 0.0), ""
+
+            exchange = get_exchange()
+            bal = exchange.fetch_balance() or {}
+            side_l = (side or "buy").lower()
+            amt = float(amount or 0.0)
+            px = float(price or 0.0)
+            if px <= 0:
+                return 0.0, "سعر غير صالح"
+
+            if side_l == "buy":
+                usdt = bal.get("USDT") or {}
+                free_usdt = float(
+                    usdt.get("free") if isinstance(usdt, dict) else (usdt or 0.0)
+                )
+                if free_usdt < 5.0:
+                    return (
+                        0.0,
+                        f"رصيد USDT الحر غير كافٍ للشراء ({free_usdt:.2f}$). "
+                        "أغلق جزءاً من المراكز أو أودع USDT في Demo.",
+                    )
+                max_amt = (free_usdt * 0.95) / px
+                try:
+                    max_amt = float(exchange.amount_to_precision(symbol, max_amt))
+                except Exception:
+                    pass
+                if max_amt <= 0:
+                    return (
+                        0.0,
+                        f"لا يمكن شراء {symbol} بالرصيد الحالي ({free_usdt:.2f} USDT)",
+                    )
+                # لا نستخدم كامل الرصيد عند غياب الحجم — نحدّ بـ ~2% مخاطرة تقريبية
+                if amt <= 0:
+                    amt = (free_usdt * 0.02) / px
+                final = min(amt, max_amt)
+                if final <= 0:
+                    return 0.0, "حجم الشراء صفر بعد ضبط الرصيد"
+                if final * px < 5.0:
+                    return (
+                        0.0,
+                        f"قيمة الصفقة صغيرة جداً (~{final * px:.2f}$). "
+                        f"USDT المتاح: {free_usdt:.2f}",
+                    )
+                return final, ""
+
+            # بيع Spot: من رصيد الأصل فقط (ليس شورت)
+            base = symbol.split("/", 1)[0].upper()
+            asset = bal.get(base) or {}
+            free_base = float(
+                asset.get("free") if isinstance(asset, dict) else (asset or 0.0)
+            )
+            if free_base <= 0:
+                return (
+                    0.0,
+                    f"لا يوجد رصيد {base} للبيع على Spot. "
+                    "إشارة البيع تحتاج أن تملك الأصل أولاً.",
+                )
+            try:
+                free_base = float(
+                    exchange.amount_to_precision(symbol, free_base * 0.995)
+                )
+            except Exception:
+                free_base = free_base * 0.995
+            final = min(amt, free_base) if amt > 0 else free_base
+            if final <= 0:
+                return 0.0, f"كمية {base} المتاحة للبيع غير كافية"
+            return final, ""
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("_fit_amount_to_spot_balance: %s", exc)
+            return max(float(amount or 0.0), 0.0), ""
+
     def _reject(
         self,
         symbol: str,
@@ -182,6 +267,32 @@ class TradeExecutor:
             result = coerced
 
         if self.position_manager.has(symbol):
+            existing = self.position_manager.get(symbol)
+            # Spot: إشارة بيع على مركز شراء = إغلاق (لا شورت)
+            if (
+                existing is not None
+                and result.signal == "SELL SIGNAL"
+                and existing.side == OrderSide.BUY
+            ):
+                px = float(result.price or existing.entry_price or 0.0)
+                closed = self.close_position(
+                    symbol,
+                    px,
+                    reason="إشارة بيع Spot — إغلاق المركز الطويل",
+                )
+                if closed:
+                    return ExecutionResult(
+                        executed=True,
+                        symbol=symbol,
+                        message=f"أُغلق {symbol} عند إشارة بيع @ {px}",
+                        rejected=False,
+                        reason="",
+                    )
+                return self._reject(
+                    symbol,
+                    "تعذر إغلاق المركز عند إشارة البيع",
+                    snapshot=snapshot,
+                )
             return self._reject(symbol, "موجود مركز مفتوح على نفس الزوج", snapshot=snapshot)
 
         if self.position_manager.count() >= settings.max_concurrent_positions:
@@ -371,7 +482,7 @@ class TradeExecutor:
         take_profit = 0.0
 
         if prefs is not None:
-            lot_calc = LotCalculator(balance)
+            lot_calc = LotCalculator(max(balance, 1.0))
             amount, stop_loss, take_profit = lot_calc.calculate(
                 result.price,
                 sl_pct=prefs.sl_pct,
@@ -380,19 +491,22 @@ class TradeExecutor:
                 side=side_key,
             )
         elif force_open or settings.trial_mode:
-            # إجباري/تجربة: احسب اللوت مباشرة — لا توقف على رفض Monte Carlo وغيره
-            lot_calc = LotCalculator(max(balance, settings.min_account_balance))
+            # لا نرفع الرصيد وهميةً إلى min_account — وإلا يُحسب حجم أكبر من المتاح
+            lot_calc = LotCalculator(max(float(balance), 1.0))
             amount, stop_loss, take_profit = lot_calc.calculate(
                 result.price, side=side_key
             )
-            if amount <= 0:
-                # آخر ملاذ لحجم صغير صالح
-                amount = 0.01
+            if amount <= 0 and float(balance) > 1.0 and result.price > 0:
+                # حجم صغير متناسب مع الرصيد المتاح (شراء) أو سيُضبط لاحقاً للبيع
                 from execution.sl_tp_calculator import calculate_sl_tp
 
                 stop_loss, take_profit = calculate_sl_tp(
                     result.price, side=side_key
                 )
+                if side_key == "buy":
+                    amount = max((float(balance) * 0.02) / result.price, 0.0)
+                else:
+                    amount = 0.0  # يُملأ من رصيد الأصل أدناه
         else:
             risk_approval = self.risk.evaluate_entry(
                 result.symbol,
@@ -412,6 +526,21 @@ class TradeExecutor:
             amount = risk_approval.amount
             stop_loss = risk_approval.stop_loss
             take_profit = risk_approval.take_profit
+
+        # ضبط الحجم حسب الرصيد الحقيقي على Spot (سبب: insufficient balance)
+        fitted, fit_reason = self._fit_amount_to_spot_balance(
+            symbol=result.symbol,
+            side=side_key,
+            amount=float(amount or 0.0),
+            price=float(result.price or 0.0),
+        )
+        if fitted <= 0:
+            return self._reject(
+                result.symbol,
+                fit_reason or "رصيد غير كافٍ لتنفيذ الصفقة على Binance Spot",
+                snapshot=snapshot,
+            )
+        amount = fitted
 
         if amount <= 0:
             return self._reject(result.symbol, "حجم العقد صفر", snapshot=snapshot)

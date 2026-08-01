@@ -21,15 +21,21 @@ SYNC_PATHS = [
     "risk/orderbook_imbalance_gate.py",
     "risk/risk_committee.py",
     "risk/macro_flow_gate.py",
+    "risk/lot_calculator.py",
     "execution/smart_exits.py",
     "execution/momentum_preemptive_exit.py",
     "execution/trade_executor.py",
+    "execution/binance_position_sync.py",
+    "execution/order_manager.py",
+    "execution/sl_attachment_guard.py",
     "operations/telegram_dashboard.py",
     "operations/telegram_commands.py",
+    "operations/telegram_keyboards.py",
     "operations/message_templates.py",
     "operations/bot_admin.py",
     "operations/symbol_registry.py",
     "operations/infrastructure_watchdog.py",
+    "operations/single_instance.py",
     "config/settings.py",
     "config/runtime_profile.py",
     "config/risk_params.yaml",
@@ -144,7 +150,9 @@ $map = @{
   'RISK_COMMITTEE_LLM_ENABLED'='false'
   'RISK_COMMITTEE_FAIL_CLOSED'='false'
   'MACRO_FLOW_GATE_ENABLED'='true'
-  'TELEGRAM_LIVE_POSITIONS_SECONDS'='1'
+  'TELEGRAM_LIVE_POSITIONS_SECONDS'='5'
+  'TELEGRAM_LIVE_SIGNALS'='true'
+  'MANUAL_ENTRY_REQUIRED'='false'
   'MT5_ENABLED'='false'
   'BOT_AUTO_SYNC_MT5'='false'
   'MT5_ATTACH_SL_TP'='false'
