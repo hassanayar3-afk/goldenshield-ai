@@ -17,11 +17,11 @@ def test_score_75_is_manual_only() -> None:
     assert "يدوي" in reason
 
 
-def test_score_90_is_manual_not_guaranteed() -> None:
-    """90/100 غير مضمون — يدوي فقط وفق عتبة 95."""
+def test_score_90_is_soft_auto() -> None:
+    """90/100 = درجة 9 — دخول تلقائي ناعم."""
     ok, reason = is_auto_entry_allowed(9, 0)
-    assert ok is False
-    assert "يدوي" in reason
+    assert ok is True
+    assert "تلقائي" in reason
     assert not is_golden_opportunity(9)
 
 
@@ -33,7 +33,6 @@ def test_score_100_is_auto_golden() -> None:
 
 
 def test_soft_auto_when_threshold_90() -> None:
-    """توافق خلفي: إن خُفّضت العتبة إلى 90 يُسمح بالدرجة 9."""
     ok, reason = is_auto_entry_allowed(9, 0, soft_min=90)
     assert ok is True
     assert "تلقائي" in reason

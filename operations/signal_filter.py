@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.constants import is_auto_entry_allowed, meets_signal_minimum, score_to_percent
+from core.constants import (
+    SIGNAL_NOTIFY_MIN_PERCENT,
+    is_auto_entry_allowed,
+    meets_telegram_notify_minimum,
+    score_to_percent,
+)
 
 if TYPE_CHECKING:
     from audit.consensus_gate import ConsensusResult
@@ -14,8 +19,20 @@ if TYPE_CHECKING:
 _ENTRY_SIGNALS = frozenset({"BUY SIGNAL", "SELL SIGNAL"})
 
 
+def _telegram_notify_min_percent() -> int:
+    try:
+        from config.settings import get_settings
+
+        return int(
+            getattr(get_settings(), "telegram_signal_min_percent", SIGNAL_NOTIFY_MIN_PERCENT)
+            or SIGNAL_NOTIFY_MIN_PERCENT
+        )
+    except Exception:
+        return int(SIGNAL_NOTIFY_MIN_PERCENT)
+
+
 def is_notifiable_trade_signal(result: AnalysisResult | object) -> bool:
-    """تُرسل لتليجرام فقط إذا شراء/بيع ≥75 — لا WAIT ولا انتظار."""
+    """تُرسل لتليجرام فقط إذا شراء/بيع ≥85 — لا WAIT ولا انتظار."""
     if getattr(result, "halted", False):
         return False
     signal = str(getattr(result, "signal", ""))
@@ -23,26 +40,30 @@ def is_notifiable_trade_signal(result: AnalysisResult | object) -> bool:
         return False
     score = getattr(result, "score", 0)
     passed = bool(getattr(result, "passed", False))
-    return passed and meets_signal_minimum(score)
+    return passed and meets_telegram_notify_minimum(
+        score, min_percent=_telegram_notify_min_percent()
+    )
 
 
 def is_notifiable_entry(entry: dict) -> bool:
-    """نفس القاعدة لقائمة الدورة — فرص جاهزة للدخول فقط."""
+    """نفس القاعدة لقائمة الدورة — فرص جاهزة للإرسال فقط."""
     signal = str(entry.get("signal", ""))
     if signal not in _ENTRY_SIGNALS:
         return False
     score = int(entry.get("score", 0) or 0)
     if entry.get("passed") is False:
         return False
-    return meets_signal_minimum(score)
+    return meets_telegram_notify_minimum(
+        score, min_percent=_telegram_notify_min_percent()
+    )
 
 
 def entry_action_label(score: int | float, open_positions: int = 0) -> str:
-    """وسم طريقة الدخول: تلقائي (≥95) أو يدوي."""
+    """وسم طريقة الدخول: تلقائي (≥90) أو يدوي."""
     from config.settings import get_settings
     from core.constants import is_golden_opportunity
 
-    threshold = int(getattr(get_settings(), "auto_entry_min_percent", 95) or 95)
+    threshold = int(getattr(get_settings(), "auto_entry_min_percent", 90) or 90)
     auto_ok, _ = is_auto_entry_allowed(score, open_positions, soft_min=threshold)
     pct = score_to_percent(score)
     if auto_ok and is_golden_opportunity(score):
@@ -50,6 +71,7 @@ def entry_action_label(score: int | float, open_positions: int = 0) -> str:
     if auto_ok:
         return f"تلقائي ⚡ ({pct}/100)"
     return f"يدوي 🖐 ({pct}/100)"
+
 
 def annotate_entry_actions(
     entries: list[dict],
@@ -76,7 +98,7 @@ def is_premium_trade_signal(
     consensus: ConsensusResult | None = None,
     risk_approval: RiskApproval | None = None,
 ) -> bool:
-    """مؤهل كامل = شراء/بيع ≥75 + Shadow + مخاطر."""
+    """مؤهل كامل = شراء/بيع ≥ عتبة الإرسال + Shadow + مخاطر."""
     if not is_notifiable_trade_signal(result):
         return False
     if consensus is not None and not consensus.approved:

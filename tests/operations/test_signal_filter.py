@@ -18,7 +18,7 @@ def test_premium_requires_buy_score_shadow_risk():
         halted=False,
         signal="BUY SIGNAL",
         passed=True,
-        score=8,
+        score=9,
     )
     consensus = SimpleNamespace(approved=True)
     risk = RiskApproval(approved=True, reason="ok", amount=0.1, stop_loss=1.0, take_profit=2.0)
@@ -35,8 +35,16 @@ def test_buy_low_score_not_premium():
     assert is_premium_trade_signal(result) is False
 
 
-def test_buy_score_eight_is_premium():
+def test_buy_score_eight_below_notify_threshold():
+    """درجة 8 = 75 < 85 — لا تُرسل لتليجرام."""
     result = _result(halted=False, signal="BUY SIGNAL", passed=True, score=8)
+    consensus = SimpleNamespace(approved=True)
+    risk = RiskApproval(approved=True, reason="ok", amount=0.1, stop_loss=1.0, take_profit=2.0)
+    assert is_premium_trade_signal(result, consensus=consensus, risk_approval=risk) is False
+
+
+def test_buy_score_nine_is_premium():
+    result = _result(halted=False, signal="BUY SIGNAL", passed=True, score=9)
     consensus = SimpleNamespace(approved=True)
     risk = RiskApproval(approved=True, reason="ok", amount=0.1, stop_loss=1.0, take_profit=2.0)
     assert is_premium_trade_signal(result, consensus=consensus, risk_approval=risk) is True
@@ -53,10 +61,18 @@ def test_buy_without_risk_approval_not_premium():
     assert is_premium_trade_signal(result, risk_approval=risk) is False
 
 
-def test_notify_buy_sell_from_75_only():
-    assert is_notifiable_trade_signal(
+def test_notify_buy_sell_from_85_only(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "config.settings.get_settings",
+        lambda: SimpleNamespace(telegram_signal_min_percent=85, auto_entry_min_percent=90),
+    )
+    # درجة 8 = 75 < 85 → لا إرسال
+    assert not is_notifiable_trade_signal(
         _result(halted=False, signal="BUY SIGNAL", passed=True, score=8)
     )
+    # درجة 9 = 90 ≥ 85 → إرسال
     assert is_notifiable_trade_signal(
         _result(halted=False, signal="SELL SIGNAL", passed=True, score=9)
     )
@@ -74,13 +90,13 @@ def test_entry_action_auto_vs_manual(monkeypatch):
     from operations.signal_filter import entry_action_label
     from types import SimpleNamespace
 
-    # Iron Protocol: دخول تلقائي من 95/100 فقط
+    # دخول تلقائي من 90/100 فما فوق
     monkeypatch.setattr(
         "config.settings.get_settings",
-        lambda: SimpleNamespace(auto_entry_min_percent=95, manual_entry_required=False),
+        lambda: SimpleNamespace(auto_entry_min_percent=90, manual_entry_required=False),
     )
 
-    assert "يدوي" in entry_action_label(9, open_positions=0)  # 90 < 95
+    assert "تلقائي" in entry_action_label(9, open_positions=0)  # 90 ≥ 90
     assert "ذهبي" in entry_action_label(10, open_positions=0) or "تلقائي" in entry_action_label(
         10, open_positions=0
     )
@@ -93,7 +109,7 @@ def test_annotate_drops_wait(monkeypatch):
 
     monkeypatch.setattr(
         "config.settings.get_settings",
-        lambda: SimpleNamespace(auto_entry_min_percent=95, manual_entry_required=False),
+        lambda: SimpleNamespace(auto_entry_min_percent=90, manual_entry_required=False),
     )
 
     rows = annotate_entry_actions(
@@ -107,7 +123,7 @@ def test_annotate_drops_wait(monkeypatch):
     assert len(rows) == 2
     by_symbol = {r["symbol"]: r for r in rows}
     assert "A" not in by_symbol
-    assert "يدوي" in by_symbol["B"]["entry_action"]
+    assert "تلقائي" in by_symbol["B"]["entry_action"]
     assert "تلقائي" in by_symbol["C"]["entry_action"] or "ذهبي" in by_symbol["C"]["entry_action"]
 
 

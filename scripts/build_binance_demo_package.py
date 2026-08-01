@@ -62,22 +62,31 @@ EXCLUDE_NAME_SUBSTR = (
 )
 
 
-README = """GoldenShield — Binance Demo فقط
-================================
-هذه الحزمة للتداول التجريبي على Binance.
-لا تحتاج MetaTrader / XM / فوركس.
+README = """GoldenShield — Binance Demo فقط (حزمة نظيفة)
+============================================
+هذه الحزمة مرتبطة بمنصة Binance التجريبية فقط.
+لا MetaTrader / لا XM / لا فوركس / لا حساب حقيقي.
 
 التثبيت على سيرفر Windows:
-1) استخرج كل الملفات إلى:  C:\\GoldenShield_Binance
-2) شغّل:  فحص_المجلد_CHECK.bat
-3) شغّل:  00_START.bat
-4) في تيليجرام أرسل: /start
-5) للإيقاف: 00_STOP.bat
+1) احذف أي حزمة قديمة (Contabo DEMO / MT5 / GoldenShield القديمة)
+2) استخرج كل الملفات إلى:  C:\\GoldenShield_Binance
+3) شغّل:  فحص_المجلد_CHECK.bat
+4) شغّل:  00_START.bat
+5) في تيليجرام أرسل: /start
+6) للإيقاف: 00_STOP.bat
+
+الإعدادات داخل الحزمة:
+- EXECUTION_BACKEND=binance
+- BINANCE_DEMO_TRADING=true
+- MT5_ENABLED=false
+- إرسال الإشارات من 85/100
+- دخول تلقائي من 90/100
+- بث حي كل 15 ثانية
 
 مهم:
-- الحساب = Binance Demo (ليس حقيقي)
-- احذف المجلدات القديمة مثل Contabo DEMO أو أي حزمة MT5
-- اترك نافذة 00_START مفتوحة (أو Disconnect من RDP بدون Log off)
+- الحساب = Binance Demo (تجريبي) وليس Live الحقيقي
+- اترك نافذة التشغيل أو استخدم مهمة مجدولة
+- من RDP: Disconnect فقط — لا تعمل Log off
 """
 
 START_BINANCE = r"""@echo off
@@ -155,8 +164,29 @@ def should_skip(rel: Path) -> bool:
     # لا تضع سكربتات MT5/نشر قديمة في الحزمة
     if rel.parts[:1] == ("scripts",) and any(
         x in rel.name.lower()
-        for x in ("mt5", "windows_boot", "send_contabo", "deploy_to_windows", "force_start", "boot_bot")
+        for x in (
+            "mt5",
+            "windows_boot",
+            "send_contabo",
+            "send_simple_windows",
+            "send_windows_zip",
+            "deploy_to_windows",
+            "deploy_to_contabo",
+            "force_start",
+            "boot_bot",
+            "promo",
+            "cursor_chat",
+            "composer",
+        )
     ):
+        return True
+    # بيانات/جسور غير مستخدمة في وضع Binance Demo
+    if rel.as_posix().lower() in {
+        "data/mt5_market_data.py",
+        "data/forex_market_data.py",
+        "data/stock_market_data.py",
+        "config/mt5_symbol_map.yaml",
+    }:
         return True
     return False
 
@@ -188,7 +218,12 @@ def build_zip(local: dict[str, str]) -> Path:
             if should_skip(rel):
                 continue
             # استبدل ملفات البدء القديمة
-            if rel.name in {"00_START.bat", "00_STOP.bat", "فحص_المجلد_CHECK.bat"}:
+            if rel.name in {
+                "00_START.bat",
+                "00_STOP.bat",
+                "فحص_المجلد_CHECK.bat",
+                "README_BINANCE_AR.txt",
+            }:
                 continue
             zf.write(path, arcname=str(rel).replace("\\", "/"))
 

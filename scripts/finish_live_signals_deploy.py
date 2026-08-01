@@ -17,10 +17,13 @@ PY = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe
 
 FILES = [
     "main.py",
+    "core/constants.py",
+    "config/settings.py",
     "config/trading_pairs.yaml",
     "operations/dashboard_templates.py",
     "operations/telegram_dashboard.py",
     "operations/telegram_commands.py",
+    "operations/signal_filter.py",
     "risk/iron_protocol.py",
 ]
 
@@ -43,6 +46,8 @@ updates = {
     "TELEGRAM_LIVE_SIGNALS_SECONDS": "15",
     "LOOP_INTERVAL_SECONDS": "15",
     "TELEGRAM_SEND_CYCLE_SIGNALS": "true",
+    "AUTO_ENTRY_MIN_PERCENT": "90",
+    "TELEGRAM_SIGNAL_MIN_PERCENT": "85",
 }
 lines = text.splitlines()
 seen = set()

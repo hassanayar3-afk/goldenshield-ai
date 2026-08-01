@@ -11,6 +11,7 @@ from config.settings import get_settings
 from core.constants import (
     SIGNAL_MIN_PERCENT,
     meets_signal_minimum,
+    meets_telegram_notify_minimum,
     score_to_percent,
 )
 from operations.message_templates import DIVIDER, _BRAND, _money, escape
@@ -207,7 +208,7 @@ def _market_row(entry: dict) -> str:
 
 
 def format_qualified_signals_digest(entries: list[dict]) -> str:
-    """قائمة عمودية بأيقونات — مرتبة من الأضعف للأقوى (≥75 شراء/بيع)."""
+    """قائمة عمودية بأيقونات — مرتبة من الأضعف للأقوى (≥85 شراء/بيع للإرسال)."""
     ordered = sorted(
         entries,
         key=lambda e: (int(e.get("score", 0)), str(e.get("symbol") or "")),
@@ -278,7 +279,7 @@ def format_live_signals_board(
         e
         for e in ordered
         if str(e.get("signal")) in {"BUY SIGNAL", "SELL SIGNAL"}
-        and meets_signal_minimum(int(e.get("score", 0) or 0))
+        and meets_telegram_notify_minimum(int(e.get("score", 0) or 0))
         and e.get("passed") is not False
     ]
     stamp = escape(updated_at) if updated_at else "—"
@@ -316,7 +317,7 @@ def format_live_signals_board(
     lines.extend(
         [
             "",
-            "<i>التلقائي من 95/100 (درجة 10) فقط — أقل من ذلك يدوي أو انتظار</i>",
+            "<i>التلقائي من 90/100 فما فوق (درجة 9–10) — أقل من ذلك يدوي أو انتظار</i>",
             "<i>اضغط «📡 الإشارات» من القائمة للتفاصيل</i>",
         ]
     )

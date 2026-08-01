@@ -418,7 +418,7 @@ async def check_symbol(symbol: str) -> dict | None:
 
         settings = get_settings()
         pct = score_to_percent(result.score)
-        auto_threshold = int(getattr(settings, "auto_entry_min_percent", 95) or 95)
+        auto_threshold = int(getattr(settings, "auto_entry_min_percent", 90) or 90)
         auto_ok, auto_reason = is_auto_entry_allowed(
             result.score,
             open_count,

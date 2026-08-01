@@ -11,19 +11,20 @@ TIMEFRAME_LABELS: dict[str, str] = {
 SIGNAL_MIN_SCORE: float = 8.0
 SIGNAL_MAX_SCORE: int = 10
 SIGNAL_MIN_PERCENT: int = 75
+SIGNAL_NOTIFY_MIN_PERCENT: int = 85  # إرسال تيليجرام من 85 فما فوق
 SIGNAL_MAX_PERCENT: int = 100
 
-# دخول تلقائي من 95/100 فما فوق فقط (غير مضمون = يدوي)
-# 75–94: يدوي فقط | 95–99: تلقائي ناعم | 100: تلقائي قوي / ذهبي
-SIGNAL_AUTO_SOFT_MIN: int = 95
+# دخول تلقائي من 90/100 فما فوق (درجة 9–10)
+# 75–89: يدوي فقط | 90–99: تلقائي ناعم | 100: تلقائي قوي / ذهبي
+SIGNAL_AUTO_SOFT_MIN: int = 90
 SIGNAL_AUTO_SOFT_MAX_EXCLUSIVE: int = 100
 SIGNAL_AUTO_STRONG_MIN: int = 100
 SOFT_AUTO_MAX_POSITIONS: int = 5
 STRONG_AUTO_MAX_POSITIONS: int = 12
-SIGNAL_AUTO_PERCENT: int = 95
+SIGNAL_AUTO_PERCENT: int = 90
 GOLDEN_OPPORTUNITY_PERCENT: int = 100
 
-# 8=75 (يدوي) | 9=90 (يدوي) | 10=100 (تلقائي ذهبي)
+# 8=75 (يدوي) | 9=90 (تلقائي ناعم) | 10=100 (تلقائي ذهبي)
 SCORE_PERCENT_MAP: dict[int, int] = {
     0: 0,
     1: 10,
@@ -48,6 +49,15 @@ def meets_signal_minimum(score: int | float) -> bool:
     return score_to_percent(score) >= SIGNAL_MIN_PERCENT
 
 
+def meets_telegram_notify_minimum(
+    score: int | float,
+    min_percent: int | None = None,
+) -> bool:
+    """عتبة إرسال الإشارات إلى تيليجرام (افتراضي 85/100)."""
+    threshold = SIGNAL_NOTIFY_MIN_PERCENT if min_percent is None else int(min_percent)
+    return score_to_percent(score) >= threshold
+
+
 def is_golden_opportunity(score: int | float) -> bool:
     """فرصة ذهبية = 100/100 (درجة 10)."""
     return score_to_percent(score) >= GOLDEN_OPPORTUNITY_PERCENT
@@ -68,7 +78,7 @@ def is_auto_entry_allowed(
     soft_max_positions: int = SOFT_AUTO_MAX_POSITIONS,
     strong_max_positions: int = STRONG_AUTO_MAX_POSITIONS,
 ) -> tuple[bool, str]:
-    """تلقائي من 95/100 فما فوق — أقل من ذلك يدوي فقط (غير مضمون)."""
+    """تلقائي من 90/100 فما فوق — أقل من ذلك يدوي فقط."""
     pct = score_to_percent(score)
     if pct >= strong_min:
         if open_positions >= strong_max_positions:

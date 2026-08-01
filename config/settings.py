@@ -71,6 +71,7 @@ class Settings:
     telegram_backup_channel_id: str | None
     telegram_send_cycle_signals: bool
     telegram_signals_only: bool
+    telegram_signal_min_percent: int
     manual_entry_required: bool
     auto_entry_min_percent: int
     news_filter_enabled: bool
@@ -247,13 +248,15 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
+        # إرسال إشارات تيليجرام من 85/100 فما فوق (BUY/SELL فقط)
+        telegram_signal_min_percent=int(os.getenv("TELEGRAM_SIGNAL_MIN_PERCENT", "85")),
         # false = مختلط/تلقائي حسب AUTO_ENTRY_MIN_PERCENT | true = يدوي لكل شيء
         manual_entry_required=os.getenv("MANUAL_ENTRY_REQUIRED", "false")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        # دخول تلقائي من 95/100 فما فوق فقط (غير مضمون = يدوي)
-        auto_entry_min_percent=int(os.getenv("AUTO_ENTRY_MIN_PERCENT", "95")),
+        # دخول تلقائي من 90/100 فما فوق (درجة 9–10)
+        auto_entry_min_percent=int(os.getenv("AUTO_ENTRY_MIN_PERCENT", "90")),
         news_filter_enabled=bool(hybrid.get("news_filter_enabled", True)),
         news_blackout_minutes=int(hybrid.get("news_blackout_minutes", 30)),
         vix_threshold=float(hybrid.get("vix_threshold", 30.0)),

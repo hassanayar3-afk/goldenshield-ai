@@ -49,7 +49,7 @@ pause
 
 
 def production_env(local: dict[str, str]) -> str:
-    """بيئة تشغيل ويندوز: Binance Demo فقط."""
+    """بيئة تشغيل ويندوز: Binance Demo فقط (ليس حقيقي، وليس MT5)."""
     return "\n".join(
         [
             "ENV=production",
@@ -58,24 +58,28 @@ def production_env(local: dict[str, str]) -> str:
             "BINANCE_DEMO_TRADING=true",
             "MT5_ENABLED=false",
             "BOT_AUTO_SYNC_MT5=false",
+            "MT5_ATTACH_SL_TP=false",
             f"BINANCE_API_KEY={local.get('BINANCE_API_KEY', '')}",
             f"BINANCE_API_SECRET={local.get('BINANCE_API_SECRET', '')}",
-            "TELEGRAM_SEND_CYCLE_SIGNALS=false",
+            "TELEGRAM_SEND_CYCLE_SIGNALS=true",
+            "TELEGRAM_LIVE_SIGNALS=true",
+            "TELEGRAM_LIVE_SIGNALS_SECONDS=15",
+            "TELEGRAM_SIGNAL_MIN_PERCENT=85",
             "TELEGRAM_SIGNALS_ONLY=false",
             "LOOP_INTERVAL_SECONDS=15",
             "MANUAL_ENTRY_REQUIRED=false",
-            "AUTO_ENTRY_MIN_PERCENT=95",
+            "AUTO_ENTRY_MIN_PERCENT=90",
+            "IRON_PROTOCOL_ENABLED=true",
             "HIGH_CONVICTION_MODE=false",
             "STANDARD_BONUS_PROFILE=false",
             "MAX_CONCURRENT_POSITIONS=12",
             "TRIAL_MODE=false",
             "TRIAL_JOURNAL_ENABLED=true",
-            "MT5_ATTACH_SL_TP=false",
             "BOT_ADMIN_FULL_ACCESS=true",
             f"TELEGRAM_TOKEN={local.get('TELEGRAM_TOKEN', '')}",
             f"TELEGRAM_BOT_USERNAME={local.get('TELEGRAM_BOT_USERNAME', 'GoldenShield_2026_bot')}",
             f"TELEGRAM_CHAT_ID={local.get('TELEGRAM_CHAT_ID', '')}",
-            f"TELEGRAM_BACKUP_CHANNEL_ID={local.get('TELEGRAM_BACKUP_CHANNEL_ID', '-1004462420308')}",
+            f"TELEGRAM_BACKUP_CHANNEL_ID={local.get('TELEGRAM_BACKUP_CHANNEL_ID', '')}",
             "DB_PATH=storage/db/goldenshield.db",
         ]
     ) + "\n"

@@ -52,7 +52,7 @@ def main_menu_keyboard(*, paused: bool) -> dict:
 
 def market_keyboard(symbols: list[str], *, entries: list[dict] | None = None) -> dict:
     """أزرار الأزواج مرتبة من الأضعف للأقوى مع أيقونة القوة."""
-    from core.constants import SIGNAL_MIN_PERCENT, score_to_percent
+    from core.constants import SIGNAL_NOTIFY_MIN_PERCENT, score_to_percent
 
     score_map = {e["symbol"]: int(e.get("score", 0)) for e in (entries or [])}
     signal_map = {e["symbol"]: str(e.get("signal", "WAIT")) for e in (entries or [])}
@@ -63,10 +63,10 @@ def market_keyboard(symbols: list[str], *, entries: list[dict] | None = None) ->
         score = score_map.get(symbol, 0)
         percent = score_to_percent(score)
         signal = signal_map.get(symbol, "WAIT")
-        # أخضر فقط إذا BUY/SELL مؤهل — لا تخلط WAIT قوي مع صفقة جاهزة
-        if signal in {"BUY SIGNAL", "SELL SIGNAL"} and percent >= SIGNAL_MIN_PERCENT:
+        # أخضر فقط إذا BUY/SELL ضمن عتبة إرسال تيليجرام (≥85)
+        if signal in {"BUY SIGNAL", "SELL SIGNAL"} and percent >= SIGNAL_NOTIFY_MIN_PERCENT:
             icon = "🟢"
-        elif percent >= SIGNAL_MIN_PERCENT:
+        elif percent >= SIGNAL_NOTIFY_MIN_PERCENT:
             icon = "🔵"
         elif percent >= 70:
             icon = "🟡"

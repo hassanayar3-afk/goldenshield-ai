@@ -32,7 +32,7 @@ IRON_LIVE_FORCED: dict[str, object] = {
     "close_naked_tickets": True,
     "manage_positions_during_halt": True,
     "mt5_attach_sl_tp": True,
-    "auto_entry_min_percent": 95,
+    "auto_entry_min_percent": 90,
     "default_rr_ratio": 3.0,
 }
 
@@ -50,9 +50,9 @@ def apply_iron_protocol(settings: Settings) -> Settings:
             return settings
 
         updates: dict = {}
-        # دائماً: لا نسمح بعتبة تلقائي أضعف من 95 ولا R:R أضعف من 3
-        if int(getattr(settings, "auto_entry_min_percent", 95) or 0) < 95:
-            updates["auto_entry_min_percent"] = 95
+        # دائماً: لا نسمح بعتبة تلقائي أضعف من 90 ولا R:R أضعف من 3
+        if int(getattr(settings, "auto_entry_min_percent", 90) or 0) < 90:
+            updates["auto_entry_min_percent"] = 90
         if float(getattr(settings, "default_rr_ratio", 3.0) or 0) < 3.0:
             updates["default_rr_ratio"] = 3.0
         if float(getattr(settings, "sl_rr_lock_ratio", 3.0) or 0) < 3.0:
@@ -88,6 +88,6 @@ def apply_iron_protocol(settings: Settings) -> Settings:
 
 def iron_rules_summary() -> str:
     return (
-        "Iron: SL+TP إلزامي | Auto≥95 | R:R≥1:3 | "
+        "Iron: SL+TP إلزامي | Auto≥90 | R:R≥1:3 | "
         "Gate+ATR+Volatility+NakedClose | Kill−3% | راحة 24س بعد 3 خسائر"
     )
