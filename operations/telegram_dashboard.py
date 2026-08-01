@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from config.settings import get_settings
 from core.analyzer import MarketAnalyzer
 from operations.dashboard_templates import (
+    compute_open_floating_pnl,
     format_action_result,
     format_entry_block_reason,
     format_live_signals_board,
@@ -142,6 +143,16 @@ class TelegramDashboard:
         balance = self.executor.get_account_balance()
         pnl = f"{state.daily_pnl_pct:+.2f}%" if state else "0.00%"
         kill = "مفعّل 🛑" if state and state.kill_switch_active else "طبيعي ✅"
+        positions = self.executor.position_manager.all()
+        prices = dict(self.market.prices)
+        for pos in positions:
+            prices.setdefault(pos.symbol, pos.entry_price)
+        floating = None
+        try:
+            if positions:
+                floating, _ = compute_open_floating_pnl(positions, prices)
+        except Exception:
+            floating = None
         text = format_main_dashboard(
             env=settings.env,
             mode=settings.execution_mode,
@@ -152,6 +163,7 @@ class TelegramDashboard:
             kill_switch=kill,
             pairs_count=len(active_pairs),
             manual_mode=self.runtime.manual_entry_required,
+            floating_pnl=floating,
         )
         return DashboardView(text, main_menu_keyboard(paused=self.runtime.paused))
 
@@ -213,8 +225,8 @@ class TelegramDashboard:
 
         interval = max(1, int(round(self._live_positions_interval())))
         header = (
-            "🔴 <b>مراكزي — بث حي</b>\n"
-            f"<i>يتحدّث السعر تلقائياً كل ~{interval} ثانية</i>\n\n"
+            "📂 <b>مراكزي</b> — بث حي\n"
+            f"<i>تحديث السعر كل ~{interval} ثانية</i>\n\n"
         )
         live_scores = {
             sym: int(e.get("score", 0) or 0)

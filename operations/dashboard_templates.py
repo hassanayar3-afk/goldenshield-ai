@@ -123,6 +123,81 @@ def _pct_change(entry: float, target: float) -> str:
     return f"{sign}{pct:.2f}%"
 
 
+def compute_open_floating_pnl(
+    positions: list[Position],
+    prices: dict[str, float],
+) -> tuple[float, float]:
+    """مجموع الربح/الخسارة العائم لكل المراكز + نسبة تقريبية على رأس المال المستثمر."""
+    total = 0.0
+    invested = 0.0
+    for pos in positions:
+        try:
+            current = float(prices.get(pos.symbol, pos.entry_price) or pos.entry_price)
+            entry = float(pos.entry_price or 0.0)
+            amount = float(pos.amount or 0.0)
+            if amount <= 0 or entry <= 0:
+                continue
+            if getattr(pos.side, "value", str(pos.side)).lower() == "buy":
+                total += (current - entry) * amount
+            else:
+                total += (entry - current) * amount
+            invested += entry * amount
+        except Exception:
+            continue
+    pct = (total / invested * 100.0) if invested > 0 else 0.0
+    return total, pct
+
+
+def format_floating_pnl_banner(
+    total_pnl: float,
+    *,
+    open_count: int = 0,
+    pct: float | None = None,
+    placement: str = "bottom",
+) -> str:
+    """شريط المجموع الكلي للعائم — مثل MT5 (افتراضياً أسفل القائمة)."""
+    if open_count <= 0:
+        return (
+            f"{DIVIDER}\n"
+            "💹 <b>المجموع الكلي</b>\n"
+            "<code>0.00 USD</code>"
+        )
+    icon = "🟢" if total_pnl >= 0 else "🔴"
+    sign = "+" if total_pnl >= 0 else ""
+    pct_line = ""
+    if pct is not None:
+        psign = "+" if pct >= 0 else ""
+        pct_line = f"\nنسبة المحفظة: <code>{psign}{pct:.2f}%</code>"
+    title = "💹 <b>المجموع الكلي (كل المراكز)</b>"
+    body = (
+        f"{icon} <b><code>{sign}{total_pnl:,.2f} USD</code></b>"
+        f"{pct_line}\n"
+        f"<i>{open_count} مركز مفتوح</i>"
+    )
+    if placement == "top":
+        return f"{title}\n{body}"
+    return f"{DIVIDER}\n{title}\n{body}"
+
+
+def _fmt_px(value: float) -> str:
+    """تنسيق سعر موحّد للقائمة — مريح للعين."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    abs_v = abs(v)
+    if abs_v >= 1000:
+        return f"{v:,.2f}"
+    if abs_v >= 1:
+        return f"{v:,.4f}".rstrip("0").rstrip(".")
+    return f"{v:.6f}".rstrip("0").rstrip(".")
+
+
+def _soft_row(icon: str, label: str, value: str) -> str:
+    """سطر موحّد العرض داخل بطاقة المركز."""
+    return f"{icon} {escape(label)}: <code>{escape(value)}</code>"
+
+
 def format_main_dashboard(
     *,
     env: str,
@@ -134,6 +209,7 @@ def format_main_dashboard(
     kill_switch: str,
     pairs_count: int,
     manual_mode: bool = True,
+    floating_pnl: float | None = None,
 ) -> str:
     status = "موقوف ⏸️" if paused else "يعمل ✅"
     mode_note = "تجريبي" if mode.upper() == "PAPER" else "حقيقي"
@@ -153,13 +229,24 @@ def format_main_dashboard(
             f"<i>⚡ تلقائي من {auto_pct}/100 فما فوق — "
             f"🖐 يدوي من تيليجرام عند {SIGNAL_MIN_PERCENT}–{max(SIGNAL_MIN_PERCENT, auto_pct - 1)}/100.</i>"
         )
-    return "\n".join(
+    float_line = ""
+    if floating_pnl is not None and open_count > 0:
+        fsign = "+" if floating_pnl >= 0 else ""
+        ficon = "🟢" if floating_pnl >= 0 else "🔴"
+        float_line = (
+            f"{ficon} عائم المراكز: <b><code>{fsign}{floating_pnl:,.2f} USD</code></b>"
+        )
+    lines = [
+        _header("الرئيسية"),
+        "",
+        f"🤖 البوت <b>{status}</b>  |  وضع <b>{mode_note}</b>  |  دخول <b>{entry_note}</b>",
+        "",
+        f"💰 رصيدك: <b>{_money(balance)}</b>",
+    ]
+    if float_line:
+        lines.append(float_line)
+    lines.extend(
         [
-            _header("الرئيسية"),
-            "",
-            f"🤖 البوت <b>{status}</b>  |  وضع <b>{mode_note}</b>  |  دخول <b>{entry_note}</b>",
-            "",
-            f"💰 رصيدك: <b>{_money(balance)}</b>",
             f"📈 نتيجة اليوم: <b>{escape(daily_pnl)}</b>",
             f"📂 صفقات مفتوحة: <b>{open_count}</b>",
             "",
@@ -169,6 +256,7 @@ def format_main_dashboard(
             "<i>اضغط 📡 الإشارات لمتابعة السوق.</i>",
         ]
     )
+    return "\n".join(lines)
 
 
 def _market_row(entry: dict) -> str:
@@ -557,19 +645,24 @@ def format_positions_list(
     from data.symbol_routing import display_symbol
 
     live_scores = live_scores or {}
+    total_pnl, total_pct = compute_open_floating_pnl(positions, prices)
     lines = [
         _header("صفقاتي المفتوحة"),
         "",
-        "<i>كل زر يعرض: القوة + نسبة الربح/الخسارة الآن</i>",
+        "<i>كل صفقة بنفس الترتيب — اضغط الزر للتفاصيل</i>",
         "",
     ]
     if not positions:
         lines.append("لا توجد صفقات مفتوحة.")
         lines.append("")
         lines.append("راقب الفرص من 📡 الإشارات")
+        lines.append("")
+        lines.append(
+            format_floating_pnl_banner(0.0, open_count=0, pct=0.0, placement="bottom")
+        )
         return "\n".join(lines)
 
-    for pos in positions:
+    for idx, pos in enumerate(positions):
         current = prices.get(pos.symbol, pos.entry_price)
         if pos.side.value == "buy":
             unrealized = (current - pos.entry_price) * pos.amount
@@ -594,16 +687,34 @@ def format_positions_list(
             pos, live_score=int(live_scores.get(pos.symbol, 0) or 0)
         )
         coin = escape(display_symbol(pos.symbol))
-        lines.append(
-            f"{icon} <b>{coin}</b>  ·  {side_ar}\n"
-            f"   ⚡ {strength_label}: <code>{escape(strength_txt)}</code>\n"
-            f"   💰 الآن: <code>{sign}{unrealized:,.2f} $</code>  "
-            f"(<code>{pnl_sign}{pnl_pct:.2f}%</code>)\n"
-            f"   دخلت {pos.entry_price:,.2f} → الآن {current:,.2f}\n"
-            f"   SL {pos.stop_loss:,.2f}  |  TP {pos.take_profit:,.2f}"
-        )
-        lines.append("")
+        entry_s = _fmt_px(pos.entry_price)
+        now_s = _fmt_px(current)
+        sl_s = _fmt_px(pos.stop_loss)
+        tp_s = _fmt_px(pos.take_profit)
+        block = [
+            f"{icon} <b>{coin}</b> · {side_ar}",
+            _soft_row("⚡", strength_label, strength_txt),
+            _soft_row("💰", "النتيجة الآن", f"{sign}{unrealized:,.2f} $  ({pnl_sign}{pnl_pct:.2f}%)"),
+            _soft_row("🎯", "الدخول ← الآن", f"{entry_s}  ←  {now_s}"),
+            _soft_row("🛡", "SL / TP", f"{sl_s}  |  {tp_s}"),
+        ]
+        lines.append("\n".join(block))
+        if idx < len(positions) - 1:
+            lines.append("")
+            lines.append("───────────────")
+            lines.append("")
+
+    lines.append("")
     lines.append("اضغط على الصفقة لعرض التفاصيل الكاملة 👇")
+    lines.append("")
+    lines.append(
+        format_floating_pnl_banner(
+            total_pnl,
+            open_count=len(positions),
+            pct=total_pct,
+            placement="bottom",
+        )
+    )
     return "\n".join(lines).rstrip()
 
 

@@ -132,6 +132,7 @@ def positions_list_keyboard(
 ) -> dict:
     """أزرار الصفقات: القوة + نسبة الربح/الخسارة."""
     from core.constants import score_to_percent
+    from operations.dashboard_templates import compute_open_floating_pnl
 
     live_scores = live_scores or {}
     rows: list[list[dict]] = []
@@ -161,7 +162,7 @@ def positions_list_keyboard(
         strength_txt = str(strength) if strength > 0 else "—"
         name = pos.symbol.split("/")[0]
         pnl_sign = "+" if pnl_pct >= 0 else ""
-        text = f"{icon} {name} ق{strength_txt} {pnl_sign}{pnl_pct:.1f}%"
+        text = f"{icon} {name} | {pnl_sign}{pnl_pct:.1f}% | ق{strength_txt}"
         if len(text.encode("utf-8")) > 64:
             text = f"{icon} {name} {pnl_sign}{pnl_pct:.1f}%"
         row.append(
@@ -176,9 +177,15 @@ def positions_list_keyboard(
     if row:
         rows.append(row)
     if live:
+        try:
+            total_pnl, _ = compute_open_floating_pnl(positions, prices)
+            tsign = "+" if total_pnl >= 0 else ""
+            live_label = f"مجموع {tsign}{total_pnl:,.2f}$"
+        except Exception:
+            live_label = "🔴 بث حي يعمل"
         rows.append(
             [
-                {"text": "🔴 بث حي يعمل", "callback_data": "view:positions"},
+                {"text": live_label, "callback_data": "view:positions"},
                 {"text": "🔄 تحديث الآن", "callback_data": "view:positions"},
             ]
         )
