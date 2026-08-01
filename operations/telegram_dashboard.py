@@ -92,7 +92,7 @@ class TelegramDashboard:
         self._live_positions_chat_id: str | None = None
         self._live_positions_enabled: bool = False
         self._live_positions_last_ts: float = 0.0
-        self._live_interval_seconds: float = 5.0
+        self._live_interval_seconds: float = self._live_positions_interval()
         # بث حي للإشارات (كل الأزواج بما فيها WAIT)
         self._live_signals_msg_id: int | None = None
         self._live_signals_chat_id: str | None = None
@@ -193,7 +193,11 @@ class TelegramDashboard:
         for pos in positions:
             prices.setdefault(pos.symbol, pos.entry_price)
 
-        header = "🔴 <b>مراكزي — بث حي</b>\n<i>يتحدّث السعر تلقائياً كل ~5 ثوانٍ</i>\n\n"
+        interval = max(1, int(round(self._live_positions_interval())))
+        header = (
+            "🔴 <b>مراكزي — بث حي</b>\n"
+            f"<i>يتحدّث السعر تلقائياً كل ~{interval} ثانية</i>\n\n"
+        )
         body = format_positions_list(positions, prices)
         text = header + body if positions else body
         return DashboardView(
@@ -201,11 +205,22 @@ class TelegramDashboard:
             positions_list_keyboard(positions, prices, live=True),
         )
 
+    def _live_positions_interval(self) -> float:
+        """فاصل تحديث بث المراكز الحي — افتراضي 1 ثانية."""
+        import os
+
+        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "1").strip()
+        try:
+            return max(1.0, float(raw or "1"))
+        except (TypeError, ValueError):
+            return 1.0
+
     def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
         self._live_positions_enabled = True
         self._live_positions_msg_id = message_id
         self._live_positions_chat_id = chat_id
         self._live_positions_last_ts = 0.0
+        self._live_interval_seconds = self._live_positions_interval()
 
     def disable_live_positions(self) -> None:
         self._live_positions_enabled = False
@@ -223,7 +238,9 @@ class TelegramDashboard:
         if not self.live_positions_active:
             return False
         now = time.monotonic()
-        if now - self._live_positions_last_ts < self._live_interval_seconds:
+        interval = self._live_positions_interval()
+        self._live_interval_seconds = interval
+        if now - self._live_positions_last_ts < interval:
             return False
         self._live_positions_last_ts = now
         try:

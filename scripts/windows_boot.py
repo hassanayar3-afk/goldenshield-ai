@@ -1,4 +1,4 @@
-"""تشغيل Windows التلقائي — قاعدة البيانات + MT5 + بوت الإشارات."""
+"""تشغيل Windows التلقائي — قاعدة البيانات + بوت Binance."""
 
 from __future__ import annotations
 
@@ -14,11 +14,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_MT5_PATHS = (
-    Path(r"C:\Program Files\MetaTrader 5\terminal64.exe"),
-    Path(r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe"),
-)
 
 
 def wait_for_network(*, timeout_seconds: int = 180, interval_seconds: int = 10) -> bool:
@@ -39,55 +34,6 @@ def wait_for_network(*, timeout_seconds: int = 180, interval_seconds: int = 10) 
     return False
 
 
-def resolve_mt5_terminal() -> Path | None:
-    custom = os.getenv("MT5_TERMINAL_PATH", "").strip()
-    if custom:
-        path = Path(custom)
-        if path.exists():
-            return path
-    for candidate in DEFAULT_MT5_PATHS:
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def is_mt5_running() -> bool:
-    try:
-        result = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq terminal64.exe"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        return "terminal64.exe" in (result.stdout or "").lower()
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-
-def start_mt5_terminal() -> bool:
-    if is_mt5_running():
-        logger.info("MT5 already running")
-        return True
-    terminal = resolve_mt5_terminal()
-    if terminal is None:
-        logger.warning("MT5 terminal not found — افتحه يدوياً أو عيّن MT5_TERMINAL_PATH")
-        return False
-    try:
-        subprocess.Popen(
-            [str(terminal)],
-            cwd=str(terminal.parent),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        logger.info("MT5 started: %s", terminal)
-        time.sleep(20)
-        return True
-    except OSError:
-        logger.exception("فشل تشغيل MT5")
-        return False
-
-
 def prepare_boot_environment() -> int:
     os.chdir(ROOT)
     if os.getenv("GOLDENSHIELD_BOOT", "").strip().lower() in {"1", "true", "yes", "on"}:
@@ -105,7 +51,7 @@ def prepare_boot_environment() -> int:
         return 2
 
     print("boot:network_ok")
-    start_mt5_terminal()
+    print("boot:binance_only — MetaTrader غير مستخدم")
     return 0
 
 

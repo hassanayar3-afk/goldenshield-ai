@@ -5,7 +5,7 @@ set PYTHONIOENCODING=utf-8
 set GOLDENSHIELD_BOOT=1
 
 echo === GoldenShield - تشغيل تلقائي عند فتح Windows ===
-echo 1) قاعدة البيانات  2) MT5  3) بوت الاشارات
+echo 1) قاعدة البيانات  2) بوت Binance Demo
 echo.
 
 py scripts\windows_boot.py full

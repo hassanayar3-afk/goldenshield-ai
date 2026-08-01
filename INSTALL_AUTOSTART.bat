@@ -3,7 +3,7 @@ title GoldenShield - تثبيت التشغيل التلقائي
 cd /d "%~dp0"
 
 echo === تثبيت تشغيل GoldenShield تلقائياً مع Windows ===
-echo يشغّل: قاعدة البيانات + MT5 + بوت الاشارات
+echo يشغّل: قاعدة البيانات + بوت Binance
 echo.
 echo يتطلب صلاحيات مسؤول...
 echo.

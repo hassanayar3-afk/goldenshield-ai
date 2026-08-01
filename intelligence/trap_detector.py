@@ -29,7 +29,13 @@ def evaluate_traps_after_fail(
             f"Trap Detection: {streak} فشل ظلّي متتالٍ للنمط {pattern_key} "
             f"— تبريد {minutes} دقيقة"
         )
-        until = db.set_cooldown(symbol, minutes=minutes, reason=reason)
+        until = db.set_cooldown(
+            symbol,
+            minutes=minutes,
+            reason=reason,
+            pattern_key=pattern_key,
+            fail_streak=streak,
+        )
         logger.warning("%s until=%s", reason, until)
         if alerts is not None:
             try:

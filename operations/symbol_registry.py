@@ -265,30 +265,9 @@ class SymbolRegistry:
         return True
 
     def sync_from_mt5(self) -> list[str]:
-        try:
-            from execution.mt5_bridge import get_mt5_bridge
-
-            bridge = get_mt5_bridge()
-            discovered = bridge.discover_tradeable_symbols()
-        except Exception:
-            logger.exception("فشل مزامنة MT5")
-            return []
-
-        added: list[str] = []
-        for item in discovered:
-            kind = item["kind"]
-            symbol_id = item["id"]
-            if symbol_id in self._specs and self._specs[symbol_id].enabled:
-                continue
-            if kind == "crypto":
-                self.add_crypto(symbol_id, mt5_symbol=item["mt5"], enabled=True)
-                added.append(symbol_id)
-            elif kind == "forex":
-                self.add_forex(symbol_id.replace("FOREX/", ""), mt5_symbol=item["mt5"], enabled=True)
-                added.append(symbol_id)
-        if added:
-            logger.info("MT5 sync added: %s", ", ".join(added))
-        return added
+        """ملغى — المشروع Binance فقط."""
+        logger.info("sync_from_mt5 ignored — Binance-only runtime")
+        return []
 
     def _guess_mt5_stock(self, ticker: str) -> str:
         return f"#{ticker}"

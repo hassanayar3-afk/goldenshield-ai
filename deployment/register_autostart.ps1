@@ -1,5 +1,5 @@
 # تسجيل تشغيل GoldenShield تلقائياً عند بدء Windows
-# يشغّل: قاعدة البيانات + MT5 + بوت الإشارات (main.py عبر 00_START.bat)
+# يشغّل: قاعدة البيانات + بوت Binance (main.py عبر 00_START.bat)
 # شغّل كمسؤول: INSTALL_AUTOSTART.bat
 
 $ErrorActionPreference = "Stop"
@@ -39,9 +39,9 @@ Register-ScheduledTask `
     -Trigger @($TriggerBoot, $TriggerLogon) `
     -Settings $Settings `
     -Principal $Principal `
-    -Description "GoldenShield: DB + MT5 + signal bot auto-start" `
+    -Description "GoldenShield: DB + Binance bot auto-start" `
     -Force | Out-Null
 
 Write-Host "Registered task: $TaskName"
 Write-Host "Boot script: $BootBat"
-Write-Host "On Windows start: database, MT5, and signal bot will launch automatically."
+Write-Host "On Windows start: database and Binance bot will launch automatically."

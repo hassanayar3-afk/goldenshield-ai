@@ -39,8 +39,5 @@ def can_control_bot(chat_id: str | int | None) -> bool:
 
 
 def bot_may_auto_expand() -> bool:
-    settings = get_settings()
-    # Binance-only: لا توسعة MT5 أبداً ما لم يُفعَّل MT5 صراحة
-    if not bool(getattr(settings, "mt5_enabled", False)):
-        return False
-    return settings.bot_auto_sync_mt5 and settings.bot_admin_full_access
+    """ملغى — لا توسعة MT5/فوركس؛ المشروع Binance فقط."""
+    return False

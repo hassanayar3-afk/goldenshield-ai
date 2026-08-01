@@ -118,7 +118,15 @@ class ShadowStore:
                 break
         return streak
 
-    def set_cooldown(self, symbol: str, *, minutes: int, reason: str) -> str:
+    def set_cooldown(
+        self,
+        symbol: str,
+        *,
+        minutes: int,
+        reason: str,
+        pattern_key: str = "",
+        fail_streak: int = 0,
+    ) -> str:
         until = _utc_now() + timedelta(minutes=max(1, minutes))
         until_s = _iso(until)
         now_s = _iso(_utc_now())
@@ -137,9 +145,9 @@ class ShadowStore:
             conn.execute(
                 """
                 INSERT INTO trap_events (symbol, pattern_key, fail_streak, cooldown_until, created_at, notes)
-                VALUES (?, '', 0, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (symbol, until_s, now_s, reason),
+                (symbol, pattern_key, int(fail_streak), until_s, now_s, reason),
             )
         return until_s
 

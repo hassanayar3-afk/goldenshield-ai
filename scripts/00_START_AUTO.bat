@@ -9,7 +9,7 @@ echo عند انقطاع النت او توقف غير مقصود: يعيد ال
 echo للايقاف الكامل: 00_STOP.bat او زر الطوارئ في تيليجرام
 echo.
 
-py -m pip install -r requirements.txt MetaTrader5 -q 2>nul
+py -m pip install -r requirements.txt -q 2>nul
 if not exist storage\db\backups mkdir storage\db\backups
 if not exist storage\logs mkdir storage\logs
 if not exist storage\runtime mkdir storage\runtime

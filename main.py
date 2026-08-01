@@ -38,7 +38,6 @@ from operations.signal_filter import is_premium_trade_signal
 from operations.panic_button import PanicButton
 from operations.pre_flight_checklist import run_pre_flight
 from operations.runtime_state import OperationsRuntime
-from operations.bot_admin import bot_may_auto_expand
 from operations.symbol_registry import get_symbol_registry
 from operations.shutdown_guard import is_user_stopped, should_block_signals
 from operations.scheduler import DailyReportScheduler
@@ -609,38 +608,12 @@ async def run_bot() -> None:
     registry = get_symbol_registry()
     active_symbols = registry.load(settings.trading_pairs)
     profile = resolve_runtime_profile(settings)
-    if bot_may_auto_expand() and profile.uses_mt5:
-        try:
-            added = registry.sync_from_mt5()
-            if added:
-                active_symbols = registry.active_pairs()
-                print(f"🔄 MT5 sync: أُضيف {len(added)} رمز — {', '.join(added)}")
-        except Exception as exc:
-            logger.warning("MT5 auto-sync skipped: %s", exc)
-    if settings.bot_admin_full_access and settings.mt5_enabled:
-        for pair in ("EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"):
-            registry.add_forex(pair, enabled=True)
-        for ticker in ("AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META"):
-            registry.add_stock(ticker, enabled=True)
-        active_symbols = registry.active_pairs()
-        print(f"📋 صلاحيات كاملة + MT5: {len(active_symbols)} رمز نشط")
-    else:
-        # وضع Binance فقط — لا فوركس/أسهم أبداً
-        active_symbols = [
-            s for s in registry.active_pairs()
-            if not str(s).startswith(("FOREX/", "STOCK/"))
-        ]
-        print(f"📋 وضع Binance فقط: {len(active_symbols)} رمز كريبتو")
-
-    if profile.uses_mt5:
-        try:
-            from execution.mt5_bridge import get_mt5_bridge
-
-            get_mt5_bridge().ensure_connected()
-            print("✅ MT5 جاهز — فوركس من طرفية XM")
-        except Exception as exc:
-            print(f"⚠️ MT5 غير متصل للفوركس: {exc}")
-            logger.warning("MT5 warmup failed: %s", exc)
+    # وضع Binance فقط — لا فوركس/أسهم/MT5 أبداً
+    active_symbols = [
+        s for s in registry.active_pairs()
+        if not str(s).startswith(("FOREX/", "STOCK/"))
+    ]
+    print(f"📋 وضع Binance فقط: {len(active_symbols)} رمز كريبتو ({profile.label})")
 
     telegram_handler = TelegramCommandHandler(
         runtime=_runtime,
@@ -725,23 +698,12 @@ async def run_bot() -> None:
 
         if not _connection_monitor.heartbeat():
             provider = _connection_monitor.last_provider or "exchange"
-            profile = resolve_runtime_profile(settings)
-            # مع MT5: لا نوقف الدورة كلها — نكمل كريبتو + فوركس من الاحتياط
-            if profile.uses_mt5:
-                print(
-                    f"⚠️ ضعف اتصال {provider} — متابعة التحليل بالصادر الاحتياطي "
-                    f"({_connection_monitor.last_error or 'بدون تفصيل'})"
-                )
-                heartbeat = check_heartbeat_guard(_connection_monitor)
-                if heartbeat.should_emergency_flat:
-                    _emergency_flat_if_needed(heartbeat.reason, symbols)
-            else:
-                print(f"⚠️ انقطاع اتصال {provider} — تخطي هذه الدورة")
-                heartbeat = check_heartbeat_guard(_connection_monitor)
-                if heartbeat.should_emergency_flat:
-                    _emergency_flat_if_needed(heartbeat.reason, symbols)
-                await asyncio.sleep(settings.loop_interval_seconds)
-                continue
+            print(f"⚠️ انقطاع اتصال {provider} — تخطي هذه الدورة")
+            heartbeat = check_heartbeat_guard(_connection_monitor)
+            if heartbeat.should_emergency_flat:
+                _emergency_flat_if_needed(heartbeat.reason, symbols)
+            await asyncio.sleep(settings.loop_interval_seconds)
+            continue
 
         if _connection_monitor.is_disconnected():
             print(

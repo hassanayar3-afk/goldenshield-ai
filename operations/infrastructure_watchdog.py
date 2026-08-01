@@ -278,33 +278,32 @@ def check_recent_activity(container: str, stale_minutes: int) -> CheckResult:
 
 
 def check_windows_server(host: str, port: int) -> CheckResult:
-    loc = f"سيرفر Windows للتداول الحقيقي ({host})"
+    loc = f"سيرفر Windows لـ Binance Demo ({host})"
     ok, detail = _tcp_open(host, port)
     if ok:
         return CheckResult(
             "windows_rdp_ok",
-            "سيرفر Windows (MT5)",
+            "سيرفر Windows (Binance)",
             True,
             detail,
             diagnosis="منفذ Remote Desktop يستجيب — السيرفر يبدو شغّالاً.",
-            action="تأكد داخل السيرفر أن MT5 و00_START.bat مفتوحان.",
+            action="تأكد داخل السيرفر أن 00_START.bat مفتوح وBinance Demo يعمل.",
             location=loc,
         )
     return CheckResult(
         "windows_unreachable",
-        "سيرفر Windows (MT5)",
+        "سيرفر Windows (Binance)",
         False,
         detail,
         diagnosis=(
             "لا وصول لسيرفر Windows من المراقبة. غالباً: السيرفر مطفأ، أو RDP مغلق، "
-            "أو جدار ناري يمنع المنفذ. بدون هذا السيرفر لا يعمل التداول الحقيقي عبر XM/MT5."
+            "أو جدار ناري يمنع المنفذ. بدون هذا السيرفر لا يعمل بوت Binance Demo."
         ),
         action=(
             "1) افتح Windows Contabo من لوحة Contabo إن لزم\n"
             "2) ادخل RDP وتأكد أن الجهاز يعمل\n"
-            "3) افتح MetaTrader 5 وسجّل دخول XM\n"
-            "4) شغّل 00_START.bat واترك النافذة مفتوحة\n"
-            "5) عند الخروج: Disconnect وليس Log off"
+            "3) شغّل 00_START.bat واترك النافذة مفتوحة\n"
+            "4) عند الخروج: Disconnect وليس Log off"
         ),
         location=loc,
     )

@@ -285,12 +285,13 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         min_account_balance=float(risk.get("min_account_balance", 100.0)),
         monte_carlo_simulations=int(risk.get("monte_carlo_simulations", 1000)),
         monte_carlo_min_win_rate=float(risk.get("monte_carlo_min_win_rate", 0.35)),
-        mt5_login=os.getenv("MT5_LOGIN") or None,
-        mt5_password=os.getenv("MT5_PASSWORD") or None,
-        mt5_server=os.getenv("MT5_SERVER") or None,
-        mt5_broker=os.getenv("MT5_BROKER") or "XM",
-        execution_backend=str(os.getenv("EXECUTION_BACKEND") or "binance").strip().lower(),
-        # MetaTrader ملغى — يبقى الحقل للتوافق مع الاختبارات القديمة فقط
+        mt5_login=None,
+        mt5_password=None,
+        mt5_server=None,
+        mt5_broker=None,
+        # Binance فقط — أي قيمة EXECUTION_BACKEND أخرى تُتجاهل
+        execution_backend="binance",
+        # MetaTrader ملغى بالكامل — لا يُفعَّل حتى لو وُجد في .env
         mt5_enabled=False,
         trial_mode=os.getenv("TRIAL_MODE", str(trial.get("trial_mode", "false")))
         .strip()
@@ -302,18 +303,12 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        mt5_attach_sl_tp=os.getenv("MT5_ATTACH_SL_TP", str(trial.get("mt5_attach_sl_tp", "true")))
-        .strip()
-        .lower()
-        in {"1", "true", "yes", "on"},
+        mt5_attach_sl_tp=False,
         bot_admin_full_access=os.getenv("BOT_ADMIN_FULL_ACCESS", "true")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        bot_auto_sync_mt5=os.getenv("BOT_AUTO_SYNC_MT5", "false")
-        .strip()
-        .lower()
-        in {"1", "true", "yes", "on"},
+        bot_auto_sync_mt5=False,
         high_conviction_mode=os.getenv("HIGH_CONVICTION_MODE", "false")
         .strip()
         .lower()

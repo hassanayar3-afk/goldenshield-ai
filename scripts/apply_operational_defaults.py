@@ -32,7 +32,10 @@ PATCHES: dict[str, str] = {
     "STANDARD_BONUS_PROFILE": "false",
     "TRIAL_MODE": "false",
     "MAX_CONCURRENT_POSITIONS": "12",
-    "MT5_ATTACH_SL_TP": "true",
+    "BINANCE_DEMO_TRADING": "true",
+    "MT5_ENABLED": "false",
+    "BOT_AUTO_SYNC_MT5": "false",
+    "MT5_ATTACH_SL_TP": "false",
 }
 
 PLACEHOLDER_KEYS = (
@@ -90,7 +93,7 @@ def main() -> None:
     if marker not in "\n".join(out):
         out.append("")
         out.append(marker)
-        out.append("# Secrets (Binance/Telegram/MT5) left as-is; fill missing when ready.")
+        out.append("# Secrets (Binance/Telegram) left as-is; fill missing when ready.")
 
     ENV_PATH.write_text("\n".join(out) + "\n", encoding="utf-8")
     print("patched .env operational defaults (secrets preserved)")

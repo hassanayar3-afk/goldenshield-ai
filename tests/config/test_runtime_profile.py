@@ -12,7 +12,13 @@ def test_runtime_profile_ignores_mt5_backend(monkeypatch):
     monkeypatch.setenv("ENV", "dev")
     monkeypatch.setenv("EXECUTION_BACKEND", "mt5")
     monkeypatch.setenv("MT5_ENABLED", "true")
+    monkeypatch.setenv("BOT_AUTO_SYNC_MT5", "true")
+    monkeypatch.setenv("MT5_ATTACH_SL_TP", "true")
     settings = load_settings("dev", reload=True)
+    assert settings.mt5_enabled is False
+    assert settings.bot_auto_sync_mt5 is False
+    assert settings.mt5_attach_sl_tp is False
+    assert settings.execution_backend == "binance"
     profile = resolve_runtime_profile(settings)
     assert profile.uses_mt5 is False
     assert profile.execution_backend == "binance"
