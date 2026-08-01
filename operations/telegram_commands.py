@@ -242,24 +242,23 @@ class TelegramCommandHandler:
             self.telegram.answer_callback_query(callback_id, "غير مصرح", show_alert=True)
             return False
 
-        # دخول/إغلاق: لا نُفرغ الزر قبل النتيجة — حتى يظهر سبب الرفض بوضوح
-        needs_result_alert = data.startswith(("enter:", "close:", "act:close_all", "act:panic"))
+        # دائماً أجب فوراً حتى لا يبدو الزر «ميتاً»
+        try:
+            self.telegram.answer_callback_query(callback_id)
+        except Exception:
+            pass
 
         try:
-            if not needs_result_alert:
-                # أزل ساعة التحميل فوراً للأزرار الخفيفة
-                self.telegram.answer_callback_query(callback_id)
-
             view = self.dashboard.handle_callback(data)
 
-            if needs_result_alert:
-                # تنبيه منبثق مختصر + رسالة ثابتة (لا تُمسَح ببث الإشارات الحي)
-                alert_txt = _callback_alert_text(view.text)
-                self.telegram.answer_callback_query(
-                    callback_id,
-                    alert_txt,
-                    show_alert=True,
-                )
+            # أزرار التنقل/التشغيل: رسالة جديدة دائماً
+            # (لا نعدّل رسالة البث الحي وإلا تُمسَح خلال ثوانٍ)
+            nav_or_simple = data.startswith(
+                ("view:", "act:pause", "act:resume", "sym:", "pos:")
+            )
+            action_alert = data.startswith(("enter:", "close:", "act:close_all", "act:panic"))
+
+            if action_alert:
                 self.telegram.send_message(
                     view.text,
                     reply_markup=view.keyboard,
@@ -267,6 +266,17 @@ class TelegramCommandHandler:
                 )
                 return True
 
+            if nav_or_simple:
+                sent_id = self.telegram.send_message(
+                    view.text,
+                    reply_markup=view.keyboard,
+                    chat_id=chat_id or None,
+                )
+                if data == "view:positions" and isinstance(sent_id, int):
+                    self.dashboard.enable_live_positions(sent_id, chat_id or None)
+                return True
+
+            # افتراضي: حاول التعديل ثم أرسل جديداً
             ok = False
             if isinstance(message_id, int):
                 ok = self.telegram.edit_message_text(
@@ -276,27 +286,17 @@ class TelegramCommandHandler:
                     chat_id=chat_id or None,
                 )
             if not ok:
-                sent_id = self.telegram.send_message(
+                self.telegram.send_message(
                     view.text,
                     reply_markup=view.keyboard,
                     chat_id=chat_id or None,
                 )
-                if data == "view:positions" and isinstance(sent_id, int):
-                    self.dashboard.enable_live_positions(sent_id, chat_id or None)
-            elif data == "view:positions" and isinstance(message_id, int):
-                self.dashboard.enable_live_positions(message_id, chat_id or None)
             return True
         except Exception as exc:  # noqa: BLE001
             logger.exception("فشل معالجة زر Telegram (%s): %s", data, exc)
             try:
-                self.telegram.answer_callback_query(
-                    callback_id, f"فشل: {exc}"[:180], show_alert=True
-                )
-            except Exception:
-                pass
-            try:
                 self.telegram.send_message(
-                    f"⚠️ فشل زر <code>{data}</code>: {exc}",
+                    f"⚠️ فشل الزر: {exc}",
                     chat_id=chat_id or None,
                 )
             except Exception:

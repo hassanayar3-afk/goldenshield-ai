@@ -180,6 +180,15 @@ class TelegramDashboard:
         )
 
     def render_positions(self, *, live: bool = True) -> DashboardView:
+        # إن كانت الذاكرة فارغة — زامن من Binance مرة واحدة (سريع نسبياً)
+        if self.executor.position_manager.count() == 0:
+            try:
+                from execution.binance_position_sync import sync_binance_spot_positions
+
+                sync_binance_spot_positions(self.executor)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("positions auto-sync: %s", exc)
+
         positions = self.executor.position_manager.all()
         prices = dict(self.market.prices)
         symbols = [p.symbol for p in positions]
@@ -199,7 +208,12 @@ class TelegramDashboard:
             f"<i>يتحدّث السعر تلقائياً كل ~{interval} ثانية</i>\n\n"
         )
         body = format_positions_list(positions, prices)
-        text = header + body if positions else body
+        if not positions:
+            body = (
+                "لا توجد مراكز مسجّلة.\n"
+                "إذا عندك أرصدة على Binance Demo سيتم جلبها تلقائياً عند الضغط مجدداً."
+            )
+        text = header + body
         return DashboardView(
             text,
             positions_list_keyboard(positions, prices, live=True),
@@ -209,11 +223,11 @@ class TelegramDashboard:
         """فاصل تحديث بث المراكز الحي — افتراضي 1 ثانية."""
         import os
 
-        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "1").strip()
+        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "5").strip()
         try:
-            return max(1.0, float(raw or "1"))
+            return max(2.0, float(raw or "5"))
         except (TypeError, ValueError):
-            return 1.0
+            return 5.0
 
     def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
         self._live_positions_enabled = True
@@ -449,21 +463,9 @@ class TelegramDashboard:
             self.disable_live_positions()
             return self.render_market()
         if data == "view:positions":
-            try:
-                from execution.binance_position_sync import sync_binance_spot_positions
-
-                sync_binance_spot_positions(self.executor)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("positions sync on view: %s", exc)
             return self.render_positions(live=True)
         if data == "view:report":
             self.disable_live_positions()
-            try:
-                from execution.binance_position_sync import sync_binance_spot_positions
-
-                sync_binance_spot_positions(self.executor)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("report sync: %s", exc)
             return self.render_report()
         if data == "act:pause":
             self.runtime.pause()
