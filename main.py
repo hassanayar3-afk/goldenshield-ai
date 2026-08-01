@@ -411,6 +411,18 @@ async def check_symbol(symbol: str) -> dict | None:
             _audit.log_analysis_outcome(snapshot, result)
             return entry
 
+        # —— تبريد زوج بعد كشف فخاخ ظلّية ——
+        try:
+            from intelligence.shadow_stress_engine import symbol_is_cooled
+
+            cooled, cool_reason = symbol_is_cooled(symbol)
+            if cooled and result.signal in {"BUY SIGNAL", "SELL SIGNAL"}:
+                print(f"🧊 {symbol}: {cool_reason}")
+                _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+                return entry
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("symbol cooldown check: %s", exc)
+
         if result.signal == "REJECTED":
             print(f"⛔ {symbol} مرفوض — {result.reasons[0]}")
             _audit.log_analysis_outcome(snapshot, result)
@@ -479,6 +491,43 @@ async def check_symbol(symbol: str) -> dict | None:
         if not consensus.approved:
             _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
             return entry
+
+        # —— لجنة مخاطر + ماكرو (طبقات مضافة) ——
+        try:
+            from risk.macro_flow_gate import evaluate_macro_flow_gate
+            from risk.risk_committee import evaluate_risk_committee
+
+            macro = evaluate_macro_flow_gate(side=side, symbol=symbol)
+            if not macro.approved:
+                print(f"🌐 {symbol}: {macro.reason}")
+                _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+                return entry
+            committee = evaluate_risk_committee(
+                symbol=symbol,
+                side=side,
+                score=int(result.score),
+                signal=str(result.signal),
+                reasons=tuple(result.reasons or ()),
+            )
+            if not committee.approved:
+                print(f"🏛️ {symbol}: {committee.reason}")
+                _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+                return entry
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("risk committee/macro gate: %s", exc)
+
+        # —— ظل موازٍ قبل/مع التنفيذ ——
+        try:
+            from intelligence.shadow_stress_engine import maybe_register_shadow_hypothesis
+
+            maybe_register_shadow_hypothesis(
+                symbol=symbol,
+                signal=str(result.signal),
+                score=int(result.score),
+                price=float(result.price),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("shadow register: %s", exc)
 
         exec_result = _executor.try_open(
             result,
@@ -712,6 +761,17 @@ async def run_bot() -> None:
         # —— Priority 0: حماية رأس المال قبل أي أوامر دخول جديدة (v1.1.2) ——
         prices = _fetch_prices(symbols)
         prices = _run_priority0_protection(symbols, prices)
+
+        # —— ظلّ إجهاد: حسم الفرضيات المستحقة ——
+        try:
+            from intelligence.adaptive_weights import reinforce_from_shadow_pass
+            from intelligence.shadow_stress_engine import resolve_due_shadow_hypotheses
+
+            resolved = resolve_due_shadow_hypotheses(prices, alerts=_alerts)
+            if resolved:
+                reinforce_from_shadow_pass()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("shadow resolve: %s", exc)
 
         # —— عزل التنفيذ: إدارة المراكز لا تنتظر انتهاء تحليل كل الرموز ——
         try:

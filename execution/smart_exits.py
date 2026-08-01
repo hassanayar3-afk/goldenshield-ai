@@ -49,7 +49,7 @@ def _r_multiple(position: Position, price: float) -> float:
 
 
 def evaluate_multi_tier_tp(position: Position, current_price: float) -> SmartExitAction:
-    """40% @1:1 + BE → 40% @1:2 + trail → 20% runner."""
+    """30% @1:1 + BE → 40% @1:2 + trail → 30% runner."""
     if not _flag("multi_tier_tp_enabled", True):
         return SmartExitAction()
 
@@ -59,7 +59,7 @@ def evaluate_multi_tier_tp(position: Position, current_price: float) -> SmartExi
 
     r = _r_multiple(position, current_price)
     tier = int(getattr(position, "exit_tier", 0) or 0)
-    tp1 = _num("multi_tier_tp1_pct", 0.40)
+    tp1 = _num("multi_tier_tp1_pct", 0.30)
     tp2 = _num("multi_tier_tp2_pct", 0.40)
 
     # تقدير الحجم الأصلي: إن أُغلق جزء سابقاً نستخدم المبلغ الحالي + تقريبي
@@ -71,11 +71,11 @@ def evaluate_multi_tier_tp(position: Position, current_price: float) -> SmartExi
             new_stop_loss=position.entry_price,
             mark_breakeven=True,
             next_exit_tier=1,
-            reason="Multi-Tier TP1 40% @1:1 + Breakeven",
+            reason="Multi-Tier TP1 30% @1:1 + Breakeven",
         )
 
     if tier < 2 and r >= 2.0:
-        # 40% من الحجم الأصلي ≈ نسبة من المتبقي بعد إغلاق 40%: 0.4/0.6
+        # 40% من الحجم الأصلي ≈ نسبة من المتبقي بعد إغلاق 30%: 0.4/0.7
         remaining_frac = max(1.0 - tp1, 0.01)
         frac_of_remaining = min(1.0, tp2 / remaining_frac)
         amount = round(position.amount * frac_of_remaining, 8)

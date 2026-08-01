@@ -108,6 +108,14 @@ def score_signal(
     # Spread (1 نقطة)
     components["spread"] = 1 if spread.passed else 0
 
+    # أوزان تكيفية خفيفة (طبقة مضافة — لا تكسر عند الفشل)
+    try:
+        from intelligence.adaptive_weights import apply_weight_multipliers
+
+        components = apply_weight_multipliers(components)
+    except Exception:
+        pass
+
     total = min(SIGNAL_MAX_SCORE, sum(components.values()))
     passed = meets_signal_minimum(total)
 

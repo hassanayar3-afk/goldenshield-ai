@@ -829,6 +829,19 @@ class TradeExecutor:
                     structural_trail_sl,
                 )
 
+                # خروج استباقي اختياري (default off)
+                try:
+                    from execution.momentum_preemptive_exit import (
+                        evaluate_momentum_preemptive_exit,
+                    )
+
+                    mom = evaluate_momentum_preemptive_exit(position, current)
+                    if mom.should_exit:
+                        self._close_position(position, current, mom.reason)
+                        continue
+                except Exception as mom_exc:  # noqa: BLE001
+                    logger.debug("momentum preemptive: %s", mom_exc)
+
                 smart = evaluate_multi_tier_tp(position, current)
                 if smart.partial_exit_amount > 0 or smart.new_stop_loss is not None:
                     if smart.new_stop_loss is not None and smart.mark_breakeven:
@@ -1018,6 +1031,28 @@ class TradeExecutor:
         )
         self._persist_close_trade(position.id, price, pnl)
         self._notify_close(position.symbol, pnl, reason)
+
+        # —— صندوق أسود للخسائر (طبقة مضافة) ——
+        try:
+            if pnl < 0:
+                from intelligence.black_box_logger import record_losing_trade_blackbox
+
+                side_txt = "buy" if position.side == OrderSide.BUY else "sell"
+                record_losing_trade_blackbox(
+                    symbol=position.symbol,
+                    side=side_txt,
+                    entry_price=float(position.entry_price),
+                    exit_price=float(price),
+                    pnl=float(pnl),
+                    reason=reason,
+                    indicators={
+                        "signal_score": int(getattr(position, "signal_score", 0) or 0),
+                        "filters": str(getattr(position, "entry_filters", "") or ""),
+                    },
+                    alerts=self.alerts,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("blackbox on close: %s", exc)
 
         try:
             from operations.smart_trade_report import (
