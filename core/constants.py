@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import os
+
 # الأطر الزمنية المعتمدة في النظام
 TIMEFRAMES: tuple[str, ...] = ("15m", "1h", "4h")
 
@@ -132,7 +136,11 @@ HEARTBEAT_TIMEOUT_SECONDS: int = 180
 MAX_SPREAD_PCT: float = 0.15
 RSI_PERIOD: int = 14
 ATR_PERIOD: int = 14
-OHLCV_ANALYSIS_LIMIT: int = 50
+# عدد شموع التحليل — يمكن رفعه عبر OHLCV_ANALYSIS_LIMIT في البيئة (حد أدنى 50)
+try:
+    OHLCV_ANALYSIS_LIMIT: int = max(50, int(os.getenv("OHLCV_ANALYSIS_LIMIT", "100")))
+except (TypeError, ValueError):
+    OHLCV_ANALYSIS_LIMIT = 100
 
 # الذكاء الهجين — مرجع فقط
 NEWS_BLACKOUT_MINUTES: int = 5

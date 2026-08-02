@@ -2,7 +2,7 @@ from core.constants import meets_signal_minimum
 from core.technical.fvg_detector import FVGResult, FVGType, FairValueGap
 from core.technical.manipulation_guard import ManipulationGuardResult
 from core.technical.mean_reversion import MeanReversionResult, ReversionSignal
-from core.technical.signal_scorer import is_trade_allowed, score_signal
+from core.technical.signal_scorer import ScoreBreakdown, is_trade_allowed, score_signal
 from core.technical.smc_analyzer import MarketStructure, SMCResult
 from core.technical.spread_filter import SpreadFilterResult
 from core.technical.timeframe_aligner import TimeframeAlignment, TrendDirection
@@ -104,3 +104,46 @@ def test_is_trade_allowed_requires_score_and_alignment():
 
     weak_alignment = TimeframeAlignment(False, TrendDirection.NEUTRAL, {})
     assert is_trade_allowed(score, weak_alignment, smc) is False
+
+
+def test_directional_scoring_ignores_counter_trend_components(monkeypatch):
+    monkeypatch.setenv("DIRECTIONAL_COMPONENT_SCORING", "true")
+    alignment = TimeframeAlignment(
+        aligned=True,
+        direction=TrendDirection.BULLISH,
+        per_timeframe={
+            "15m": TrendDirection.BULLISH,
+            "1h": TrendDirection.BULLISH,
+            "4h": TrendDirection.BULLISH,
+        },
+    )
+    score = score_signal(
+        alignment=alignment,
+        smc=SMCResult(MarketStructure.BEARISH, True, False, True, 100, 90),
+        fvg=FVGResult(
+            gaps=(
+                FairValueGap(
+                    gap_type=FVGType.BEARISH,
+                    top=105.0,
+                    bottom=103.0,
+                    candle_index=10,
+                ),
+            ),
+            has_active_gap=True,
+            nearest_gap=FairValueGap(
+                gap_type=FVGType.BEARISH,
+                top=105.0,
+                bottom=103.0,
+                candle_index=10,
+            ),
+        ),
+        volume=VolumeAnalysis(VolumeBias.BEARISH, 100, 1000, True, True),
+        mean_reversion=MeanReversionResult(ReversionSignal.SELL, 70, 100, 1.5, True),
+        spread=SpreadFilterResult(True, 0.05, "ok"),
+        manipulation=ManipulationGuardResult(False, "clean", False),
+    )
+    assert score.components.get("smc", 0) == 0
+    assert score.components.get("fvg", 0) == 0
+    assert score.components.get("volume", 0) == 0
+    assert score.components.get("mean_reversion", 0) == 0
+    assert any("تجاهل" in r for r in score.reasons)

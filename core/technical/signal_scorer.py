@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from core.constants import SIGNAL_MAX_SCORE, SIGNAL_MIN_PERCENT, meets_signal_minimum, score_to_percent
@@ -20,6 +21,20 @@ class ScoreBreakdown:
     reasons: tuple[str, ...]
 
 
+def _directional_scoring_enabled() -> bool:
+    """طبقة مضافة: لا تحتسب نقاطاً ضد اتجاه الأطر. افتراضي مفعّل."""
+    raw = os.getenv("DIRECTIONAL_COMPONENT_SCORING", "true").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _aligned_bull(alignment: TimeframeAlignment) -> bool:
+    return alignment.aligned and alignment.direction == TrendDirection.BULLISH
+
+
+def _aligned_bear(alignment: TimeframeAlignment) -> bool:
+    return alignment.aligned and alignment.direction == TrendDirection.BEARISH
+
+
 def score_signal(
     *,
     alignment: TimeframeAlignment,
@@ -32,6 +47,7 @@ def score_signal(
 ) -> ScoreBreakdown:
     components: dict[str, int] = {}
     reasons: list[str] = []
+    directional = _directional_scoring_enabled()
 
     if manipulation.is_suspicious:
         return ScoreBreakdown(
@@ -57,51 +73,81 @@ def score_signal(
         components["timeframe_alignment"] = 0
         reasons.append("عدم توافق الأطر الزمنية")
 
-    # SMC (2 نقطة)
+    bull = _aligned_bull(alignment)
+    bear = _aligned_bear(alignment)
+
+    # SMC (2 نقطة) — فقط إن وافق الاتجاه عند تفعيل الطبقة
     smc_points = 0
-    if smc.bos:
-        smc_points += 1
-        reasons.append("BOS مؤكد")
-    if smc.order_block:
-        smc_points += 1
-        reasons.append("Order Block نشط")
+    smc_dir_ok = True
+    if directional and alignment.aligned:
+        if bull and smc.structure == MarketStructure.BEARISH:
+            smc_dir_ok = False
+        elif bear and smc.structure == MarketStructure.BULLISH:
+            smc_dir_ok = False
+    if smc_dir_ok:
+        if smc.bos:
+            smc_points += 1
+            reasons.append("BOS مؤكد")
+        if smc.order_block:
+            smc_points += 1
+            reasons.append("Order Block نشط")
+    elif smc.bos or smc.order_block:
+        reasons.append("تجاهل SMC المخالف لاتجاه الأطر")
     components["smc"] = smc_points
 
-    # FVG (1 نقطة)
+    # FVG (1 نقطة) — فقط مع الاتجاه
     if fvg.has_active_gap and fvg.nearest_gap is not None:
-        if fvg.nearest_gap.gap_type == FVGType.BULLISH:
+        gap = fvg.nearest_gap.gap_type
+        if gap == FVGType.BULLISH and (not directional or bull):
             components["fvg"] = 1
             reasons.append("FVG صاعد")
-        elif fvg.nearest_gap.gap_type == FVGType.BEARISH:
+        elif gap == FVGType.BEARISH and (not directional or bear):
             components["fvg"] = 1
             reasons.append("FVG هابط")
         else:
             components["fvg"] = 0
+            if directional and alignment.aligned:
+                reasons.append("تجاهل FVG المخالف للاتجاه")
     else:
         components["fvg"] = 0
 
-    # Mean Reversion (2 نقطة)
+    # Mean Reversion (2 نقطة) — فقط مع الاتجاه
     if mean_reversion.is_setup and mean_reversion.signal == ReversionSignal.BUY:
-        components["mean_reversion"] = 2
-        reasons.append("إعداد ارتداد للمتوسط (شراء)")
+        if not directional or bull:
+            components["mean_reversion"] = 2
+            reasons.append("إعداد ارتداد للمتوسط (شراء)")
+        else:
+            components["mean_reversion"] = 0
+            reasons.append("تجاهل ارتداد شراء ضد الاتجاه")
     elif mean_reversion.is_setup and mean_reversion.signal == ReversionSignal.SELL:
-        components["mean_reversion"] = 2
-        reasons.append("إعداد ارتداد للمتوسط (بيع)")
+        if not directional or bear:
+            components["mean_reversion"] = 2
+            reasons.append("إعداد ارتداد للمتوسط (بيع)")
+        else:
+            components["mean_reversion"] = 0
+            reasons.append("تجاهل ارتداد بيع ضد الاتجاه")
     elif mean_reversion.is_setup:
-        components["mean_reversion"] = 1
+        # إعداد بلا اتجاه واضح — لا يُحتسب عند الطبقة الاتجاهية
+        components["mean_reversion"] = 0 if directional else 1
         reasons.append("إعداد ارتداد للمتوسط")
     else:
         components["mean_reversion"] = 0
 
-    # Volume (1 نقطة)
+    # Volume (1 نقطة) — فقط مع الاتجاه
     if volume.high_volume_zone and volume.bias == VolumeBias.BULLISH:
-        components["volume"] = 1
-        reasons.append("تأكيد حجم صاعد")
+        if not directional or bull:
+            components["volume"] = 1
+            reasons.append("تأكيد حجم صاعد")
+        else:
+            components["volume"] = 0
+            reasons.append("تجاهل حجم صاعد ضد الاتجاه")
     elif volume.high_volume_zone and volume.bias == VolumeBias.BEARISH:
-        components["volume"] = 1
-        reasons.append("تأكيد حجم هابط")
-    elif volume.high_volume_zone:
-        components["volume"] = 0
+        if not directional or bear:
+            components["volume"] = 1
+            reasons.append("تأكيد حجم هابط")
+        else:
+            components["volume"] = 0
+            reasons.append("تجاهل حجم هابط ضد الاتجاه")
     else:
         components["volume"] = 0
 
