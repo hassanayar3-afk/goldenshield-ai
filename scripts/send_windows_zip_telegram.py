@@ -77,7 +77,7 @@ def main() -> int:
         "1) من داخل السيرفر افتح Edge → web.telegram.org\n"
         "2) سجل دخولك وافتح محادثة البوت\n"
         "3) حمّل هذا الملف zip\n"
-        "4) فكّه إلى المجلد C:\\GoldenShield\n"
+        "4) فكّه إلى المجلد C:\\GoldenShield_Binance\n"
         "5) ميتاتريدر مفتوح ومسجّل دخول\n"
         "6) شغّل الملف START_WINDOWS.bat"
     )

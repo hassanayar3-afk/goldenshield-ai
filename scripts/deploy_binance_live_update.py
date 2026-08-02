@@ -49,35 +49,26 @@ def run(ssh: paramiko.SSHClient, cmd: str, timeout: int = 180) -> tuple[int, str
 
 
 def find_bot_root(ssh: paramiko.SSHClient) -> str:
-    # سطر واحد PowerShell لتجنب مشاكل الاقتباس
-    cmd = (
+    """المسار الرسمي فقط — لا Downloads ولا C:\\GoldenShield."""
+    from scripts.vps_official import OFFICIAL_ROOT_STR, assert_official_only
+
+    root = assert_official_only("deploy_binance_live_update")
+    _, text = run(
+        ssh,
         "powershell -NoProfile -Command "
-        "\"$c=@(); "
-        "if(Test-Path 'C:\\GoldenShield\\main.py'){$c+='C:\\GoldenShield'}; "
-        "Get-ChildItem 'C:\\Users\\Administrator\\Downloads\\Telegram Desktop' -Directory -EA SilentlyContinue | "
-        "ForEach-Object { if(Test-Path (Join-Path $_.FullName 'main.py')){ $c+=$_.FullName } }; "
-        "Get-ChildItem 'C:\\Users\\Administrator\\Downloads' -Directory -EA SilentlyContinue | "
-        "ForEach-Object { if(Test-Path (Join-Path $_.FullName 'main.py')){ $c+=$_.FullName } }; "
-        "($c | Select-Object -First 1)\""
+        f"\"if (Test-Path '{root}\\main.py') {{ '{root}' }} else {{ 'MISSING' }}\"",
     )
-    _, text = run(ssh, cmd)
-    for line in text.splitlines():
-        line = line.strip().strip('"')
-        if line.lower().startswith("c:") and "main.py" not in line.lower():
-            return line
-    # بحث أوسع
-    cmd2 = (
-        "powershell -NoProfile -Command "
-        "\"Get-ChildItem -Path C:\\Users\\Administrator -Recurse -Filter main.py -EA SilentlyContinue | "
-        "Where-Object { $_.DirectoryName -match 'GoldenShield' } | "
-        "Select-Object -First 5 -ExpandProperty DirectoryName\""
-    )
-    _, text2 = run(ssh, cmd2, timeout=300)
-    for line in text2.splitlines():
-        line = line.strip()
-        if line.lower().startswith("c:"):
-            return line
-    raise SystemExit(f"bot root not found:\n{text}\n{text2}")
+    if "MISSING" in text.upper() or root not in text:
+        # ما زلنا نُلزم الرسمي إن وُجد KEEP_ROOT
+        _, text2 = run(
+            ssh,
+            "powershell -NoProfile -Command "
+            f"\"if (Test-Path '{KEEP_ROOT}\\main.py') {{ '{KEEP_ROOT}' }} else {{ 'MISSING' }}\"",
+        )
+        if KEEP_ROOT in text2:
+            return KEEP_ROOT
+        raise SystemExit(f"official bot root missing: {OFFICIAL_ROOT_STR}\n{text}\n{text2}")
+    return root
 
 
 def patch_env(ssh: paramiko.SSHClient, root: str) -> None:

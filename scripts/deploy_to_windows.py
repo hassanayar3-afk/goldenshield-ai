@@ -21,7 +21,7 @@ load_dotenv(ROOT / ".env", override=True)
 HOST = os.environ.get("WIN_HOST", "169.58.15.36")
 USER = os.environ.get("WIN_USER", "Administrator")
 PASSWORD = os.environ.get("WIN_PASSWORD", "")
-REMOTE_DIR = r"C:\GoldenShield"
+REMOTE_DIR = r"C:\GoldenShield_Binance"
 
 EXCLUDE_DIRS = {".venv", "__pycache__", ".git", ".pytest_cache", ".mypy_cache", ".cursor", "htmlcov", "tests", ".github", "docs", "saas"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".log"}
@@ -132,7 +132,7 @@ def main() -> int:
     run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py scripts\bootstrap_storage.py"', timeout=120)
 
     ssh.close()
-    print("WINDOWS_DEPLOY_DONE C:\\GoldenShield")
+    print("WINDOWS_DEPLOY_DONE C:\\GoldenShield_Binance")
     return 0
 
 

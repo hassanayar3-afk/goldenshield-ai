@@ -59,7 +59,7 @@ def main() -> int:
     readme = (
         "GOLDENSHIELD — Windows MT5 (حزمة تثبيت كاملة)\r\n"
         "========================================\r\n"
-        "1) Extract All الى C:\\GoldenShield\r\n"
+        "1) Extract All الى C:\\GoldenShield_Binance\r\n"
         "2) شغّل فحص_المجلد_CHECK.bat\r\n"
         "3) افتح XM MT5 وسجّل دخول يدوياً\r\n"
         "4) شغّل 00_فحص_MT5.bat واتبع التعليمات\r\n"
@@ -111,7 +111,7 @@ def main() -> int:
         "🛡️ GOLDENSHIELD — حزمة تثبيت ZIP كاملة\r\n"
         f"الملف: GOLDENSHIELD_MT5_WINDOWS.zip ({size_mb:.1f} MB)\r\n"
         "✅ قانون حديدي + حماية SL/TP + Auto≥95 + R:R 1:3\r\n\r\n"
-        "1) Extract All الى C:\\GoldenShield\r\n"
+        "1) Extract All الى C:\\GoldenShield_Binance\r\n"
         "2) فحص_المجلد_CHECK.bat\r\n"
         "3) افتح XM MT5 وسجّل دخول\r\n"
         "4) 00_START.bat\r\n"

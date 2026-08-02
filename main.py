@@ -601,11 +601,11 @@ async def run_bot() -> None:
         sys.exit(0)
 
     try:
-        from operations.single_instance import acquire_single_instance_lock
+        from operations.single_instance import ensure_singleton_or_exit
 
-        if not acquire_single_instance_lock():
-            print("🛑 بوت آخر يعمل بالفعل — أوقف النسخ المكررة ثم أعد التشغيل.")
-            sys.exit(0)
+        ensure_singleton_or_exit()
+    except SystemExit:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.warning("single instance lock: %s", exc)
 

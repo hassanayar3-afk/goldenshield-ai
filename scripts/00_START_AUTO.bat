@@ -1,13 +1,22 @@
 @echo off
 title GoldenShield Supervisor
-cd /d "%~dp0"
-set PYTHONPATH=%~dp0
-set PYTHONIOENCODING=utf-8
+REM Always run from repo root (parent of scripts\), never from scripts\ itself
+cd /d "%~dp0.."
+set "PYTHONPATH=%CD%"
+set "PYTHONIOENCODING=utf-8"
+set "GOLDENSHIELD_OFFICIAL_ROOT=C:\GoldenShield_Binance"
 
 echo === GoldenShield — تشغيل تلقائي مع إعادة التشغيل ===
+echo Folder: %CD%
 echo عند انقطاع النت او توقف غير مقصود: يعيد التشغيل تلقائيا
 echo للايقاف الكامل: 00_STOP.bat او زر الطوارئ في تيليجرام
 echo.
+
+if not exist "main.py" (
+  echo [ERROR] main.py not found. Run from project root or use C:\GoldenShield_Binance\00_START.bat
+  pause
+  exit /b 1
+)
 
 py -m pip install -r requirements.txt -q 2>nul
 if not exist storage\db\backups mkdir storage\db\backups

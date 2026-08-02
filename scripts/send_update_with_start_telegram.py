@@ -107,7 +107,7 @@ README = """GoldenShield — حزمة تحديث مع ملفات START
 5) bash 00_APPLY_AND_RESTART.sh
 
 ======= Windows MT5 =======
-1) Extract All إلى مجلد المشروع (أو C:\\GoldenShield)
+1) Extract All إلى مجلد المشروع (أو C:\\GoldenShield_Binance)
 2) شغّل فحص_المجلد_CHECK.bat
 3) شغّل 00_START.bat
 """

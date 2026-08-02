@@ -1,22 +1,15 @@
 @echo off
-title GoldenShield - تثبيت التشغيل التلقائي
+title GoldenShield - Autostart policy
 cd /d "%~dp0"
 
-echo === تثبيت تشغيل GoldenShield تلقائياً مع Windows ===
-echo يشغّل: قاعدة البيانات + بوت Binance
+echo === GoldenShield Autostart ===
+echo Duplicate WindowsBoot registration is DISABLED.
+echo Use ONE starter only:
+echo   - Task: GoldenShieldBotOfficial
+echo   - Or:   C:\GoldenShield_Binance\00_START.bat
 echo.
-echo يتطلب صلاحيات مسؤول...
+echo Unregistering legacy task GoldenShield_WindowsBoot (if any)...
+powershell -ExecutionPolicy Bypass -File "%~dp0deployment\unregister_autostart.ps1" 2>nul
 echo.
-
-powershell -ExecutionPolicy Bypass -File "%~dp0deployment\register_autostart.ps1"
-if errorlevel 1 (
-  echo.
-  echo فشل — شغّل هذا الملف بزر يمين ^> Run as administrator
-  pause
-  exit /b 1
-)
-
-echo.
-echo تم التثبيت. عند اعادة تشغيل Windows سيبدأ GoldenShield تلقائياً.
-echo للتعطيل: deployment\unregister_autostart.ps1
+echo Done. Do NOT install a second autostart task.
 pause
