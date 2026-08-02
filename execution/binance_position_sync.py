@@ -34,7 +34,7 @@ def _dust(asset: str) -> float:
 
 
 def sync_binance_spot_positions(executor) -> list[str]:
-    """يعيد قائمة الرموز التي أُضيفت/حُدّثت."""
+    """يعيد قائمة الرموز التي أُضيفت/حُدّثت/أُغلقت بالمزامنة."""
     added: list[str] = []
     try:
         settings = get_settings()
@@ -53,6 +53,7 @@ def sync_binance_spot_positions(executor) -> list[str]:
         free = bal.get("free") or {}
 
         pairs = set(getattr(settings, "trading_pairs", ()) or ())
+        seen_symbols: set[str] = set()
         for asset, qty_raw in total.items():
             asset_u = str(asset).upper()
             if asset_u in _STABLES:
@@ -73,6 +74,7 @@ def sync_binance_spot_positions(executor) -> list[str]:
                 if f"{asset_u}/USDT" not in {"BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "ADA/USDT", "XRP/USDT", "LTC/USDT", "DOT/USDT", "AVAX/USDT", "LINK/USDT", "ATOM/USDT", "DOGE/USDT", "TRX/USDT", "POL/USDT"}:
                     continue
 
+            seen_symbols.add(symbol)
             if executor.position_manager.has(symbol):
                 # حدّث الكمية إن اختلفت كثيراً
                 pos = executor.position_manager.get(symbol)
@@ -121,10 +123,66 @@ def sync_binance_spot_positions(executor) -> list[str]:
                 qty,
                 entry,
             )
+
+        # مراكز في البوت بلا رصيد على المنصة = أُغلقت خارج التسجيل → سجّل الإغلاق
+        for pos in list(executor.position_manager.all()):
+            if pos.symbol in seen_symbols:
+                continue
+            base = pos.symbol.split("/", 1)[0].upper()
+            try:
+                qty_left = float((total.get(base) or 0.0) or 0.0)
+            except (TypeError, ValueError):
+                qty_left = 0.0
+            if qty_left > _dust(base):
+                continue
+            exit_px, pnl = _reconcile_ghost_close(exchange, pos)
+            try:
+                executor.position_manager.remove(pos.symbol)
+                if hasattr(executor, "risk") and executor.risk is not None:
+                    try:
+                        executor.risk.record_closed_trade(pnl)
+                    except Exception:
+                        pass
+                executor._persist_close_trade(pos.id, exit_px, pnl)  # noqa: SLF001
+                added.append(f"{pos.symbol}:closed_ghost")
+                logger.warning(
+                    "إغلاق شبحي بالمزامنة: %s exit≈%.6f pnl=%.4f (رصيد المنصة صفر)",
+                    pos.symbol,
+                    exit_px,
+                    pnl,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("ghost close %s: %s", pos.symbol, exc)
+
         return added
     except Exception as exc:  # noqa: BLE001
         logger.warning("sync_binance_spot_positions: %s", exc)
         return added
+
+
+def _reconcile_ghost_close(exchange, pos) -> tuple[float, float]:
+    """يستنتج سعر الخروج وPnL من آخر بيع على المنصة."""
+    exit_px = float(pos.entry_price or 0.0)
+    try:
+        trades = exchange.fetch_my_trades(pos.symbol, limit=30) or []
+        sells = [t for t in trades if str(t.get("side", "")).lower() == "sell"]
+        if sells:
+            last = sells[-1]
+            exit_px = float(last.get("price") or exit_px)
+    except Exception:
+        try:
+            t = exchange.fetch_ticker(pos.symbol)
+            exit_px = float(t.get("last") or t.get("close") or exit_px)
+        except Exception:
+            pass
+    amount = float(pos.amount or 0.0)
+    entry = float(pos.entry_price or 0.0)
+    side = getattr(pos.side, "value", str(pos.side)).lower()
+    if side == "buy":
+        pnl = (exit_px - entry) * amount
+    else:
+        pnl = (entry - exit_px) * amount
+    return exit_px, float(pnl)
 
 
 def _lookup_signal_score(executor, symbol: str) -> int:

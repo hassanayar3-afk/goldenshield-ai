@@ -1,0 +1,12 @@
+=== CWD OF BOT ===
+PID=5612
+C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe  -u main.py
+Path=C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe
+AVAX_TRADES 2
+2026-08-01T18:42:34.555Z buy 2.86 6.231 17.82066
+2026-08-01T18:50:04.165Z sell 2.86 6.044 17.28584
+AVAX_BAL {'free': 0.0, 'used': 0.0, 'total': 0.0}
+FLOATING=268.44 PCT=5.41 COUNT=7
+SENT_POS 3855
+SENT_MENU 3856
+

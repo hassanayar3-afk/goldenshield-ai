@@ -1141,6 +1141,36 @@ class TradeExecutor:
 
         return actions
 
+    def _spot_base_is_flat(self, symbol: str) -> bool:
+        """True إذا لم يعد هناك رصيد للأصل على Spot (صفقة أُغلقت خارج التسجيل)."""
+        try:
+            settings = get_settings()
+            if settings.execution_mode != "live" and not bool(
+                getattr(settings, "binance_demo_trading", False)
+            ):
+                return False
+            exchange = get_exchange()
+            bal = exchange.fetch_balance() or {}
+            base = symbol.split("/", 1)[0].upper()
+            asset = bal.get(base) or {}
+            total = float(
+                asset.get("total") if isinstance(asset, dict) else (asset or 0.0)
+            )
+            dust = {
+                "BTC": 1e-6,
+                "ETH": 1e-5,
+                "BNB": 1e-4,
+                "SOL": 1e-3,
+                "ADA": 1.0,
+                "XRP": 1.0,
+                "LTC": 1e-3,
+                "AVAX": 0.01,
+            }.get(base, 0.01)
+            return total <= dust
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("_spot_base_is_flat %s: %s", symbol, exc)
+            return False
+
     def _close_position(self, position: Position, price: float, reason: str) -> None:
         if position.side == OrderSide.BUY:
             pnl = (price - position.entry_price) * position.amount
@@ -1149,13 +1179,33 @@ class TradeExecutor:
             pnl = (position.entry_price - price) * position.amount
             exit_side = OrderSide.BUY
 
-        self.order_manager.create_market_order(
-            position.symbol,
-            exit_side,
-            position.amount,
-            reference_price=price,
-            allow_without_stops=True,
-        )
+        order_ok = False
+        try:
+            self.order_manager.create_market_order(
+                position.symbol,
+                exit_side,
+                position.amount,
+                reference_price=price,
+                allow_without_stops=True,
+            )
+            order_ok = True
+        except Exception as exc:  # noqa: BLE001
+            # إن كان الرصيد على المنصة صفراً فالصفقات أُغلقت فعلياً دون تسجيل
+            already_flat = self._spot_base_is_flat(position.symbol)
+            if already_flat:
+                logger.warning(
+                    "إغلاق %s: الأمر فشل لكن الرصيد صفر على المنصة — تسجيل الإغلاق | %s",
+                    position.symbol,
+                    exc,
+                )
+                order_ok = True
+            else:
+                logger.exception("فشل أمر إغلاق %s: %s", position.symbol, exc)
+                raise
+
+        if not order_ok:
+            return
+
         self.position_manager.remove(position.symbol)
         self.risk.record_closed_trade(pnl)
         self.risk.record_hc_trade_close(

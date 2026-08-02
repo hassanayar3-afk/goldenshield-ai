@@ -396,20 +396,64 @@ def format_daily_report_telegram(
     net = state.daily_net_pnl
     net_sign = "+" if net >= 0 else ""
 
-    return "\n".join(
+    floating_line = ""
+    try:
+        from operations.dashboard_templates import compute_open_floating_pnl
+
+        positions = list(executor.position_manager.all())
+        prices: dict[str, float] = {}
+        for pos in positions:
+            prices[pos.symbol] = float(pos.entry_price or 0.0)
+        # أفضل تقدير: أسعار من البوت إن وُجدت لاحقاً عبر الداشبورد
+        floating, fpct = compute_open_floating_pnl(positions, prices)
+        if open_positions > 0:
+            # حدّث بأسعار السوق إن أمكن بسرعة
+            try:
+                from data.exchange_client import get_exchange
+
+                ex = get_exchange()
+                for pos in positions:
+                    try:
+                        t = ex.fetch_ticker(pos.symbol)
+                        prices[pos.symbol] = float(
+                            t.get("last") or t.get("close") or prices[pos.symbol]
+                        )
+                    except Exception:
+                        pass
+                floating, fpct = compute_open_floating_pnl(positions, prices)
+            except Exception:
+                pass
+            fsign = "+" if floating >= 0 else ""
+            ficon = "🟢" if floating >= 0 else "🔴"
+            floating_line = (
+                f"{ficon} عائم المراكز المفتوحة: <b>{fsign}{floating:,.2f} $</b> "
+                f"({fsign}{fpct:.2f}%)"
+            )
+    except Exception:
+        floating_line = ""
+
+    lines = [
+        _header("تقرير اليوم"),
+        f"📅 <b>{today.isoformat()}</b>",
+        "",
+        f"💰 رصيدك: {_money(state.current_balance)}",
+        f"🟢 ربح اليوم (مغلق): <b>+{state.daily_profit:,.2f} $</b>",
+        f"🔴 خسارة اليوم (مغلق): <b>-{state.daily_loss:,.2f} $</b>",
+        f"{pnl_icon} صافي المغلق: <b>{net_sign}{net:,.2f} $</b> "
+        f"({pnl_sign}{state.daily_pnl_pct:.2f}%)",
+    ]
+    if floating_line:
+        lines.append(floating_line)
+    lines.extend(
         [
-            _header("تقرير اليوم"),
-            f"📅 <b>{today.isoformat()}</b>",
-            "",
-            f"💰 رصيدك: {_money(state.current_balance)}",
-            f"🟢 ربح اليوم: <b>+{state.daily_profit:,.2f} $</b>",
-            f"🔴 خسارة اليوم: <b>-{state.daily_loss:,.2f} $</b>",
-            f"{pnl_icon} صافي اليوم: <b>{net_sign}{net:,.2f} $</b> "
-            f"({pnl_sign}{state.daily_pnl_pct:.2f}%)",
             f"🔄 صفقات اليوم: <b>{state.daily_trades}</b>",
             f"📂 صفقات مفتوحة: <b>{open_positions}</b>",
+            "",
+            "<i>ملاحظة: التقرير يعرض الربح/الخسارة المحققة بعد الإغلاق. "
+            "العائم يتغيّر مع السعر حتى تُغلق الصفقة.</i>",
         ]
     )
+    return "\n".join(lines)
 
 
 def format_status_message(

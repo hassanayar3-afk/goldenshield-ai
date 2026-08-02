@@ -1,0 +1,183 @@
+=== PROCS ===
+BOT_PROCS=2
+PID=5572 NAME=py.exe
+"py"  -u main.py
+PID=5612 NAME=python.exe
+C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe  -u main.py
+USER_STOPPED=False
+=== LOG TAIL ===
+�o. ETH/USDT | OU,O3O1O�: 1876.49 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. LINK/USDT | OU,O3O1O�: 8.36 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. LTC/USDT | OU,O3O1O�: 44.66 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. POL/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. SOL/USDT | OU,O3O1O�: 73.51 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. TRX/USDT | OU,O3O1O�: 0.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. XRP/USDT | OU,O3O1O�: 1.08 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+dY"S U.O�OU�O� U.U?O�U^O-Oc: 7 | O3O�U,OO� O�O_U,USU,: 12697
+--- dY", O�O-O_USO� OU,O_U^O�Oc OU�O�U.U,. OU+O�O,OO� 15 O�OU+USOc... ---
+�o. ADA/USDT | OU,O3O1O�: 0.19 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ATOM/USDT | OU,O3O1O�: 1.25 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. AVAX/USDT | OU,O3O1O�: 6.62 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. BNB/USDT | OU,O3O1O�: 584.08 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. BTC/USDT | OU,O3O1O�: 63444.70 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. DOGE/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. DOT/USDT | OU,O3O1O�: 0.80 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ETH/USDT | OU,O3O1O�: 1876.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. LINK/USDT | OU,O3O1O�: 8.36 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. LTC/USDT | OU,O3O1O�: 44.67 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. POL/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. SOL/USDT | OU,O3O1O�: 73.50 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. TRX/USDT | OU,O3O1O�: 0.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. XRP/USDT | OU,O3O1O�: 1.08 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+dY"S U.O�OU�O� U.U?O�U^O-Oc: 7 | O3O�U,OO� O�O_U,USU,: 12711
+--- dY", O�O-O_USO� OU,O_U^O�Oc OU�O�U.U,. OU+O�O,OO� 15 O�OU+USOc... ---
+�o. ADA/USDT | OU,O3O1O�: 0.19 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ATOM/USDT | OU,O3O1O�: 1.25 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. AVAX/USDT | OU,O3O1O�: 6.62 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. BNB/USDT | OU,O3O1O�: 584.09 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. BTC/USDT | OU,O3O1O�: 63456.00 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. DOGE/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. DOT/USDT | OU,O3O1O�: 0.80 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ETH/USDT | OU,O3O1O�: 1876.46 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. LINK/USDT | OU,O3O1O�: 8.36 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. LTC/USDT | OU,O3O1O�: 44.68 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. POL/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. SOL/USDT | OU,O3O1O�: 73.52 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. TRX/USDT | OU,O3O1O�: 0.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. XRP/USDT | OU,O3O1O�: 1.08 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+dY"S U.O�OU�O� U.U?O�U^O-Oc: 7 | O3O�U,OO� O�O_U,USU,: 12725
+--- dY", O�O-O_USO� OU,O_U^O�Oc OU�O�U.U,. OU+O�O,OO� 15 O�OU+USOc... ---
+�o. ADA/USDT | OU,O3O1O�: 0.19 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ATOM/USDT | OU,O3O1O�: 1.25 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. AVAX/USDT | OU,O3O1O�: 6.58 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. BNB/USDT | OU,O3O1O�: 584.36 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. BTC/USDT | OU,O3O1O�: 63455.99 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. DOGE/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. DOT/USDT | OU,O3O1O�: 0.80 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ETH/USDT | OU,O3O1O�: 1876.18 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. LINK/USDT | OU,O3O1O�: 8.36 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. LTC/USDT | OU,O3O1O�: 44.67 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. POL/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 0/10 | OU,O-OU,Oc: REJECTED
+�>" POL/USDT U.O�U?U^O �?" O�U. O�O�O_ Stop Hunt �?" O'U.O1Oc OrOO_O1Oc
+�o. SOL/USDT | OU,O3O1O�: 73.53 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. TRX/USDT | OU,O3O1O�: 0.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. XRP/USDT | OU,O3O1O�: 1.08 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+dY"S U.O�OU�O� U.U?O�U^O-Oc: 7 | O3O�U,OO� O�O_U,USU,: 12739
+--- dY", O�O-O_USO� OU,O_U^O�Oc OU�O�U.U,. OU+O�O,OO� 15 O�OU+USOc... ---
+�o. ADA/USDT | OU,O3O1O�: 0.19 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ATOM/USDT | OU,O3O1O�: 1.25 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. AVAX/USDT | OU,O3O1O�: 6.59 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. BNB/USDT | OU,O3O1O�: 584.36 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. BTC/USDT | OU,O3O1O�: 63444.70 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. DOGE/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. DOT/USDT | OU,O3O1O�: 0.80 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ETH/USDT | OU,O3O1O�: 1876.01 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. LINK/USDT | OU,O3O1O�: 8.36 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. LTC/USDT | OU,O3O1O�: 44.67 | OU,O_O�O�Oc: 6/10 | OU,O-OU,Oc: WAIT
+�o. POL/USDT | OU,O3O1O�: 0.07 | OU,O_O�O�Oc: 0/10 | OU,O-OU,Oc: REJECTED
+�>" POL/USDT U.O�U?U^O �?" O�U. O�O�O_ Stop Hunt �?" O'U.O1Oc OrOO_O1Oc
+�o. SOL/USDT | OU,O3O1O�: 73.49 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. TRX/USDT | OU,O3O1O�: 0.33 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+�o. XRP/USDT | OU,O3O1O�: 1.08 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+dY"S U.O�OU�O� U.U?O�U^O-Oc: 7 | O3O�U,OO� O�O_U,USU,: 12753
+--- dY", O�O-O_USO� OU,O_U^O�Oc OU�O�U.U,. OU+O�O,OO� 15 O�OU+USOc... ---
+�o. ADA/USDT | OU,O3O1O�: 0.19 | OU,O_O�O�Oc: 9/10 | OU,O-OU,Oc: WAIT
+�o. ATOM/USDT | OU,O3O1O�: 1.25 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. AVAX/USDT | OU,O3O1O�: 6.59 | OU,O_O�O�Oc: 7/10 | OU,O-OU,Oc: WAIT
+�o. BNB/USDT | OU,O3O1O�: 584.53 | OU,O_O�O�Oc: 3/10 | OU,O-OU,Oc: WAIT
+^C
+=== ERRORS TAIL ===
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\requests\models.py", line 1167, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 400 Client Error: Bad Request for url: https://demo-api.binance.com/api/v3/order
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\GoldenShield_Binance\execution\order_manager.py", line 102, in _submit_live_order
+    result = exchange.create_order(
+        order.symbol,
+    ...<2 lines>...
+        order.amount,
+    )
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\binance.py", line 6406, in create_order
+    response = self.privatePostOrder(request)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\base\types.py", line 35, in unbound_method
+    return _self.request(self.path, self.api, self.method, params, config=self.config)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\binance.py", line 11819, in request
+    response = self.fetch2(path, api, method, params, headers, body, config)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\base\exchange.py", line 5564, in fetch2
+    raise e
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\base\exchange.py", line 5545, in fetch2
+    response = self.fetch(request['url'], request['method'], request['headers'], request['body'])
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\base\exchange.py", line 703, in fetch
+    skip_further_error_handling = self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\binance.py", line 11763, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], message, self.id + ' ' + message)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\ccxt\base\exchange.py", line 5970, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InsufficientFunds: binance Account has insufficient balance for requested action.
+2026-08-02 06:53:19,346 | WARNING | execution.trade_executor | smart_exits U?O'U, AVAX/USDT: U?O'U, O�U+U?USO� OU,O�U.O�: binance Account has insufficient balance for requested action.
+2026-08-02 06:57:00,868 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-02 06:58:25,140 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-02 07:01:15,003 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-02 07:04:36,592 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-02 07:16:11,214 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+2026-08-02 07:24:05,686 | WARNING | operations.telegram_bot | Telegram editMessageText failed (400): {"ok":false,"error_code":400,"description":"Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"}
+SETTINGS demo True mode live backend binance
+DB storage/db/goldenshield.db
+DB_OPEN 7 DB_CLOSED 0
+--- OPEN ROWS ---
+{'id': 'pos-89954461ff0e', 'symbol': 'BTC/USDT', 'side': 'buy', 'amount': 0.00503, 'entry_price': 62954.57166998012, 'signal_score': 9, 'opened_at': '2026-08-01T17:37:38.605227+00:00'}
+{'id': 'pos-7cb55cd2ed86', 'symbol': 'LTC/USDT', 'side': 'buy', 'amount': 27.91206, 'entry_price': 44.15999999999999, 'signal_score': 9, 'opened_at': '2026-08-01T17:37:38.854774+00:00'}
+{'id': 'pos-dd1fe59962db', 'symbol': 'BNB/USDT', 'side': 'buy', 'amount': 0.56878727, 'entry_price': 576.91, 'signal_score': 9, 'opened_at': '2026-08-01T17:37:39.100051+00:00'}
+{'id': 'pos-3d59786a71d1', 'symbol': 'XRP/USDT', 'side': 'buy', 'amount': 41.0, 'entry_price': 1.0585, 'signal_score': 9, 'opened_at': '2026-08-01T17:37:39.348045+00:00'}
+{'id': 'pos-5b6fb30c35c0', 'symbol': 'ADA/USDT', 'side': 'buy', 'amount': 16188.1956, 'entry_price': 0.1715, 'signal_score': 5, 'opened_at': '2026-08-01T17:37:39.595118+00:00'}
+{'id': 'pos-dc58094ccc1f', 'symbol': 'SOL/USDT', 'side': 'buy', 'amount': 3.378, 'entry_price': 72.41640023682652, 'signal_score': 9, 'opened_at': '2026-08-01T17:37:39.841748+00:00'}
+{'id': 'pos-a76875d03d9a', 'symbol': 'AVAX/USDT', 'side': 'buy', 'amount': 2.86612677, 'entry_price': 6.231, 'signal_score': 9, 'opened_at': '2026-08-01T18:42:35.137911+00:00'}
+--- LAST CLOSED ---
+--- DECISIONS RECENT ---
+{'symbol': 'BNB/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 3/10', 'pnl': None, 'recorded_at': '2026-08-02T05:39:19.453467+00:00'}
+{'symbol': 'AVAX/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:39:17.284595+00:00'}
+{'symbol': 'ATOM/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:39:15.700845+00:00'}
+{'symbol': 'ADA/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 9/10', 'pnl': None, 'recorded_at': '2026-08-02T05:39:14.097235+00:00'}
+{'symbol': 'XRP/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:52.355145+00:00'}
+{'symbol': 'TRX/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 3/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:51.355132+00:00'}
+{'symbol': 'SOL/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:50.260274+00:00'}
+{'symbol': 'POL/USDT', 'action': 'reject', 'reason': 'تم رصد Stop Hunt — شمعة خادعة', 'pnl': None, 'recorded_at': '2026-08-02T05:38:49.042317+00:00'}
+{'symbol': 'LTC/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 6/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:47.600887+00:00'}
+{'symbol': 'LINK/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:46.490519+00:00'}
+{'symbol': 'ETH/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 3/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:45.332341+00:00'}
+{'symbol': 'DOT/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 9/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:43.728141+00:00'}
+{'symbol': 'DOGE/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:42.590337+00:00'}
+{'symbol': 'BTC/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 6/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:41.482052+00:00'}
+{'symbol': 'BNB/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 3/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:39.907095+00:00'}
+{'symbol': 'AVAX/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:38.556757+00:00'}
+{'symbol': 'ATOM/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:37.624511+00:00'}
+{'symbol': 'ADA/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 9/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:36.754606+00:00'}
+{'symbol': 'XRP/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 7/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:16.115479+00:00'}
+{'symbol': 'TRX/USDT', 'action': 'reject', 'reason': 'WAIT — درجة 3/10', 'pnl': None, 'recorded_at': '2026-08-02T05:38:14.506710+00:00'}
+USDT_FREE=19.7431 USDT_TOTAL=19.7431
+--- NONSTABLE BALANCES ---
+ASSET ADA=16367.7956
+ASSET BNB=0.56869878
+ASSET BTC=0.00503
+ASSET LTC=27.91206
+ASSET SOL=3.378
+ASSET XRP=41.0
+restored 7 synced []
+mem_open 7
+📂 <b>المراكز الحالية</b>
+
+• <b>BTC/USDT</b> BUY كمية 0.00503 @ 62954.6 | SL 61065.9 | TP 68620.5
+• <b>LTC/USDT</b> BUY كمية 27.9121 @ 44.16 | SL 42.8352 | TP 48.1344
+• <b>BNB/USDT</b> BUY كمية 0.568787 @ 576.91 | SL 559.603 | TP 628.832
+• <b>XRP/USDT</b> BUY كمية 41 @ 1.0585 | SL 1.02675 | TP 1.15376
+• <b>ADA/USDT</b> BUY كمية 16188.2 @ 0.1715 | SL 0.1715 | TP 0.186935
+• <b>SOL/USDT</b> BUY كمية 3.378 @ 72.4164 | SL 70.2439 | TP 78.9339
+• <b>AVAX/USDT</b> BUY كمية 2.86613 @ 6.231 | SL 6.231 | TP 6.79397
+
+المجموع: 7 مركز
