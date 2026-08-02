@@ -47,7 +47,7 @@ def test_log_trade_open_writes_jsonl(journal_path: Path, monkeypatch):
 def test_journal_skipped_when_disabled(journal_path: Path, monkeypatch):
     class S:
         trial_mode = False
-        trial_journal_enabled = True
+        trial_journal_enabled = False
 
     monkeypatch.setattr("operations.trial_journal.get_settings", lambda: S())
     trial_journal.log_trade_close(
@@ -58,3 +58,23 @@ def test_journal_skipped_when_disabled(journal_path: Path, monkeypatch):
         reason="Take Profit",
     )
     assert not journal_path.exists()
+
+
+def test_journal_writes_when_activity_always(journal_path: Path, monkeypatch):
+    class S:
+        trial_mode = False
+        trial_journal_enabled = True
+
+    monkeypatch.setenv("ACTIVITY_JOURNAL_ALWAYS", "true")
+    monkeypatch.setattr("operations.trial_journal.get_settings", lambda: S())
+    trial_journal.log_trade_close(
+        symbol="ETH/USDT",
+        position_id="pos-2",
+        exit_price=200.0,
+        pnl=-1.0,
+        reason="Stop",
+    )
+    assert journal_path.exists()
+    record = json.loads(journal_path.read_text(encoding="utf-8").strip().splitlines()[0])
+    assert record["event"] == "trade_close"
+    assert record["symbol"] == "ETH/USDT"

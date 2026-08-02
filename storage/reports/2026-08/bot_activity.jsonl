@@ -1,0 +1,5 @@
+{"ts": "2026-08-02T07:07:00.486344+00:00", "event": "archive_started", "report_date": "2026-08-02"}
+{"ts": "2026-08-02T07:07:03.493544+00:00", "event": "trade_open", "symbol": "BTC/USDT", "position_id": "pos-1", "entry_price": 100.0, "amount": 0.5, "stop_loss": 97.0, "take_profit": 106.0, "score": 8, "mode": "LIVE"}
+{"ts": "2026-08-02T07:07:03.501446+00:00", "event": "trade_close", "symbol": "ETH/USDT", "position_id": "pos-2", "exit_price": 200.0, "pnl": -1.0, "reason": "Stop"}
+{"ts": "2026-08-02T07:07:10.604080+00:00", "event": "trade_open", "symbol": "BTC/USDT", "position_id": "pos-1", "entry_price": 100.0, "amount": 0.5, "stop_loss": 97.0, "take_profit": 106.0, "score": 8, "mode": "LIVE"}
+{"ts": "2026-08-02T07:07:10.614715+00:00", "event": "trade_close", "symbol": "ETH/USDT", "position_id": "pos-2", "exit_price": 200.0, "pnl": -1.0, "reason": "Stop"}

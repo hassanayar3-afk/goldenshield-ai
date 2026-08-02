@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,9 +16,17 @@ logger = logging.getLogger(__name__)
 JOURNAL_PATH = BASE_DIR / "storage" / "logs" / "trial_journal.jsonl"
 
 
+def _activity_journal_always() -> bool:
+    """طبقة مضافة: تسجيل الصفقات للأرشيف الشهري حتى خارج trial_mode."""
+    raw = os.getenv("ACTIVITY_JOURNAL_ALWAYS", "true").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _journal_enabled() -> bool:
     settings = get_settings()
-    return settings.trial_mode and settings.trial_journal_enabled
+    if not settings.trial_journal_enabled:
+        return False
+    return bool(settings.trial_mode or _activity_journal_always())
 
 
 def log_trial_event(event: str, **fields: Any) -> None:
@@ -36,6 +45,14 @@ def log_trial_event(event: str, **fields: Any) -> None:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     except OSError:
         logger.exception("فشل كتابة سجل التجربة")
+
+    # نسخة في أرشيف الشهر للمراجعة (إيجابيات/سلبيات)
+    try:
+        from operations.report_archive import log_bot_activity
+
+        log_bot_activity(event, **fields)
+    except Exception:
+        pass
 
 
 def log_trade_open(
