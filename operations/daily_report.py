@@ -31,4 +31,7 @@ def format_daily_report(
     )
 
 
-__all__ = ["format_daily_report", "format_daily_report_telegram"]
+__all__ = [
+    "format_daily_report",
+    "format_daily_report_telegram",
+]

@@ -12,6 +12,9 @@ storage/db/backups/
 storage/gdrive_token.json
 storage/gdrive_client_secret.json
 storage/logs/*.log
+storage/reports/**/*.txt
+!storage/reports/**/.gitkeep
+!storage/reports/**/ARCHIVE_START.txt
 
 # --- ensured patterns ---
 node_modules/

@@ -127,6 +127,14 @@ def _init_persistence(settings) -> None:
     config_repo.set("last_startup_env", settings.env)
     config_repo.set("telegram_chat_id", settings.telegram_chat_id or "")
     logger.info("Database ready: %s", settings.db_path)
+    try:
+        from operations.report_archive import ensure_archive_started
+
+        started = ensure_archive_started()
+        if started:
+            logger.info("Daily report file archive ready: %s", started)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("report archive init: %s", exc)
 
 
 def _fetch_prices(symbols: list[str]) -> dict[str, float]:

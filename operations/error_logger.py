@@ -48,6 +48,13 @@ def log_operation(message: str) -> None:
     logging.getLogger("operations").info(message)
     if _db_sink is not None:
         _db_sink("INFO", message)
+    try:
+        from operations.report_archive import log_bot_activity
+
+        text = message if len(message) <= 500 else message[:500] + "…"
+        log_bot_activity("operation", message=text)
+    except Exception:
+        pass
 
 
 def log_error(message: str, *, exc: BaseException | None = None) -> None:
@@ -56,5 +63,13 @@ def log_error(message: str, *, exc: BaseException | None = None) -> None:
         logger.error("%s: %s", message, exc, exc_info=exc)
     else:
         logger.error(message)
+    payload = message if exc is None else f"{message}: {exc}"
     if _db_sink is not None:
-        _db_sink("ERROR", message if exc is None else f"{message}: {exc}")
+        _db_sink("ERROR", payload)
+    try:
+        from operations.report_archive import log_bot_activity
+
+        text = payload if len(payload) <= 500 else payload[:500] + "…"
+        log_bot_activity("error", message=text)
+    except Exception:
+        pass

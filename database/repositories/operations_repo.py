@@ -35,3 +35,26 @@ class OperationsRepository:
                 """,
                 (report_date, content, now),
             )
+        # طبقة مضافة: نسخة ملف مرتبة بالشهر (لا تكسر الحفظ في DB عند الفشل)
+        try:
+            from datetime import date as date_cls
+
+            from operations.report_archive import save_daily_report_file
+
+            save_daily_report_file(content, report_date=date_cls.fromisoformat(report_date))
+        except Exception:
+            pass
+
+    def list_daily_reports(self, start_date: str, end_date: str) -> list[tuple[str, str]]:
+        """يعيد [(report_date, content), ...] ضمن الفترة inclusive."""
+        with self._db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT report_date, content
+                FROM daily_reports
+                WHERE report_date >= ? AND report_date <= ?
+                ORDER BY report_date ASC
+                """,
+                (start_date, end_date),
+            ).fetchall()
+        return [(str(r[0]), str(r[1])) for r in rows]
