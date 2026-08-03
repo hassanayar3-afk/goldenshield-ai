@@ -426,26 +426,24 @@ class TelegramCommandHandler:
         self._stop_poll.clear()
 
         def _run() -> None:
-            logger.info("Telegram live-poll thread started (signals never sleep)")
+            logger.info("Telegram poll thread started (callbacks first, live board safe)")
             while not self._stop_poll.is_set():
                 try:
-                    # بث الإشارات دائماً — لا سكون
+                    # 1) الأولوية دائماً للأزرار/الأوامر
+                    self.poll_once(long_poll=False)
+                    # 2) تحديثات حية خفيفة وبفاصل آمن (لا تخنق getUpdates)
                     try:
-                        self.dashboard.ensure_live_signals()
+                        self.dashboard.tick_live_positions()
                     except Exception:
                         pass
-                    live = True  # إجباري: حلقة سريعة للإشارات
-                    self.poll_once(long_poll=False)
-                    self.dashboard.tick_live_positions()
                     try:
                         self.dashboard.tick_live_signals()
                     except Exception as live_exc:  # noqa: BLE001
                         logger.debug("tick_live_signals: %s", live_exc)
-                    # أقل من ثانية
-                    time.sleep(0.35)
+                    time.sleep(0.5)
                 except Exception as exc:
                     logger.warning("خطأ في حلقة Telegram: %s", exc)
-                    time.sleep(0.5)
+                    time.sleep(1.0)
 
         self._poll_thread = threading.Thread(
             target=_run,

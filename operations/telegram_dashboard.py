@@ -104,6 +104,7 @@ class TelegramDashboard:
         self._live_signals_enabled: bool = False
         self._live_signals_last_ts: float = 0.0
         self._live_signals_last_text: str = ""
+        self._live_signals_last_body: str = ""
         self._live_signals_interval_seconds: float = 15.0
 
     def update_market(
@@ -261,12 +262,12 @@ class TelegramDashboard:
         )
 
     def _live_positions_interval(self) -> float:
-        """فاصل تحديث بث المراكز الحي — أقل من ثانية."""
-        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "0.8").strip()
+        """فاصل تحديث بث المراكز على تيليجرام — آمن ضد 429 (افتراضي 5ث)."""
+        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "5").strip()
         try:
-            return max(0.4, min(float(raw or "0.8"), 3.0))
+            return max(5.0, min(float(raw or "5"), 60.0))
         except (TypeError, ValueError):
-            return 0.8
+            return 5.0
 
     def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
         self._live_positions_enabled = True
@@ -314,26 +315,30 @@ class TelegramDashboard:
         return raw in {"1", "true", "yes", "on"}
 
     def _live_signals_interval(self) -> float:
-        """بث الإشارات الحي — أقل من ثانية (ممنوع السكون)."""
-        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "0.8").strip()
-        try:
-            return max(0.4, min(float(raw or "0.8"), 2.0))
-        except (TypeError, ValueError):
-            return 0.8
+        """فاصل تحديث رسالة تيليجرام للإشارات — آمن ضد 429 (افتراضي 15ث).
 
-    def render_live_signals(self) -> DashboardView:
+        سرعة CMD منفصلة عبر signals_board.txt ولا تعتمد على هذا الفاصل العدواني.
+        """
+        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "15").strip()
+        try:
+            return max(5.0, min(float(raw or "15"), 60.0))
+        except (TypeError, ValueError):
+            return 15.0
+
+    def render_live_signals(self, *, refresh_prices: bool = False) -> DashboardView:
         from datetime import datetime, timezone
 
         active_pairs = get_symbol_registry().active_pairs()
-        try:
-            prices = self._fetch_prices(list(active_pairs))
-            if prices:
-                self.market.prices.update(prices)
-                for sym, px in prices.items():
-                    if sym in self.market.entries:
-                        self.market.entries[sym]["price"] = float(px)
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("live signals price refresh: %s", exc)
+        if refresh_prices:
+            try:
+                prices = self._fetch_prices(list(active_pairs))
+                if prices:
+                    self.market.prices.update(prices)
+                    for sym, px in prices.items():
+                        if sym in self.market.entries:
+                            self.market.entries[sym]["price"] = float(px)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("live signals price refresh: %s", exc)
 
         all_entries = [
             self.market.entries[s]
@@ -341,7 +346,7 @@ class TelegramDashboard:
             if s in self.market.entries
         ]
         interval = self._live_signals_interval()
-        stamp = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3] + " UTC"
+        stamp = datetime.now(timezone.utc).strftime("%H:%M:%S") + " UTC"
         text = format_live_signals_board(
             all_entries,
             interval_seconds=interval,
@@ -368,6 +373,20 @@ class TelegramDashboard:
             },
         )
 
+    @staticmethod
+    def _board_body_key(text: str) -> str:
+        """مقارنة محتوى اللوحة بدون ختم الوقت — يمنع تعديل تيليجرام كل نبضة."""
+        lines = []
+        for line in str(text or "").splitlines():
+            if (
+                "آخر تحديث" in line
+                or "Updated" in line
+                or ("UTC" in line and ":" in line)
+            ):
+                continue
+            lines.append(line)
+        return "\n".join(lines)
+
     def ensure_live_signals(self) -> bool:
         """ينشئ رسالة بث حي للإشارات إن لم تكن موجودة."""
         if not self._live_signals_wanted():
@@ -375,7 +394,9 @@ class TelegramDashboard:
         if self._live_signals_enabled and self._live_signals_msg_id is not None:
             return True
         try:
-            view = self.render_live_signals()
+            if getattr(self.telegram, "flood_active", lambda: False)():
+                return False
+            view = self.render_live_signals(refresh_prices=False)
             msg_id = self.telegram.send_message(view.text, reply_markup=view.keyboard)
             if msg_id is None:
                 return False
@@ -384,6 +405,7 @@ class TelegramDashboard:
             self._live_signals_chat_id = None
             self._live_signals_last_ts = time.monotonic()
             self._live_signals_last_text = view.text
+            self._live_signals_last_body = self._board_body_key(view.text)
             self._live_signals_interval_seconds = self._live_signals_interval()
             return True
         except Exception as exc:  # noqa: BLE001
@@ -391,10 +413,17 @@ class TelegramDashboard:
             return False
 
     def publish_live_signals(self, *, force: bool = False) -> bool:
-        """يحدّث لوحة الإشارات الحية بسرعة — ممنوع السكون."""
+        """يحدّث لوحة إشارات تيليجرام بفاصل آمن — الأزرار لها الأولوية."""
         if not self._live_signals_wanted():
             return False
         try:
+            if getattr(self.telegram, "flood_active", lambda: False)():
+                # أثناء 429: حدّث ملف CMD فقط بدون editMessageText
+                try:
+                    self.render_live_signals(refresh_prices=False)
+                except Exception:
+                    pass
+                return False
             if not self.ensure_live_signals():
                 return False
             now = time.monotonic()
@@ -402,26 +431,36 @@ class TelegramDashboard:
             self._live_signals_interval_seconds = interval
             if not force and (now - self._live_signals_last_ts) < interval:
                 return False
-            view = self.render_live_signals()
-            if view.text == self._live_signals_last_text and not force:
+            view = self.render_live_signals(refresh_prices=False)
+            body_key = self._board_body_key(view.text)
+            last_body = getattr(self, "_live_signals_last_body", "")
+            if body_key == last_body and not force:
                 self._live_signals_last_ts = now
                 return True
-            self.telegram.edit_message_text(
+            ok = self.telegram.edit_message_text(
                 int(self._live_signals_msg_id),
                 view.text,
                 reply_markup=view.keyboard,
                 chat_id=self._live_signals_chat_id,
             )
             self._live_signals_last_ts = now
-            self._live_signals_last_text = view.text
-            return True
+            if ok:
+                self._live_signals_last_text = view.text
+                self._live_signals_last_body = body_key
+            return bool(ok)
         except Exception as exc:  # noqa: BLE001
             logger.debug("publish_live_signals: %s", exc)
             return False
 
     def tick_live_signals(self) -> bool:
-        """نبضة من خيط تيليجرام — تحديث أقل من ثانية."""
+        """نبضة من خيط تيليجرام — تحديث آمن لا يخنق الأزرار."""
         if not self._live_signals_wanted():
+            return False
+        if getattr(self.telegram, "flood_active", lambda: False)():
+            try:
+                self.render_live_signals(refresh_prices=False)
+            except Exception:
+                pass
             return False
         if not (self._live_signals_enabled and self._live_signals_msg_id is not None):
             return self.ensure_live_signals()
@@ -597,26 +636,40 @@ class TelegramDashboard:
                     format_action_result("إغلاق", "لا توجد مراكز مفتوحة."),
                     main_menu_keyboard(paused=self.runtime.paused),
                 )
-            # أسعار من الكاش أولاً لتسريع الاستجابة
+            # مزامنة أولاً لإزالة الأشباح / تحديث الكميات
+            try:
+                self._maybe_sync_spot_holdings(force=True)
+            except Exception:
+                pass
+            symbols = list(self.executor.position_manager.open_symbols())
             prices = dict(self.market.prices)
             missing = [s for s in symbols if s not in prices or prices.get(s, 0) <= 0]
             if missing:
                 prices.update(self._fetch_prices(missing))
             closed: list[str] = []
+            failed: list[str] = []
             for symbol in symbols:
                 position = self.executor.position_manager.get(symbol)
                 if position is None:
                     continue
                 price = prices.get(symbol) or position.entry_price
-                if self.executor.close_position(
-                    symbol, float(price), reason="إغلاق الكل — لوحة التحكم"
-                ):
-                    closed.append(symbol)
+                try:
+                    if self.executor.close_position(
+                        symbol, float(price), reason="إغلاق الكل — لوحة التحكم"
+                    ):
+                        closed.append(symbol)
+                    else:
+                        failed.append(symbol)
+                except Exception as close_exc:  # noqa: BLE001
+                    logger.warning("close_all %s: %s", symbol, close_exc)
+                    failed.append(f"{symbol}")
+            detail = f"أُغلق {len(closed)} مركز"
+            if closed:
+                detail += f": {', '.join(closed)}"
+            if failed:
+                detail += f"\nتعذّر: {', '.join(failed)}"
             return DashboardView(
-                format_action_result(
-                    "إغلاق الكل ✅",
-                    f"أُغلق {len(closed)} مركز: {', '.join(closed) if closed else '—'}",
-                ),
+                format_action_result("إغلاق الكل", detail),
                 main_menu_keyboard(paused=self.runtime.paused),
             )
         if data == "act:panic":
@@ -665,7 +718,19 @@ class TelegramDashboard:
             )
         prices = self._fetch_prices([symbol])
         price = prices.get(symbol, self.market.prices.get(symbol, position.entry_price))
-        closed = self.executor.close_position(symbol, price, reason="إغلاق يدوي — لوحة التحكم")
+        try:
+            closed = self.executor.close_position(
+                symbol, price, reason="إغلاق يدوي — لوحة التحكم"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("إغلاق يدوي فشل %s: %s", symbol, exc)
+            return DashboardView(
+                format_action_result(
+                    "إغلاق فشل",
+                    f"{symbol}\n{exc}",
+                ),
+                back_to_main_keyboard(),
+            )
         if closed:
             return DashboardView(
                 format_action_result("إغلاق ناجح ✅", f"تم إغلاق {symbol} @ {price:,.2f}"),

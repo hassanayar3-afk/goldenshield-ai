@@ -1240,34 +1240,131 @@ class TradeExecutor:
             logger.debug("_spot_base_is_flat %s: %s", symbol, exc)
             return False
 
+    def _cancel_open_orders_for_symbol(self, symbol: str) -> int:
+        """يلغي أوامر الحماية المفتوحة التي تحجز رصيد Spot قبل الإغلاق."""
+        cancelled = 0
+        try:
+            settings = get_settings()
+            if settings.execution_mode != "live" and not bool(
+                getattr(settings, "binance_demo_trading", False)
+            ):
+                return 0
+            exchange = get_exchange()
+            open_orders = exchange.fetch_open_orders(symbol) or []
+            for od in open_orders:
+                oid = str(od.get("id") or "")
+                if not oid:
+                    continue
+                try:
+                    exchange.cancel_order(oid, symbol)
+                    cancelled += 1
+                except Exception as cancel_exc:  # noqa: BLE001
+                    logger.debug("cancel_order %s %s: %s", symbol, oid, cancel_exc)
+            if cancelled:
+                logger.info("أُلغي %s أمر مفتوح على %s قبل الإغلاق", cancelled, symbol)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("_cancel_open_orders_for_symbol %s: %s", symbol, exc)
+        return cancelled
+
     def _close_position(self, position: Position, price: float, reason: str) -> None:
         if position.side == OrderSide.BUY:
             pnl = (price - position.entry_price) * position.amount
             exit_side = OrderSide.SELL
+            fit_side = "sell"
         else:
             pnl = (position.entry_price - price) * position.amount
             exit_side = OrderSide.BUY
+            fit_side = "buy"
+
+        # 1) حرّر الرصيد المحجوز بأوامر SL/OCO قبل البيع
+        self._cancel_open_orders_for_symbol(position.symbol)
+
+        # 2) بع الكمية المتاحة فعلياً (وليس كمية DB فقط)
+        sell_amount = float(position.amount or 0.0)
+        try:
+            fitted, fit_reason = self._fit_amount_to_spot_balance(
+                symbol=position.symbol,
+                side=fit_side,
+                amount=sell_amount,
+                price=float(price or position.entry_price or 0.0),
+            )
+            if fitted > 0:
+                sell_amount = float(fitted)
+            elif fit_reason:
+                logger.warning(
+                    "ضبط كمية إغلاق %s: %s (requested=%.8f)",
+                    position.symbol,
+                    fit_reason,
+                    position.amount,
+                )
+        except Exception as fit_exc:  # noqa: BLE001
+            logger.debug("fit close amount %s: %s", position.symbol, fit_exc)
 
         order_ok = False
         try:
-            self.order_manager.create_market_order(
-                position.symbol,
-                exit_side,
-                position.amount,
-                reference_price=price,
-                allow_without_stops=True,
-            )
-            order_ok = True
+            if sell_amount > 0:
+                self.order_manager.create_market_order(
+                    position.symbol,
+                    exit_side,
+                    sell_amount,
+                    reference_price=price,
+                    allow_without_stops=True,
+                )
+                order_ok = True
+            else:
+                # لا كمية للبيع — غالباً صفقة شبح أو رصيد محجوز تُحرّر للتو
+                raise ExecutionError(
+                    f"لا توجد كمية قابلة للإغلاق على {position.symbol}"
+                )
         except Exception as exc:  # noqa: BLE001
-            # إن كان الرصيد على المنصة صفراً فالصفقات أُغلقت فعلياً دون تسجيل
+            # إن كان الرصيد على المنصة صفراً/غباراً فالصفقات أُغلقت فعلياً دون تسجيل
             already_flat = self._spot_base_is_flat(position.symbol)
-            if already_flat:
+            msg = str(exc).lower()
+            insufficient = "insufficient" in msg or "not enough" in msg
+            if already_flat or (insufficient and self._spot_base_is_flat(position.symbol)):
                 logger.warning(
                     "إغلاق %s: الأمر فشل لكن الرصيد صفر على المنصة — تسجيل الإغلاق | %s",
                     position.symbol,
                     exc,
                 )
                 order_ok = True
+            elif insufficient:
+                # محاولة أخيرة بعد إلغاء الأوامر + كمية أصغر
+                try:
+                    self._cancel_open_orders_for_symbol(position.symbol)
+                    fitted2, _ = self._fit_amount_to_spot_balance(
+                        symbol=position.symbol,
+                        side=fit_side,
+                        amount=float(position.amount or 0.0),
+                        price=float(price or position.entry_price or 0.0),
+                    )
+                    if fitted2 > 0:
+                        self.order_manager.create_market_order(
+                            position.symbol,
+                            exit_side,
+                            float(fitted2),
+                            reference_price=price,
+                            allow_without_stops=True,
+                        )
+                        order_ok = True
+                    elif self._spot_base_is_flat(position.symbol):
+                        order_ok = True
+                    else:
+                        logger.exception("فشل أمر إغلاق %s: %s", position.symbol, exc)
+                        raise ExecutionError(
+                            f"Binance رفض الإغلاق لـ {position.symbol}: رصيد الأصل غير كافٍ "
+                            f"(قد يكون محجوزاً أو أقل من كمية الصفقة). التفاصيل: {exc}"
+                        ) from exc
+                except ExecutionError:
+                    raise
+                except Exception as retry_exc:  # noqa: BLE001
+                    if self._spot_base_is_flat(position.symbol):
+                        order_ok = True
+                    else:
+                        logger.exception("فشل أمر إغلاق %s: %s", position.symbol, retry_exc)
+                        raise ExecutionError(
+                            f"فشل إغلاق {position.symbol}: {retry_exc}"
+                        ) from retry_exc
             else:
                 logger.exception("فشل أمر إغلاق %s: %s", position.symbol, exc)
                 raise
