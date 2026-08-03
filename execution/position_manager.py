@@ -37,7 +37,8 @@ class PositionManager:
             return None
         position.amount = round(max(position.amount - amount, 0.0), 8)
         if position.amount <= 0:
-            return self.remove(symbol)
+            self.remove(symbol)
+            return None
         return position
 
     def update_stop_loss(self, symbol: str, stop_loss: float) -> Position | None:

@@ -367,6 +367,31 @@ def format_daily_report_plain(
     except Exception:
         pass
 
+    # سجل دائم من قاعدة البيانات (لا يُحذف عند الإغلاق)
+    try:
+        repo = getattr(executor, "trade_repo", None)
+        if repo is not None:
+            summary = repo.trade_history_summary()
+            closed_rows = repo.list_closed_trades(limit=20)
+            total = float(summary.get("total_pnl", 0) or 0)
+            tsign = "+" if total >= 0 else ""
+            lines.append("")
+            lines.append("—— سجل دائم (كل المغلق) ——")
+            lines.append(
+                f"مغلق إجمالي: {int(summary.get('closed', 0))} | "
+                f"رابح {int(summary.get('wins', 0))} / خاسر {int(summary.get('losses', 0))}"
+            )
+            lines.append(f"صافي كل المغلق: {tsign}{total:.2f} USDT")
+            for row in closed_rows[:12]:
+                pnl = float(row.pnl or 0)
+                mark = "WIN" if pnl > 0 else ("LOSS" if pnl < 0 else "FLAT")
+                lines.append(
+                    f"  [{mark}] {row.symbol} PnL={pnl:+.2f} "
+                    f"@{(row.closed_at or '')[:16]}"
+                )
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 

@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import os
 import sys
+from pathlib import Path
 
 # Windows: avoid OSError on emoji/Arabic print when stdout is redirected
 if hasattr(sys.stdout, "reconfigure"):
@@ -9,6 +11,23 @@ if hasattr(sys.stdout, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+
+def _force_official_workdir() -> None:
+    """ثبّت مجلد العمل على المسار الرسمي قبل أي إعدادات/DB."""
+    try:
+        raw = (os.getenv("GOLDENSHIELD_OFFICIAL_ROOT") or r"C:\GoldenShield_Binance").strip()
+        root = Path(raw)
+        if root.is_dir():
+            os.chdir(root)
+            os.environ["GOLDENSHIELD_OFFICIAL_ROOT"] = str(root)
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+    except Exception:
+        pass
+
+
+_force_official_workdir()
 
 from audit.audit_trail import AuditTrail
 from audit.decision_logger import DecisionLogger
@@ -39,7 +58,7 @@ from operations.panic_button import PanicButton
 from operations.pre_flight_checklist import run_pre_flight
 from operations.runtime_state import OperationsRuntime
 from operations.symbol_registry import get_symbol_registry
-from operations.shutdown_guard import is_user_stopped, should_block_signals
+from operations.shutdown_guard import clear_user_stop, is_user_stopped, should_block_signals
 from operations.scheduler import DailyReportScheduler
 from operations.telegram_commands import TelegramCommandHandler
 from audit.execution_events import log_execution_event
@@ -545,6 +564,21 @@ async def check_symbol(symbol: str) -> dict | None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("shadow register: %s", exc)
 
+        # Pause/Kill: أبقِ الإشارات في الدورة، امنع الدخول التلقائي فقط
+        try:
+            auto_halt = evaluate_trading_halt(
+                paused=_runtime.paused,
+                kill_switch_active=bool(
+                    _risk.state and _risk.state.kill_switch_active
+                ),
+            )
+            if auto_halt.entries_blocked:
+                print(f"⏸️ {symbol}: دخول تلقائي موقوف — {auto_halt.reason}")
+                _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+                return entry
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("halt check before open: %s", exc)
+
         exec_result = _executor.try_open(
             result,
             snapshot=snapshot,
@@ -599,10 +633,37 @@ async def check_symbol(symbol: str) -> dict | None:
         return None
 
 
+def _force_bot_active(*, reason: str = "startup") -> None:
+    """يمنع وضع السكون عند التشغيل: امسح الإيقاف الدائم وألغِ Pause."""
+    try:
+        cleared = clear_user_stop()
+        _runtime.user_stopped = False
+        _runtime.paused = False
+        _runtime.panic_latched = False
+        _runtime.resume()
+        print(f"▶️ البوت نشط إجبارياً ({reason})" + (" — أُزيلت علامة الإيقاف" if cleared else ""))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("force_bot_active: %s", exc)
+
+
+def _bot_force_active_enabled() -> bool:
+    raw = (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 async def run_bot() -> None:
     global _telegram_handler
-    settings = get_settings()
+    _force_official_workdir()
+    # أعد تحميل الإعدادات بعد تثبيت المسار — نفس DB دائماً
+    from config.settings import load_settings
+
+    settings = load_settings(reload=True)
     setup_operations_logging(settings.log_level)
+    print(f"📂 CWD={Path.cwd()} | DB={settings.db_path}")
+
+    # عند فتح/تشغيل الملف: ممنوع البدء متوقفاً أو في سكون
+    if _bot_force_active_enabled() or is_user_stopped():
+        _force_bot_active(reason="startup")
 
     if is_user_stopped():
         print("🛑 البوت متوقف بقرارك — شغّل 00_START.bat لإعادة التشغيل.")
@@ -630,6 +691,8 @@ async def run_bot() -> None:
         sys.exit(1)
 
     _init_persistence(settings)
+    open_n = _executor.position_manager.count()
+    print(f"📦 مراكز بعد الاستعادة/المزامنة: {open_n}")
 
     registry = get_symbol_registry()
     active_symbols = registry.load(settings.trading_pairs)
@@ -657,17 +720,36 @@ async def run_bot() -> None:
     startup_plain = (
         f"GoldenShield AI [{settings.env}/{mode}/{profile.label}] — "
         f"أزواج: {', '.join(active_symbols)} | DB: {settings.db_path} | "
+        f"مراكز:{_executor.position_manager.count()} | "
         f"max_pos:{settings.max_concurrent_positions} | build:{BUILD_TAG}"
     )
     print(f"--- 🛡️ {startup_plain} ---")
-    if telegram_handler.enabled and not settings.telegram_signals_only:
-        telegram_handler.dashboard.send_main_menu()
+    if telegram_handler.enabled:
+        # دائماً نفس لوحة التحكم + المراكز بعد الإقلاع (لا بوت «فارغ»)
         try:
-            telegram_handler.dashboard.ensure_live_signals()
+            open_n = _executor.position_manager.count()
+            telegram_handler.telegram.send_message(
+                (
+                    f"<b>✅ نفس البوت — استعادة الحالة</b>\n"
+                    f"المراكز المفتوحة: <b>{open_n}</b>\n"
+                    f"قاعدة البيانات ثابتة — ليست نسخة جديدة."
+                )
+            )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("ensure_live_signals عند الإقلاع: %s", exc)
-    elif telegram_handler.enabled and settings.telegram_signals_only:
-        print("📲 تيليجرام: وضع إشارات/صفقات فقط (بدون قائمة وتشغيل)")
+            logger.warning("إشعار الاستعادة: %s", exc)
+        try:
+            telegram_handler.dashboard.send_main_menu()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("send_main_menu عند الإقلاع: %s", exc)
+        try:
+            view = telegram_handler.dashboard.render_positions(live=True)
+            mid = telegram_handler.telegram.send_message(
+                view.text, reply_markup=view.keyboard
+            )
+            if isinstance(mid, int):
+                telegram_handler.dashboard.enable_live_positions(mid)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("عرض المراكز عند الإقلاع: %s", exc)
         try:
             telegram_handler.dashboard.ensure_live_signals()
         except Exception as exc:  # noqa: BLE001
@@ -702,25 +784,21 @@ async def run_bot() -> None:
         _sync_risk_session()
         _notify_kill_switch_if_needed()
 
-        # سياسة الإيقاف: Pause/Kill يمنعان الدخول فقط — إدارة المراكز تبقى
+        # لا تسمح ببقاء Pause بعد التشغيل إذا طُلب النشاط الدائم
+        if _bot_force_active_enabled() and (_runtime.paused or _runtime.user_stopped):
+            _force_bot_active(reason="cycle")
+
+        # سياسة الإيقاف: Pause/Kill يمنعان الدخول فقط —
+        # لا نوقف الدورة بالكامل (كان ذلك يوقف الإشارات = سكون)
         halt = evaluate_trading_halt(
             paused=_runtime.paused,
             kill_switch_active=bool(
                 _risk.state and _risk.state.kill_switch_active
             ),
         )
-
-        if halt.entries_blocked:
-            print(f"⏸️ {halt.reason}")
-            try:
-                prices = _fetch_prices(symbols)
-                if halt.manage_positions:
-                    _run_priority0_protection(symbols, prices)
-                    _run_open_position_management(prices, label="halt")
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("إدارة المراكز أثناء الإيقاف فشلت: %s", exc)
-            await asyncio.sleep(settings.loop_interval_seconds)
-            continue
+        entries_blocked = bool(halt.entries_blocked)
+        if entries_blocked:
+            print(f"⏸️ {halt.reason} — الإشارات والبث الحي مستمران")
 
         if not _connection_monitor.heartbeat():
             provider = _connection_monitor.last_provider or "exchange"

@@ -161,6 +161,10 @@ class TelegramCommandHandler:
             view = self.dashboard.render_positions()
             return view.text, view.keyboard
 
+        if cmd in {"/history", "history", "/سجل"}:
+            view = self.dashboard.render_trade_history()
+            return view.text, view.keyboard
+
         if cmd in {"/pause", "pause"}:
             self.runtime.pause()
             view = self.dashboard.render_main()
@@ -327,9 +331,31 @@ class TelegramCommandHandler:
             response = requests.get(
                 self._updates_url, params=params, timeout=http_timeout
             )
+            if response.status_code == 409:
+                # تعارض مثيل آخر على نفس التوكن — اقتل المكررات وأعد المحاولة
+                logger.warning("Telegram 409 Conflict — تنظيف النسخ المكررة")
+                try:
+                    from operations.single_instance import kill_other_main_py_processes
+
+                    kill_other_main_py_processes()
+                except Exception:
+                    pass
+                time.sleep(2.0)
+                return 0
             if response.status_code != 200:
+                logger.debug("Telegram getUpdates status=%s", response.status_code)
                 return 0
             payload = response.json()
+            if not payload.get("ok", True) and "Conflict" in str(payload.get("description", "")):
+                logger.warning("Telegram Conflict in body — تنظيف النسخ")
+                try:
+                    from operations.single_instance import kill_other_main_py_processes
+
+                    kill_other_main_py_processes()
+                except Exception:
+                    pass
+                time.sleep(2.0)
+                return 0
         except Exception as exc:
             logger.debug("فشل poll Telegram: %s", exc)
             return 0

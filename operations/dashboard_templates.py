@@ -720,3 +720,64 @@ def format_positions_list(
 
 def format_action_result(title: str, detail: str) -> str:
     return "\n".join([_header(title), "", escape(detail)])
+
+
+def format_closed_trades_history(
+    trades: list,
+    *,
+    summary: dict | None = None,
+    limit_shown: int = 40,
+) -> str:
+    """سجل دائم للصفقات المغلقة (ربح/خسارة) للمراجعة والتجارب."""
+    lines = [
+        _header("سجل الصفقات"),
+        "",
+        "📦 <b>الأرشيف الدائم</b> — لا تُحذف الصفقات المغلقة",
+        DIVIDER,
+    ]
+    if summary:
+        total = float(summary.get("total_pnl", 0) or 0)
+        sign = "+" if total >= 0 else ""
+        lines.extend(
+            [
+                (
+                    f"مفتوح: <b>{int(summary.get('open', 0))}</b> | "
+                    f"مغلق: <b>{int(summary.get('closed', 0))}</b>"
+                ),
+                (
+                    f"رابح: <b>{int(summary.get('wins', 0))}</b> | "
+                    f"خاسر: <b>{int(summary.get('losses', 0))}</b> | "
+                    f"تعادل: <b>{int(summary.get('flat', 0))}</b>"
+                ),
+                f"صافي المغلق: <b>{sign}{_money(total)}</b> USDT",
+                DIVIDER,
+            ]
+        )
+    if not trades:
+        lines.append("لا توجد صفقات مغلقة بعد — سيظهر هنا كل إغلاق للتجربة.")
+        return "\n".join(lines)
+
+    shown = list(trades)[: max(1, int(limit_shown))]
+    for idx, t in enumerate(shown, start=1):
+        pnl = float(getattr(t, "pnl", 0) or 0)
+        icon = "✅" if pnl > 0 else ("❌" if pnl < 0 else "➖")
+        sign = "+" if pnl >= 0 else ""
+        entry = float(getattr(t, "entry_price", 0) or 0)
+        exit_p = getattr(t, "exit_price", None)
+        exit_s = f"{float(exit_p):.4g}" if exit_p is not None else "—"
+        closed_at = str(getattr(t, "closed_at", "") or "")[:16].replace("T", " ")
+        symbol = escape(str(getattr(t, "symbol", "?")))
+        side = escape(str(getattr(t, "side", "")))
+        lines.append(
+            f"{idx}. {icon} <b>{symbol}</b> {side}\n"
+            f"   دخول {entry:.4g} → خروج {exit_s}\n"
+            f"   PnL: <b>{sign}{_money(pnl)}</b> | {escape(closed_at)}"
+        )
+        if idx < len(shown):
+            lines.append("")
+    if len(trades) > len(shown):
+        lines.append("")
+        lines.append(f"… و {len(trades) - len(shown)} صفقة أخرى في قاعدة البيانات")
+    lines.append("")
+    lines.append("هذا السجل للمراجعة — لا يُحذف عند الإغلاق.")
+    return "\n".join(lines)

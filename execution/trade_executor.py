@@ -295,12 +295,25 @@ class TradeExecutor:
                 )
             return self._reject(symbol, "موجود مركز مفتوح على نفس الزوج", snapshot=snapshot)
 
-        if self.position_manager.count() >= settings.max_concurrent_positions:
+        open_count = self.position_manager.count()
+        if manual_force:
+            # يدوي: العدد مفتوح افتراضياً (0 = بلا سقف). التلقائي مقيد بقواعد المشروع.
+            man_cap = int(getattr(settings, "manual_max_concurrent_positions", 0) or 0)
+            if man_cap > 0 and open_count >= man_cap:
+                return self._reject(
+                    symbol,
+                    (
+                        f"سقف اليدوي: {man_cap} مركز "
+                        f"(مفتوح {open_count}) — ارفع MANUAL_MAX_CONCURRENT_POSITIONS أو أغلق مركزاً"
+                    ),
+                    snapshot=snapshot,
+                )
+        elif open_count >= settings.max_concurrent_positions:
             return self._reject(
                 symbol,
                 (
-                    f"الحد الأقصى للمراكز: {settings.max_concurrent_positions} "
-                    f"(مفتوح {self.position_manager.count()})"
+                    f"الحد الأقصى للتلقائي/العام: {settings.max_concurrent_positions} "
+                    f"(مفتوح {open_count})"
                 ),
                 snapshot=snapshot,
             )
@@ -431,6 +444,18 @@ class TradeExecutor:
         if self.trade_repo is None:
             return
         self.trade_repo.close_trade(position_id, exit_price=exit_price, pnl=pnl)
+        # أرشيف شهري دائم للمراجعة (لا يحذف صف DB)
+        try:
+            from operations.report_archive import log_bot_activity
+
+            log_bot_activity(
+                "trade_closed_archived",
+                position_id=position_id,
+                exit_price=exit_price,
+                pnl=pnl,
+            )
+        except Exception:
+            pass
 
     def _notify_close(self, symbol: str, pnl: float, reason: str) -> None:
         if self.alerts is not None:
@@ -994,17 +1019,37 @@ class TradeExecutor:
                             if position.side == OrderSide.BUY
                             else OrderSide.BUY
                         )
+                        closed_amt = float(smart.partial_exit_amount)
                         self.order_manager.create_market_order(
                             position.symbol,
                             exit_side,
-                            smart.partial_exit_amount,
+                            closed_amt,
                             reference_price=current,
                             allow_without_stops=True,
                         )
+                        # PnL تقريبي للجزء المغلق
+                        if position.side == OrderSide.BUY:
+                            part_pnl = (current - position.entry_price) * closed_amt
+                        else:
+                            part_pnl = (position.entry_price - current) * closed_amt
+                        pos_id = position.id
+                        sym = position.symbol
                         updated = self.position_manager.reduce_amount(
-                            position.symbol, smart.partial_exit_amount
+                            position.symbol, closed_amt
                         )
-                        if updated is not None:
+                        if updated is None:
+                            # إغلاق كامل (غالباً TP3) — أرشف كصفقة مغلقة
+                            try:
+                                self._persist_close_trade(pos_id, current, part_pnl)
+                            except Exception:
+                                pass
+                            try:
+                                self._notify_close(
+                                    sym, part_pnl, smart.reason or "Partial TP كامل"
+                                )
+                            except Exception:
+                                pass
+                        else:
                             if smart.next_exit_tier is not None:
                                 updated.exit_tier = int(smart.next_exit_tier)
                             updated.partial_exit_done = True
@@ -1012,6 +1057,30 @@ class TradeExecutor:
                                 updated.breakeven_applied = True
                             self._persist_open_trade(updated)
                             position = updated
+                            try:
+                                msg = (
+                                    f"<b>💰 ربح جزئي</b>\n"
+                                    f"{sym}\n{smart.reason}\n"
+                                    f"جزء≈ <b>{part_pnl:+.2f}$</b>"
+                                )
+                                if self.alerts is not None and getattr(
+                                    self.alerts, "telegram", None
+                                ):
+                                    self.alerts.telegram.send_message(msg)
+                                else:
+                                    logger.info(
+                                        "Partial TP %s: %s pnl≈%.2f",
+                                        sym,
+                                        smart.reason,
+                                        part_pnl,
+                                    )
+                            except Exception:
+                                logger.info(
+                                    "Partial TP %s: %s pnl≈%.2f",
+                                    sym,
+                                    smart.reason,
+                                    part_pnl,
+                                )
                     actions.append(
                         BreakevenAction(
                             move_sl_to_breakeven=smart.mark_breakeven,

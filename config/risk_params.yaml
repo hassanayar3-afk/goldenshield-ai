@@ -79,10 +79,14 @@ institutional_v13:
   macd_rsi_divergence_enabled: true
   structural_trailing_enabled: true
   multi_tier_tp_enabled: true
-  # تخارج جزئي مرن: 30% هدف1+BE → 40% trailing → 30% runner
-  multi_tier_tp1_pct: 0.30
-  multi_tier_tp2_pct: 0.40
-  multi_tier_runner_pct: 0.30
+  # استراتيجية الربح الجزئي: 50% TP1+BE → 30% TP2+Trail → 20% TP3
+  multi_tier_tp1_pct: 0.50
+  multi_tier_tp2_pct: 0.30
+  multi_tier_runner_pct: 0.20
+  multi_tier_tp1_r: 1.0
+  multi_tier_tp2_r: 2.0
+  multi_tier_tp3_r: 3.0
+  partial_tp3_close_enabled: true
   emergency_derisk_enabled: false
   emergency_derisk_r_threshold: -0.7
   emergency_derisk_close_fraction: 0.5

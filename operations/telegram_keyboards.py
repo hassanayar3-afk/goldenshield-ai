@@ -41,7 +41,10 @@ def main_menu_keyboard(*, paused: bool) -> dict:
                 {"text": "📂 مراكزي", "callback_data": "view:positions"},
             ],
             [
+                {"text": "📜 سجل الصفقات", "callback_data": "view:history"},
                 {"text": "📋 التقرير", "callback_data": "view:report"},
+            ],
+            [
                 toggle,
             ],
             [{"text": "❌ إغلاق كل الصفقات", "callback_data": "act:close_all"}],
@@ -191,9 +194,33 @@ def positions_list_keyboard(
         )
     else:
         rows.append([{"text": "🔄 تحديث", "callback_data": "view:positions"}])
-    rows.append([{"text": "◀️ الرئيسية", "callback_data": "view:main"}])
+    rows.append(
+        [
+            {"text": "📜 سجل المغلقة", "callback_data": "view:history"},
+            {"text": "◀️ الرئيسية", "callback_data": "view:main"},
+        ]
+    )
     return {"inline_keyboard": rows}
 
 
+def history_keyboard() -> dict:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🔄 تحديث السجل", "callback_data": "view:history"},
+                {"text": "📂 مراكزي", "callback_data": "view:positions"},
+            ],
+            [{"text": "◀️ الرئيسية", "callback_data": "view:main"}],
+        ]
+    }
+
+
 def back_to_main_keyboard() -> dict:
-    return {"inline_keyboard": [[{"text": "◀️ الرئيسية", "callback_data": "view:main"}]]}
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "📜 سجل الصفقات", "callback_data": "view:history"},
+                {"text": "◀️ الرئيسية", "callback_data": "view:main"},
+            ]
+        ]
+    }

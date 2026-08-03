@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -19,6 +20,7 @@ from core.analyzer import MarketAnalyzer
 from operations.dashboard_templates import (
     compute_open_floating_pnl,
     format_action_result,
+    format_closed_trades_history,
     format_entry_block_reason,
     format_live_signals_board,
     format_main_dashboard,
@@ -35,6 +37,7 @@ from operations.telegram_keyboards import (
     back_to_main_keyboard,
     decode_symbol,
     encode_symbol,
+    history_keyboard,
     main_menu_keyboard,
     market_keyboard,
     position_trade_keyboard,
@@ -427,7 +430,41 @@ class TelegramDashboard:
             executor=self.executor,
             audit=self.audit,
         )
-        return DashboardView(text, back_to_main_keyboard())
+        try:
+            repo = getattr(self.executor, "trade_repo", None)
+            if repo is not None:
+                summary = repo.trade_history_summary()
+                closed = repo.list_closed_trades(limit=15)
+                hist = format_closed_trades_history(
+                    closed, summary=summary, limit_shown=15
+                )
+                text = f"{text}\n\n{DIVIDER}\n{hist}"
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("history in report: %s", exc)
+        return DashboardView(text, history_keyboard())
+
+    def render_trade_history(self) -> DashboardView:
+        """عرض الصفقات المغلقة دائماً — لا تختفي بعد الإغلاق."""
+        self.disable_live_positions()
+        repo = getattr(self.executor, "trade_repo", None)
+        if repo is None:
+            return DashboardView(
+                format_action_result(
+                    "سجل الصفقات",
+                    "قاعدة البيانات غير متصلة — لا يمكن عرض السجل الآن.",
+                ),
+                back_to_main_keyboard(),
+            )
+        try:
+            summary = repo.trade_history_summary()
+            closed = repo.list_closed_trades(limit=80)
+            text = format_closed_trades_history(
+                closed, summary=summary, limit_shown=40
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("render_trade_history: %s", exc)
+            text = format_action_result("سجل الصفقات", f"تعذّر القراءة: {exc}")
+        return DashboardView(text, history_keyboard())
 
     def render_symbol(self, symbol: str) -> DashboardView:
         entry = self.market.entries.get(symbol)
@@ -518,10 +555,28 @@ class TelegramDashboard:
             return self.render_market()
         if data == "view:positions":
             return self.render_positions(live=True)
+        if data == "view:history":
+            return self.render_trade_history()
         if data == "view:report":
             self.disable_live_positions()
             return self.render_report()
         if data == "act:pause":
+            # مع BOT_FORCE_ACTIVE=true لا يُسمح بالسكون — الإشارات يجب أن تستمر
+            if (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }:
+                self.runtime.resume()
+                return DashboardView(
+                    format_action_result(
+                        "تشغيل دائم",
+                        "وضع السكون معطّل — البوت يبقى نشطاً والإشارات مستمرة.\n"
+                        "لإيقاف الدخول فقط استخدم طوارئ إن لزم، أو عطّل BOT_FORCE_ACTIVE.",
+                    ),
+                    main_menu_keyboard(paused=False),
+                )
             self.runtime.pause()
             return self.render_main()
         if data == "act:resume":

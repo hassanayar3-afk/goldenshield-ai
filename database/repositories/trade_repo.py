@@ -118,6 +118,79 @@ class TradeRepository:
             ).fetchall()
         return [self._row_to_trade(row) for row in rows]
 
+    def list_closed_trades(self, *, limit: int = 100) -> list[TradeRow]:
+        """سجل دائم للصفقات المغلقة — لا تُحذف من DB عند الإغلاق."""
+        lim = max(1, min(int(limit or 100), 500))
+        with self._db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM trades
+                WHERE status = 'closed'
+                ORDER BY COALESCE(closed_at, opened_at) DESC
+                LIMIT ?
+                """,
+                (lim,),
+            ).fetchall()
+        return [self._row_to_trade(row) for row in rows]
+
+    def trade_history_summary(self) -> dict[str, float | int]:
+        """ملخص دائم للتجارب: مفتوح/مغلق/ربح/خسارة."""
+        with self._db.connect() as conn:
+            open_n = int(
+                conn.execute(
+                    "SELECT COUNT(*) AS c FROM trades WHERE status = 'open'"
+                ).fetchone()["c"]
+                or 0
+            )
+            closed_n = int(
+                conn.execute(
+                    "SELECT COUNT(*) AS c FROM trades WHERE status = 'closed'"
+                ).fetchone()["c"]
+                or 0
+            )
+            wins = int(
+                conn.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM trades
+                    WHERE status = 'closed' AND COALESCE(pnl, 0) > 0
+                    """
+                ).fetchone()["c"]
+                or 0
+            )
+            losses = int(
+                conn.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM trades
+                    WHERE status = 'closed' AND COALESCE(pnl, 0) < 0
+                    """
+                ).fetchone()["c"]
+                or 0
+            )
+            flat = int(
+                conn.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM trades
+                    WHERE status = 'closed' AND COALESCE(pnl, 0) = 0
+                    """
+                ).fetchone()["c"]
+                or 0
+            )
+            row = conn.execute(
+                """
+                SELECT COALESCE(SUM(pnl), 0) AS s FROM trades
+                WHERE status = 'closed'
+                """
+            ).fetchone()
+            total_pnl = float(row["s"] or 0.0)
+        return {
+            "open": open_n,
+            "closed": closed_n,
+            "wins": wins,
+            "losses": losses,
+            "flat": flat,
+            "total_pnl": total_pnl,
+        }
+
     def _row_to_trade(self, row) -> TradeRow:
         keys = row.keys() if hasattr(row, "keys") else []
         def col(name: str, default=None):

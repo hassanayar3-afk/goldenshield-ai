@@ -38,6 +38,26 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
+def _resolve_db_path(raw: str) -> str:
+    """مسار DB مطلق ثابت — يمنع بوتاً «جديداً» فارغاً عند اختلاف مجلد التشغيل."""
+    text = (raw or "storage/db/goldenshield.db").strip() or "storage/db/goldenshield.db"
+    path = Path(text)
+    if path.is_absolute():
+        return str(path)
+    official = Path(
+        (os.getenv("GOLDENSHIELD_OFFICIAL_ROOT") or r"C:\GoldenShield_Binance").strip()
+    )
+    try:
+        if official.is_dir():
+            return str((official / path).resolve())
+    except Exception:
+        pass
+    try:
+        return str((BASE_DIR / path).resolve())
+    except Exception:
+        return str(Path.cwd() / path)
+
+
 @dataclass(frozen=True)
 class Settings:
     env: str
@@ -89,6 +109,8 @@ class Settings:
     default_rr_ratio: float
     dark_pool_max_chunk_usdt: float
     max_concurrent_positions: int
+    # 0 = يدوي بلا سقف عدد (التلقائي يبقى على max_concurrent + قواعد الشرائح)
+    manual_max_concurrent_positions: int
     partial_exit_pct: float
     breakeven_enabled: bool
     correlation_groups: tuple[tuple[str, ...], ...]
@@ -226,7 +248,9 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
             os.getenv("LOOP_INTERVAL_SECONDS") or app.get("loop_interval_seconds", 60)
         ),
         log_level=str(app.get("log_level", "INFO")),
-        db_path=str(os.getenv("DB_PATH") or database.get("path", "storage/db/goldenshield.db")),
+        db_path=_resolve_db_path(
+            str(os.getenv("DB_PATH") or database.get("path", "storage/db/goldenshield.db"))
+        ),
         binance_api_key=os.getenv("BINANCE_API_KEY") or None,
         binance_api_secret=os.getenv("BINANCE_API_SECRET") or None,
         binance_api_key_2=os.getenv("BINANCE_API_KEY_2") or None,
@@ -276,6 +300,10 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         max_concurrent_positions=int(
             os.getenv("MAX_CONCURRENT_POSITIONS")
             or execution.get("max_concurrent_positions", 12)
+        ),
+        manual_max_concurrent_positions=int(
+            os.getenv("MANUAL_MAX_CONCURRENT_POSITIONS")
+            or execution.get("manual_max_concurrent_positions", 0)
         ),
         partial_exit_pct=float(execution.get("partial_exit_pct", 0.5)),
         breakeven_enabled=bool(execution.get("breakeven_enabled", True)),
