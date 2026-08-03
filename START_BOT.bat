@@ -72,19 +72,29 @@ schtasks /Delete /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /Create /TN "%GS_TASK%" /TR "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"%GS_WORKER%\"" /SC ONSTART /RL HIGHEST /F >nul
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=Get-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -EA Stop; $t.Settings.Hidden=$true; $t.Settings.ExecutionTimeLimit='PT0S'; $t | Set-ScheduledTask | Out-Null } catch {}"
 
-echo  [5/5] تشغيل البوت في الخلفية...
+echo  [5/5] تشغيل البوت + فتح نافذة الحالة (واحدة فقط)...
 schtasks /Run /TN "%GS_TASK%" >nul 2>&1
 timeout /t 7 /nobreak >nul
 
+rem أغلق أي نافذة حالة قديمة
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|نافذة الحالة|BOT STATUS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+
+rem افتح نافذة CMD ظاهرة واحدة (مهمة تفاعلية تظهر على سطح المكتب)
+schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
+schtasks /Create /TN "GoldenShieldStatusWindow" /TR "\"%GS_ROOT%\BOT_WINDOW.bat\"" /SC ONCE /ST 00:00 /RL HIGHEST /IT /F >nul 2>&1
+schtasks /Run /TN "GoldenShieldStatusWindow" >nul 2>&1
+if errorlevel 1 (
+  if exist "%GS_ROOT%\BOT_WINDOW.bat" start "GoldenShield BOT — يعمل" "%GS_ROOT%\BOT_WINDOW.bat"
+)
+
 echo.
 echo  --------------------------------------------------------
-echo   الحالة : يعمل في الخلفية (بدون نوافذ CMD مكررة)
+echo   الحالة : البوت يعمل + نافذة CMD واحدة ظاهرة للمراقبة
 echo   المجلد : %GS_ROOT%
 echo   قاعدة البيانات : %GS_DB%
-echo   للعرض الاختياري فقط: 00_LIVE_CONSOLE.bat
+echo   ملاحظة : اغلاق نافذة الحالة لا يوقف البوت
 echo  --------------------------------------------------------
 echo.
-echo  يمكنك اغلاق هذه النافذة — البوت يستمر في الخلفية.
-timeout /t 6 /nobreak >nul
+timeout /t 4 /nobreak >nul
 endlocal
 exit /b 0

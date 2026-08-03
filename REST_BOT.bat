@@ -70,12 +70,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=Get-ScheduledTa
 schtasks /Run /TN "%GS_TASK%" >nul 2>&1
 timeout /t 7 /nobreak >nul
 
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|نافذة الحالة|BOT STATUS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
+schtasks /Create /TN "GoldenShieldStatusWindow" /TR "\"%GS_ROOT%\BOT_WINDOW.bat\"" /SC ONCE /ST 00:00 /RL HIGHEST /IT /F >nul 2>&1
+schtasks /Run /TN "GoldenShieldStatusWindow" >nul 2>&1
+if errorlevel 1 (
+  if exist "%GS_ROOT%\BOT_WINDOW.bat" start "GoldenShield BOT — يعمل" "%GS_ROOT%\BOT_WINDOW.bat"
+)
+
 echo.
 echo  --------------------------------------------------------
-echo   الحالة : مثيل واحد في الخلفية
+echo   الحالة : مثيل واحد + نافذة حالة ظاهرة
 echo   البيانات: كما هي
 echo  --------------------------------------------------------
 echo.
-timeout /t 6 /nobreak >nul
+timeout /t 4 /nobreak >nul
 endlocal
 exit /b 0

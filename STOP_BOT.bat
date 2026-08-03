@@ -26,12 +26,14 @@ cd /d "%GS_ROOT%"
 echo  [1/3] إيقاف المهمة الرسمية...
 schtasks /End /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /End /TN "GoldenShieldLiveConsole" /F >nul 2>&1
+schtasks /End /TN "GoldenShieldStatusWindow" /F >nul 2>&1
+schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
 
-echo  [2/3] إيقاف main.py وكل نوافذ العامل/العرض...
+echo  [2/3] إيقاف main.py + نافذة الحالة + العمال المكررين...
 if exist "%GS_KILL%" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%GS_KILL%"
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|run_official_bot|00_LIVE_CONSOLE' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|run_official_bot|BOT_WINDOW|00_LIVE_CONSOLE' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
 )
 timeout /t 2 /nobreak >nul
 

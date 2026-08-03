@@ -1,28 +1,25 @@
 ========================================================
-  GoldenShield — ملفات التشغيل الرسمية
-  المجلد: C:\GoldenShield_Binance
+  GoldenShield — official launchers
+  Folder: C:\GoldenShield_Binance
 ========================================================
 
-استخدم هذه الثلاثة فقط (اختصارات سطح المكتب):
+Use ONLY these 3 desktop shortcuts:
 
   1) START BOT
-     تشغيل مثيل واحد مخفي في الخلفية
-     لا يفتح نوافذ CMD مكررة
-     لا يحذف الصفقات ولا التقارير ولا قاعدة البيانات
+     Starts one bot instance + ONE status window
+     Status shows: ACTIVE / STOPPED + readable log
 
   2) STOP BOT
-     إيقاف البوت + إغلاق كل نوافذ العامل المكررة
-     البيانات تبقى محفوظة
+     Stops bot + closes status window
 
   3) REST BOT
-     إعادة تشغيل منظمة (مثيل واحد مخفي)
-     لا يمسح أي خزن / صفقات / تقارير
+     Restart cleanly (one instance + one status window)
 
-مهم:
-  - البوت يعمل في الخلفية — لا تحتاج نوافذ مفتوحة
-  - لا تشغّل run_official_bot يدوياً
-  - لا تشغّل من Downloads
-  - العرض الاختياري للسجل فقط: 00_LIVE_CONSOLE.bat
-    (اغلاقه لا يوقف البوت — ولا يُفتح تلقائياً)
+IMPORTANT about the status window:
+  - Text is English/ASCII on purpose (stable, no broken symbols)
+  - Do NOT click inside the black window (Windows freezes it)
+  - Closing status window does NOT stop the bot
+  - Full stop = STOP BOT only
+  - If window looks empty: press START BOT again
 
 ========================================================
