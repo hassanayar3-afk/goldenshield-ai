@@ -909,6 +909,21 @@ async def run_bot() -> None:
                 prices,
                 reasons=reasons_map,
             )
+            try:
+                from datetime import datetime, timezone
+
+                from operations.dashboard_templates import write_console_signals_board_file
+
+                write_console_signals_board_file(
+                    cycle_entries,
+                    interval_seconds=float(
+                        getattr(settings, "loop_interval_seconds", 15) or 15
+                    ),
+                    updated_at=datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+                    + " UTC",
+                )
+            except Exception as board_exc:  # noqa: BLE001
+                logger.debug("signals_board write: %s", board_exc)
             _maybe_send_qualified_signals_list(telegram_handler, cycle_entries)
             _maybe_send_watchlist_digest(telegram_handler, cycle_entries)
             _maybe_send_alive_pulse(telegram_handler, cycle_entries)

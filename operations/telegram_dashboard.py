@@ -29,6 +29,7 @@ from operations.dashboard_templates import (
     format_qualified_signals_digest,
     format_trade_setup_card,
     format_watchlist_digest,
+    write_console_signals_board_file,
 )
 from operations.daily_report import format_daily_report_telegram
 from operations.message_templates import DIVIDER, escape
@@ -346,6 +347,14 @@ class TelegramDashboard:
             interval_seconds=interval,
             updated_at=stamp,
         )
+        try:
+            write_console_signals_board_file(
+                all_entries,
+                interval_seconds=interval,
+                updated_at=stamp,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("write_console_signals_board_file: %s", exc)
         symbols = [e["symbol"] for e in all_entries]
         return DashboardView(
             text,

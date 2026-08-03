@@ -417,6 +417,118 @@ def format_live_signals_board(
     return "\n".join(lines)
 
 
+def format_console_signals_board(
+    all_entries: list[dict],
+    *,
+    interval_seconds: float | int = 0.8,
+    updated_at: str = "",
+) -> str:
+    """لوحة إشارات لنوافذ CMD — نص صريح بدون HTML (إشارات فقط، ليست صفقات)."""
+    from data.symbol_routing import display_symbol
+
+    ordered = sorted(
+        all_entries,
+        key=lambda e: (-int(e.get("score", 0) or 0), str(e.get("symbol") or "")),
+    )
+    ready = [
+        e
+        for e in ordered
+        if str(e.get("signal")) in {"BUY SIGNAL", "SELL SIGNAL"}
+        and meets_telegram_notify_minimum(int(e.get("score", 0) or 0))
+        and e.get("passed") is not False
+    ]
+    try:
+        iv = float(interval_seconds)
+    except (TypeError, ValueError):
+        iv = 0.8
+    stamp = updated_at or "—"
+    lines = [
+        "========================================================",
+        "  GoldenShield AI  |  LIVE SIGNALS",
+        "  Signals only — NOT trades / NOT positions",
+        "========================================================",
+        f"  Updated : {stamp}",
+        f"  Refresh : every ~{iv:.1f}s",
+        f"  Watching: {len(ordered)}   Ready: {len(ready)}",
+        "--------------------------------------------------------",
+    ]
+    if not ordered:
+        lines.append("  (waiting for analysis cycle...)")
+        lines.append("========================================================")
+        return "\n".join(lines)
+
+    for entry in ordered:
+        raw_symbol = str(entry.get("symbol") or "?")
+        try:
+            base = display_symbol(raw_symbol)
+        except Exception:
+            base = raw_symbol
+        base = str(base or raw_symbol or "?").strip()
+        if base.upper().endswith("/USDT"):
+            symbol = base
+        elif "/" in base:
+            symbol = base
+        else:
+            symbol = f"{base}/USDT"
+        try:
+            price = float(entry.get("price") or 0)
+        except (TypeError, ValueError):
+            price = 0.0
+        score = int(entry.get("score", 0) or 0)
+        signal = str(entry.get("signal") or "WAIT")
+        if signal == "BUY SIGNAL":
+            state = "BUY"
+        elif signal == "SELL SIGNAL":
+            state = "SELL"
+        elif signal == "REJECTED":
+            state = "REJECT"
+        else:
+            state = "WAIT"
+        # نفس أسلوب القراءة القديمة في CMD
+        if price >= 100:
+            price_txt = f"{price:.2f}"
+        elif price >= 1:
+            price_txt = f"{price:.4f}"
+        else:
+            price_txt = f"{price:.6f}"
+        lines.append(
+            f"  * {symbol} | price: {price_txt} | score: {score}/10 | {state}"
+        )
+
+    lines.extend(
+        [
+            "--------------------------------------------------------",
+            "  Auto entry from 9-10/10 only | below that = WAIT/manual",
+            "========================================================",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def write_console_signals_board_file(
+    all_entries: list[dict],
+    *,
+    interval_seconds: float | int = 0.8,
+    updated_at: str = "",
+    path: str | None = None,
+) -> str | None:
+    """يكتب لوحة الإشارات لنافذة الحالة على القرص — لا يرمي استثناء للحلقة الرئيسية."""
+    try:
+        from pathlib import Path
+
+        target = Path(path or "storage/runtime/signals_board.txt")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        text = format_console_signals_board(
+            all_entries,
+            interval_seconds=interval_seconds,
+            updated_at=updated_at,
+        )
+        target.write_text(text, encoding="utf-8-sig")
+        return str(target)
+    except Exception:
+        return None
+
+
 def _line(icon: str, label: str, value: str, extra: str = "") -> str:
     """سطر واحد منظم ومحاذي: أيقونة + تسمية ثابتة العرض + قيمة."""
     label_pad = f"{label:<8}"
