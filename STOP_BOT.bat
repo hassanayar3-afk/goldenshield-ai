@@ -4,18 +4,14 @@ setlocal EnableExtensions
 title GoldenShield — STOP BOT
 color 0C
 
-rem ============================================================
-rem  STOP_BOT.bat
-rem  إيقاف البوت بالكامل — بدون حذف قاعدة البيانات أو التقارير
-rem ============================================================
-
 set "GS_ROOT=C:\GoldenShield_Binance"
 set "GS_TASK=GoldenShieldBotOfficial"
+set "GS_KILL=%GS_ROOT%\scripts\_kill_gs_workers.ps1"
 
 echo.
 echo  ========================================================
 echo    GoldenShield AI  ^|  STOP BOT
-echo    إيقاف التشغيل — البيانات تبقى محفوظة
+echo    إيقاف البوت + كل النوافذ المكررة — البيانات محفوظة
 echo  ========================================================
 echo.
 
@@ -29,13 +25,17 @@ cd /d "%GS_ROOT%"
 
 echo  [1/3] إيقاف المهمة الرسمية...
 schtasks /End /TN "%GS_TASK%" /F >nul 2>&1
+schtasks /End /TN "GoldenShieldLiveConsole" /F >nul 2>&1
 
-echo  [2/3] إيقاف عمليات main.py...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match 'main\.py' -and $_.Name -match 'python|py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match 'run_official_bot\.bat' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+echo  [2/3] إيقاف main.py وكل نوافذ العامل/العرض...
+if exist "%GS_KILL%" (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%GS_KILL%"
+) else (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|run_official_bot|00_LIVE_CONSOLE' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+)
 timeout /t 2 /nobreak >nul
 
-echo  [3/3] تسجيل إيقاف يدوي (يمنع إعادة التشغيل التلقائي من المراقب)...
+echo  [3/3] تسجيل إيقاف يدوي...
 if not exist "%GS_ROOT%\storage\runtime" mkdir "%GS_ROOT%\storage\runtime" >nul 2>&1
 (
   echo {
@@ -49,9 +49,9 @@ if exist "C:\ProgramData\GoldenShield\bot_instance.lock" del /f /q "C:\ProgramDa
 
 echo.
 echo  --------------------------------------------------------
-echo   الحالة : البوت متوقف
+echo   الحالة : البوت متوقف + لا نوافذ عامل مفتوحة
 echo   محفوظ  : الصفقات / التقارير / قاعدة البيانات
-echo   للتشغيل مجدداً : START_BOT.bat
+echo   للتشغيل : START_BOT.bat
 echo  --------------------------------------------------------
 echo.
 pause
