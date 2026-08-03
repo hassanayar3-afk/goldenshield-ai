@@ -353,7 +353,7 @@ def format_watchlist_digest(all_entries: list[dict]) -> str:
 def format_live_signals_board(
     all_entries: list[dict],
     *,
-    interval_seconds: int = 15,
+    interval_seconds: float | int = 0.8,
     updated_at: str = "",
 ) -> str:
     """لوحة إشارات حية مضغوطة — كل الأزواج بما فيها WAIT."""
@@ -371,10 +371,15 @@ def format_live_signals_board(
         and e.get("passed") is not False
     ]
     stamp = escape(updated_at) if updated_at else "—"
+    try:
+        iv = float(interval_seconds)
+    except (TypeError, ValueError):
+        iv = 0.8
+    iv_label = f"{iv:.1f}" if iv < 2 else str(int(iv))
     lines = [
         _header("بث حي — الإشارات"),
         "",
-        f"<i>يتحدّث تلقائياً كل ~{int(interval_seconds)} ثانية</i>",
+        f"<i>يتحدّث تلقائياً كل ~{iv_label} ثانية — ممنوع السكون</i>",
         f"<b>آخر تحديث:</b> <code>{stamp}</code>",
         f"<b>المراقبة:</b> {len(ordered)}  ·  <b>جاهزة:</b> {len(ready)}",
         "",

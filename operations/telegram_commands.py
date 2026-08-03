@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -100,7 +101,13 @@ class TelegramCommandHandler:
         *,
         reasons: tuple[str, ...] = (),
     ) -> None:
-        if should_block_signals() or self.runtime.user_stopped:
+        force = (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if not force and (should_block_signals() or self.runtime.user_stopped):
             return
         view = self.dashboard.build_trade_alert(symbol, entry, reasons)
         self.telegram.send_message(view.text, reply_markup=view.keyboard)
@@ -112,7 +119,15 @@ class TelegramCommandHandler:
         from operations.signal_filter import annotate_entry_actions
         from operations.telegram_keyboards import market_keyboard
 
-        if should_block_signals() or self.runtime.user_stopped or not self.enabled:
+        force = (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if not self.enabled:
+            return False
+        if not force and (should_block_signals() or self.runtime.user_stopped):
             return False
 
         open_count = self.executor.position_manager.count()
@@ -411,25 +426,26 @@ class TelegramCommandHandler:
         self._stop_poll.clear()
 
         def _run() -> None:
-            logger.info("Telegram long-poll thread started")
+            logger.info("Telegram live-poll thread started (signals never sleep)")
             while not self._stop_poll.is_set():
                 try:
-                    # عند البث الحي: مهلة أقصر لتحديث الأسعار بسرعة
-                    live = (
-                        self.dashboard.live_positions_active
-                        or bool(getattr(self.dashboard, "_live_signals_enabled", False))
-                    )
-                    self.poll_once(long_poll=not live)
+                    # بث الإشارات دائماً — لا سكون
+                    try:
+                        self.dashboard.ensure_live_signals()
+                    except Exception:
+                        pass
+                    live = True  # إجباري: حلقة سريعة للإشارات
+                    self.poll_once(long_poll=False)
                     self.dashboard.tick_live_positions()
                     try:
                         self.dashboard.tick_live_signals()
                     except Exception as live_exc:  # noqa: BLE001
                         logger.debug("tick_live_signals: %s", live_exc)
-                    if live:
-                        time.sleep(1.0)
+                    # أقل من ثانية
+                    time.sleep(0.35)
                 except Exception as exc:
                     logger.warning("خطأ في حلقة Telegram: %s", exc)
-                    time.sleep(1.0)
+                    time.sleep(0.5)
 
         self._poll_thread = threading.Thread(
             target=_run,

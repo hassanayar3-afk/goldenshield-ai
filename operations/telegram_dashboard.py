@@ -260,14 +260,12 @@ class TelegramDashboard:
         )
 
     def _live_positions_interval(self) -> float:
-        """فاصل تحديث بث المراكز الحي — افتراضي 1 ثانية."""
-        import os
-
-        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "5").strip()
+        """فاصل تحديث بث المراكز الحي — أقل من ثانية."""
+        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "0.8").strip()
         try:
-            return max(2.0, float(raw or "5"))
+            return max(0.4, min(float(raw or "0.8"), 3.0))
         except (TypeError, ValueError):
-            return 5.0
+            return 0.8
 
     def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
         self._live_positions_enabled = True
@@ -311,38 +309,38 @@ class TelegramDashboard:
             return False
 
     def _live_signals_wanted(self) -> bool:
-        import os
-
         raw = os.getenv("TELEGRAM_LIVE_SIGNALS", "true").strip().lower()
         return raw in {"1", "true", "yes", "on"}
 
     def _live_signals_interval(self) -> float:
-        import os
-
+        """بث الإشارات الحي — أقل من ثانية (ممنوع السكون)."""
+        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "0.8").strip()
         try:
-            settings = get_settings()
-            base = float(getattr(settings, "loop_interval_seconds", 15) or 15)
-        except Exception:
-            base = 15.0
-        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "").strip()
-        if raw:
-            try:
-                return max(5.0, float(raw))
-            except ValueError:
-                pass
-        return max(5.0, base)
+            return max(0.4, min(float(raw or "0.8"), 2.0))
+        except (TypeError, ValueError):
+            return 0.8
 
     def render_live_signals(self) -> DashboardView:
         from datetime import datetime, timezone
 
         active_pairs = get_symbol_registry().active_pairs()
+        try:
+            prices = self._fetch_prices(list(active_pairs))
+            if prices:
+                self.market.prices.update(prices)
+                for sym, px in prices.items():
+                    if sym in self.market.entries:
+                        self.market.entries[sym]["price"] = float(px)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("live signals price refresh: %s", exc)
+
         all_entries = [
             self.market.entries[s]
             for s in active_pairs
             if s in self.market.entries
         ]
-        interval = int(self._live_signals_interval())
-        stamp = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+        interval = self._live_signals_interval()
+        stamp = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3] + " UTC"
         text = format_live_signals_board(
             all_entries,
             interval_seconds=interval,
@@ -384,7 +382,7 @@ class TelegramDashboard:
             return False
 
     def publish_live_signals(self, *, force: bool = False) -> bool:
-        """يحدّث لوحة الإشارات الحية بعد كل دورة تحليل."""
+        """يحدّث لوحة الإشارات الحية بسرعة — ممنوع السكون."""
         if not self._live_signals_wanted():
             return False
         try:
@@ -393,10 +391,7 @@ class TelegramDashboard:
             now = time.monotonic()
             interval = self._live_signals_interval()
             self._live_signals_interval_seconds = interval
-            if (
-                not force
-                and (now - self._live_signals_last_ts) < max(5.0, interval - 1.0)
-            ):
+            if not force and (now - self._live_signals_last_ts) < interval:
                 return False
             view = self.render_live_signals()
             if view.text == self._live_signals_last_text and not force:
@@ -408,7 +403,6 @@ class TelegramDashboard:
                 reply_markup=view.keyboard,
                 chat_id=self._live_signals_chat_id,
             )
-            # حتى لو «message is not modified» نعتبر التحديث ناجحاً
             self._live_signals_last_ts = now
             self._live_signals_last_text = view.text
             return True
@@ -417,11 +411,11 @@ class TelegramDashboard:
             return False
 
     def tick_live_signals(self) -> bool:
-        """نبضة من خيط تيليجرام — يحافظ على التحديث كل ~15 ثانية."""
+        """نبضة من خيط تيليجرام — تحديث أقل من ثانية."""
         if not self._live_signals_wanted():
             return False
         if not (self._live_signals_enabled and self._live_signals_msg_id is not None):
-            return False
+            return self.ensure_live_signals()
         return self.publish_live_signals(force=False)
 
     def render_report(self) -> DashboardView:
