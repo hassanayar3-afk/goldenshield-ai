@@ -1266,6 +1266,56 @@ class TradeExecutor:
             logger.warning("_cancel_open_orders_for_symbol %s: %s", symbol, exc)
         return cancelled
 
+    def _spot_sell_is_dust(self, symbol: str, amount: float, price: float) -> tuple[bool, str]:
+        """True إذا الكمية أصغر من حد Binance Spot (لا يمكن أمر سوق)."""
+        try:
+            settings = get_settings()
+            if settings.execution_mode != "live" and not bool(
+                getattr(settings, "binance_demo_trading", False)
+            ):
+                return False, ""
+            exchange = get_exchange()
+            try:
+                exchange.load_markets()
+            except Exception:
+                pass
+            amt = float(amount or 0.0)
+            px = float(price or 0.0)
+            if amt <= 0 or px <= 0:
+                return True, "كمية/سعر صفر"
+            notional = amt * px
+            market = {}
+            try:
+                market = exchange.market(symbol) or {}
+            except Exception:
+                market = {}
+            limits = market.get("limits") or {}
+            min_amt = float(((limits.get("amount") or {}).get("min")) or 0.0)
+            min_cost = float(((limits.get("cost") or {}).get("min")) or 5.0)
+            if min_cost <= 0:
+                min_cost = 5.0
+            if min_amt > 0 and amt < min_amt:
+                return True, f"أقل من الحد الأدنى للكمية ({amt} < {min_amt})"
+            if notional < min_cost:
+                return True, f"قيمة الغبار {notional:.4f}$ < حد المنصة {min_cost}$"
+            # فحص دقة الكمية
+            try:
+                prec = float(exchange.amount_to_precision(symbol, amt))
+                if prec <= 0:
+                    return True, "الكمية تصبح صفراً بعد دقة المنصة"
+            except Exception as prec_exc:  # noqa: BLE001
+                return True, f"دقة الكمية غير صالحة: {prec_exc}"
+            return False, ""
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("_spot_sell_is_dust %s: %s", symbol, exc)
+            # إن تعذر الفحص وكانت القيمة صغيرة جداً — اعتبرها غباراً آمناً
+            try:
+                if float(amount or 0.0) * float(price or 0.0) < 5.0:
+                    return True, "قيمة تقديرية أقل من 5$"
+            except Exception:
+                pass
+            return False, ""
+
     def _close_position(self, position: Position, price: float, reason: str) -> None:
         if position.side == OrderSide.BUY:
             pnl = (price - position.entry_price) * position.amount
@@ -1300,6 +1350,41 @@ class TradeExecutor:
         except Exception as fit_exc:  # noqa: BLE001
             logger.debug("fit close amount %s: %s", position.symbol, fit_exc)
 
+        # 3) غبار Spot: Binance لا يقبل البيع تحت ~5$ — أغلق محلياً في البوت
+        if fit_side == "sell":
+            is_dust, dust_reason = self._spot_sell_is_dust(
+                position.symbol,
+                sell_amount,
+                float(price or position.entry_price or 0.0),
+            )
+            if is_dust or sell_amount <= 0:
+                logger.warning(
+                    "إغلاق غبار %s بدون أمر سوق — %s (amt=%.8f)",
+                    position.symbol,
+                    dust_reason or "كمية صفر",
+                    sell_amount,
+                )
+                # أعد حساب pnl على الكمية الفعلية إن وُجدت
+                try:
+                    pnl = (price - position.entry_price) * float(position.amount or 0.0)
+                except Exception:
+                    pass
+                order_ok = True
+                # انتقل مباشرة لتسجيل الإغلاق
+                self.position_manager.remove(position.symbol)
+                self.risk.record_closed_trade(pnl)
+                self.risk.record_hc_trade_close(
+                    pnl,
+                    was_hc=position.risk_mode == RISK_MODE_HIGH_CONVICTION,
+                )
+                self._persist_close_trade(position.id, price, pnl)
+                self._notify_close(
+                    position.symbol,
+                    pnl,
+                    f"{reason} (غبار Spot — أقل من حد المنصة)",
+                )
+                return
+
         order_ok = False
         try:
             if sell_amount > 0:
@@ -1321,9 +1406,10 @@ class TradeExecutor:
             already_flat = self._spot_base_is_flat(position.symbol)
             msg = str(exc).lower()
             insufficient = "insufficient" in msg or "not enough" in msg
-            if already_flat or (insufficient and self._spot_base_is_flat(position.symbol)):
+            filter_fail = "filter" in msg or "notional" in msg or "min" in msg
+            if already_flat or filter_fail:
                 logger.warning(
-                    "إغلاق %s: الأمر فشل لكن الرصيد صفر على المنصة — تسجيل الإغلاق | %s",
+                    "إغلاق %s: فشل الأمر لكن يُسجَّل كغبار/صفر — %s",
                     position.symbol,
                     exc,
                 )
@@ -1338,7 +1424,14 @@ class TradeExecutor:
                         amount=float(position.amount or 0.0),
                         price=float(price or position.entry_price or 0.0),
                     )
-                    if fitted2 > 0:
+                    dust2, _ = self._spot_sell_is_dust(
+                        position.symbol,
+                        float(fitted2 or 0.0),
+                        float(price or position.entry_price or 0.0),
+                    )
+                    if dust2 or self._spot_base_is_flat(position.symbol):
+                        order_ok = True
+                    elif fitted2 > 0:
                         self.order_manager.create_market_order(
                             position.symbol,
                             exit_side,
@@ -1346,8 +1439,6 @@ class TradeExecutor:
                             reference_price=price,
                             allow_without_stops=True,
                         )
-                        order_ok = True
-                    elif self._spot_base_is_flat(position.symbol):
                         order_ok = True
                     else:
                         logger.exception("فشل أمر إغلاق %s: %s", position.symbol, exc)
@@ -1358,7 +1449,11 @@ class TradeExecutor:
                 except ExecutionError:
                     raise
                 except Exception as retry_exc:  # noqa: BLE001
-                    if self._spot_base_is_flat(position.symbol):
+                    if self._spot_base_is_flat(position.symbol) or self._spot_sell_is_dust(
+                        position.symbol,
+                        float(position.amount or 0.0),
+                        float(price or 0.0),
+                    )[0]:
                         order_ok = True
                     else:
                         logger.exception("فشل أمر إغلاق %s: %s", position.symbol, retry_exc)
