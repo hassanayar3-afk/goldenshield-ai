@@ -31,6 +31,10 @@ if not exist "%GS_ROOT%\.env" (
 cd /d "%GS_ROOT%"
 set "DB_PATH=%GS_DB%"
 set "BOT_FORCE_ACTIVE=true"
+if not defined PROJECT_REFERENCE_CAPITAL set "PROJECT_REFERENCE_CAPITAL=5000"
+if not defined PROJECT_MIN_TRADE_NOTIONAL set "PROJECT_MIN_TRADE_NOTIONAL=25"
+if not defined TELEGRAM_LIVE_SIGNALS_SECONDS set "TELEGRAM_LIVE_SIGNALS_SECONDS=15"
+if not defined TELEGRAM_LIVE_POSITIONS_SECONDS set "TELEGRAM_LIVE_POSITIONS_SECONDS=1"
 
 echo  [حماية البيانات] لن يُحذف: DB / reports / logs / صفقات
 echo.

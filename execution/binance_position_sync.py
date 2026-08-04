@@ -33,6 +33,78 @@ def _dust(asset: str) -> float:
     return float(_DUST.get(asset.upper(), _DUST["DEFAULT"]))
 
 
+def live_mirror_sync_from_binance(executor) -> list[str]:
+    """مرآة حية للوحة التحكم: استعلام فوري من Binance Spot قبل أي عرض.
+
+    لا تعتمد على عدّادات DB المحلية — تجلب الرصيد النشط من المنصة ثم
+    توفّق الذاكرة (إضافة/تحديث/إغلاق شبحي) ليطابق العرض المنصة 100%.
+    """
+    return sync_binance_spot_positions(executor)
+
+
+def count_live_spot_positions_from_binance(executor: object | None = None) -> int:
+    """عدد المراكز المفتوحة حسب رصيد Binance الحالي (مرآة مباشرة)."""
+    try:
+        settings = get_settings()
+        if str(getattr(settings, "execution_backend", "binance")).lower() != "binance":
+            if executor is not None:
+                return int(executor.position_manager.count())
+            return 0
+        if not bool(getattr(settings, "binance_demo_trading", False)) and settings.execution_mode != "live":
+            if settings.execution_mode == "paper" and not settings.binance_demo_trading:
+                if executor is not None:
+                    return int(executor.position_manager.count())
+                return 0
+
+        from data.exchange_client import get_exchange
+
+        exchange = get_exchange()
+        bal = exchange.fetch_balance() or {}
+        total = bal.get("total") or {}
+        pairs = set(getattr(settings, "trading_pairs", ()) or ())
+        allowed_extra = {
+            "BTC/USDT",
+            "ETH/USDT",
+            "BNB/USDT",
+            "SOL/USDT",
+            "ADA/USDT",
+            "XRP/USDT",
+            "LTC/USDT",
+            "DOT/USDT",
+            "AVAX/USDT",
+            "LINK/USDT",
+            "ATOM/USDT",
+            "DOGE/USDT",
+            "TRX/USDT",
+            "POL/USDT",
+        }
+        n = 0
+        for asset, qty_raw in total.items():
+            asset_u = str(asset).upper()
+            if asset_u in _STABLES:
+                continue
+            try:
+                qty = float(qty_raw or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if qty <= _dust(asset_u):
+                continue
+            symbol = f"{asset_u}/USDT"
+            if symbol not in pairs and symbol not in allowed_extra:
+                if not any(str(p).upper().startswith(f"{asset_u}/") for p in pairs):
+                    continue
+            n += 1
+        return n
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("count_live_spot_positions_from_binance: %s", exc)
+        if executor is not None:
+            try:
+                return int(executor.position_manager.count())
+            except Exception:
+                return 0
+        return 0
+
+
 def sync_binance_spot_positions(executor) -> list[str]:
     """يعيد قائمة الرموز التي أُضيفت/حُدّثت/أُغلقت بالمزامنة."""
     added: list[str] = []
@@ -48,6 +120,7 @@ def sync_binance_spot_positions(executor) -> list[str]:
         from data.exchange_client import get_exchange
 
         exchange = get_exchange()
+        # استعلام فوري — لا كاش محلي لعدد/حالة المراكز
         bal = exchange.fetch_balance() or {}
         total = bal.get("total") or {}
         free = bal.get("free") or {}

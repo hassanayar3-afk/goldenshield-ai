@@ -1,10 +1,14 @@
-# عامل الخلفية الرسمي — مثيل واحد، بلا نافذة ظاهرة
-# المهمة: GoldenShieldBotOfficial — لا تشغّل يدوياً (استخدم START_BOT.bat)
+# GoldenShield Official Worker v2026.08 — مثيل واحد مخفي
+# المهمة: GoldenShieldBotOfficial
+# لا تشغّل يدوياً — استخدم START_BOT.bat / REST_BOT.bat
+# متوافق مع: project_rules / Live Mirror / startup_cleanup / BOT_FORCE_ACTIVE
 
 $ErrorActionPreference = "Continue"
 $Root = "C:\GoldenShield_Binance"
+$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08"
 Set-Location $Root
 
+# —— بيئة رسمية (لا تكتب أسراراً؛ تقرأ .env عبر Python) ——
 $env:PYTHONPATH = $Root
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUNBUFFERED = "1"
@@ -13,23 +17,30 @@ $env:GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT = "true"
 $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:DB_PATH = Join-Path $Root "storage\db\goldenshield.db"
 $env:BOT_FORCE_ACTIVE = "true"
+# قواعد مضافة — defaults آمنة إن غابت من العملية الأب
+if (-not $env:PROJECT_REFERENCE_CAPITAL) { $env:PROJECT_REFERENCE_CAPITAL = "5000" }
+if (-not $env:PROJECT_MIN_TRADE_NOTIONAL) { $env:PROJECT_MIN_TRADE_NOTIONAL = "25" }
+if (-not $env:PROJECT_MIN_EXCHANGE_NOTIONAL) { $env:PROJECT_MIN_EXCHANGE_NOTIONAL = "5" }
+if (-not $env:TELEGRAM_LIVE_SIGNALS) { $env:TELEGRAM_LIVE_SIGNALS = "true" }
+if (-not $env:TELEGRAM_LIVE_SIGNALS_SECONDS) { $env:TELEGRAM_LIVE_SIGNALS_SECONDS = "15" }
+if (-not $env:TELEGRAM_LIVE_POSITIONS_SECONDS) { $env:TELEGRAM_LIVE_POSITIONS_SECONDS = "1" }
 
 $logDir = Join-Path $Root "storage\logs"
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+$runtime = Join-Path $Root "storage\runtime"
+foreach ($d in @($logDir, $runtime, (Join-Path $Root "storage\db"), (Join-Path $Root "storage\reports"))) {
+    if (-not (Test-Path $d)) {
+        New-Item -ItemType Directory -Path $d -Force | Out-Null
+    }
 }
 $log = Join-Path $logDir "bot_stdout.log"
-$runtime = Join-Path $Root "storage\runtime"
-if (-not (Test-Path $runtime)) {
-    New-Item -ItemType Directory -Path $runtime -Force | Out-Null
-}
 $stopFlag = Join-Path $runtime "user_stopped.flag"
-if (Test-Path $stopFlag) {
-    Remove-Item $stopFlag -Force -ErrorAction SilentlyContinue
-}
+$lockFile = Join-Path $runtime "bot_instance.lock"
+$pdLock = "C:\ProgramData\GoldenShield\bot_instance.lock"
 
-$py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
-if (-not (Test-Path $py)) { $py = "py" }
+function Write-WorkerLog([string]$msg) {
+    $line = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $WorkerTag, $msg
+    Add-Content -Path $log -Value $line -ErrorAction SilentlyContinue
+}
 
 function Get-MainPids {
     @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
@@ -41,8 +52,27 @@ function Get-MainPids {
         Select-Object -ExpandProperty ProcessId)
 }
 
-function Write-WorkerLog([string]$msg) {
-    Add-Content -Path $log -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg) -ErrorAction SilentlyContinue
+function Clear-OperationalLocks {
+    # أقفال تشغيل فقط — لا تلمس DB / reports / trades
+    foreach ($p in @($stopFlag, $lockFile, $pdLock)) {
+        if (Test-Path $p) {
+            Remove-Item $p -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Get-ChildItem -Path $runtime -Filter "*.tmp" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $runtime -Filter "*.temp" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
+$py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
+if (-not (Test-Path $py)) { $py = "py" }
+
+if (-not (Test-Path (Join-Path $Root "main.py"))) {
+    Write-WorkerLog "FATAL missing main.py"
+    exit 1
+}
+if (-not (Test-Path (Join-Path $Root ".env"))) {
+    Write-WorkerLog "FATAL missing .env"
+    exit 1
 }
 
 $myPid = $PID
@@ -52,7 +82,7 @@ if ($mains.Count -ge 1) {
     exit 0
 }
 
-# أوقف عمال bat/ps1 المكررين غير هذا العملية
+# أوقف عمال bat/ps1 المكررين غير هذه العملية
 Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.ProcessId -ne $myPid -and
     $_.CommandLine -and
@@ -61,7 +91,8 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
 }
 
-Write-WorkerLog "WORKER_START hidden single"
+Clear-OperationalLocks
+Write-WorkerLog "WORKER_START hidden single root=$Root"
 
 while ($true) {
     if (Test-Path $stopFlag) {
@@ -82,13 +113,15 @@ while ($true) {
     }
 
     if ($mains.Count -eq 0) {
+        Clear-OperationalLocks
+        Write-WorkerLog "MAIN_LAUNCH"
         $arg = "/c `"`"$py`" -u main.py >> `"$log`" 2>&1`""
         $p = Start-Process -FilePath "cmd.exe" -ArgumentList $arg -WorkingDirectory $Root `
             -WindowStyle Hidden -PassThru
         if ($null -ne $p) {
             Wait-Process -Id $p.Id -ErrorAction SilentlyContinue
         }
-        Write-WorkerLog "WORKER_EXIT restart"
+        Write-WorkerLog "WORKER_EXIT restart_in_5s"
     }
 
     Start-Sleep -Seconds 5

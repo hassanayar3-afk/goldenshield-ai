@@ -127,23 +127,41 @@ class TelegramDashboard:
         view = self.render_main()
         return self.telegram.send_message(view.text, reply_markup=view.keyboard)
 
-    def _maybe_sync_spot_holdings(self, *, force: bool = False) -> None:
-        """مزامنة أرصدة Spot → المراكز (مخنوقة زمنياً حتى لا تبطئ الأزرار)."""
+    def _mirror_live_spot_state(self, *, reason: str = "dashboard") -> int:
+        """مرآة حية: استعلام فوري من Binance قبل عرض/عدّ المراكز.
+
+        لا تعتمد على DB المحلية لعدد الصفقات — تزامن الذاكرة من المنصة أولاً.
+        """
         try:
+            from execution.binance_position_sync import live_mirror_sync_from_binance
+
+            live_mirror_sync_from_binance(self.executor)
+            self._last_spot_sync_ts = time.monotonic()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("live mirror (%s): %s", reason, exc)
+        try:
+            return int(self.executor.position_manager.count())
+        except Exception:
+            return 0
+
+    def _maybe_sync_spot_holdings(self, *, force: bool = False) -> None:
+        """توافق خلفي — لوحة التحكم تستخدم المرآة الحية دائماً."""
+        try:
+            if force:
+                self._mirror_live_spot_state(reason="force_sync")
+                return
+            # حتى بدون force: لوحة التحكم يجب أن تطابق المنصة
             now = time.monotonic()
             last = float(getattr(self, "_last_spot_sync_ts", 0.0) or 0.0)
-            empty = self.executor.position_manager.count() == 0
-            if not force and not empty and (now - last) < 45.0:
+            # حد أدنى ~0.8ث فقط لمنع تكرار مزدوج في نفس الطلب (ليس كاش 45ث)
+            if (now - last) < 0.8:
                 return
-            from execution.binance_position_sync import sync_binance_spot_positions
-
-            sync_binance_spot_positions(self.executor)
-            self._last_spot_sync_ts = now
+            self._mirror_live_spot_state(reason="dashboard_sync")
         except Exception as exc:  # noqa: BLE001
             logger.debug("spot holdings sync: %s", exc)
 
     def render_main(self) -> DashboardView:
-        self._maybe_sync_spot_holdings()
+        open_count = self._mirror_live_spot_state(reason="render_main")
         settings = get_settings()
         active_pairs = get_symbol_registry().active_pairs()
         state = self.risk.state
@@ -165,7 +183,7 @@ class TelegramDashboard:
             mode=settings.execution_mode,
             balance=balance,
             daily_pnl=pnl,
-            open_count=self.executor.position_manager.count(),
+            open_count=open_count,
             paused=self.runtime.paused,
             kill_switch=kill,
             pairs_count=len(active_pairs),
@@ -177,6 +195,7 @@ class TelegramDashboard:
     def render_market(self) -> DashboardView:
         from operations.signal_filter import annotate_entry_actions
 
+        open_count = self._mirror_live_spot_state(reason="render_market")
         active_pairs = get_symbol_registry().active_pairs()
         all_entries = [
             self.market.entries[s]
@@ -185,7 +204,7 @@ class TelegramDashboard:
         ]
         qualified = annotate_entry_actions(
             all_entries,
-            open_positions=self.executor.position_manager.count(),
+            open_positions=open_count,
         )
         symbols = [e["symbol"] for e in qualified]
         return DashboardView(
@@ -215,7 +234,8 @@ class TelegramDashboard:
         )
 
     def render_positions(self, *, live: bool = True) -> DashboardView:
-        self._maybe_sync_spot_holdings(force=self.executor.position_manager.count() == 0)
+        # مرآة حية دائماً — القائمة والعداد من Binance لا من DB المحلية
+        self._mirror_live_spot_state(reason="render_positions")
 
         positions = self.executor.position_manager.all()
         prices = dict(self.market.prices)
@@ -715,14 +735,14 @@ class TelegramDashboard:
 
     def _close_filtered(self, mode: str) -> DashboardView:
         """إغلاق حسب الفلتر: all | winners | losers."""
-        try:
-            self._maybe_sync_spot_holdings(force=True)
-        except Exception:
-            pass
+        open_before = self._mirror_live_spot_state(reason="close_filtered_before")
         positions = list(self.executor.position_manager.all())
         if not positions:
             return DashboardView(
-                format_action_result("إغلاق", "لا توجد مراكز مفتوحة."),
+                format_action_result(
+                    "إغلاق",
+                    f"لا توجد مراكز مفتوحة على المنصة (المفتوحة الآن: {open_before}).",
+                ),
                 main_menu_keyboard(paused=self.runtime.paused),
             )
         symbols = [p.symbol for p in positions]
@@ -777,6 +797,8 @@ class TelegramDashboard:
                 logger.warning("close_filtered %s %s: %s", mode, pos.symbol, close_exc)
                 failed.append(pos.symbol)
 
+        # مرآة فورية بعد الإغلاق — العداد من المنصة لا من الذاكرة القديمة
+        open_after = self._mirror_live_spot_state(reason="close_filtered_after")
         title = {
             "all": "إغلاق الكل",
             "winners": "إغلاق الرابحة",
@@ -787,16 +809,23 @@ class TelegramDashboard:
             detail += f": {', '.join(closed)}"
         if failed:
             detail += f"\nتعذّر: {', '.join(failed)}"
+        detail += f"\n📂 المفتوحة الآن على المنصة: <b>{open_after}</b>"
         return DashboardView(
             format_action_result(title, detail),
             main_menu_keyboard(paused=self.runtime.paused),
         )
 
     def _close_position(self, symbol: str) -> DashboardView:
+        self._mirror_live_spot_state(reason="close_one_before")
         position = self.executor.position_manager.get(symbol)
         if position is None:
+            open_now = int(self.executor.position_manager.count())
             return DashboardView(
-                format_action_result("إغلاق", f"لا مركز على {symbol}"),
+                format_action_result(
+                    "إغلاق",
+                    f"لا مركز على {symbol} في المنصة.\n"
+                    f"📂 المفتوحة الآن: <b>{open_now}</b>",
+                ),
                 back_to_main_keyboard(),
             )
         prices = self._fetch_prices([symbol])
@@ -807,20 +836,29 @@ class TelegramDashboard:
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("إغلاق يدوي فشل %s: %s", symbol, exc)
+            open_now = self._mirror_live_spot_state(reason="close_one_fail")
             return DashboardView(
                 format_action_result(
                     "إغلاق فشل",
-                    f"{symbol}\n{exc}",
+                    f"{symbol}\n{exc}\n📂 المفتوحة الآن: <b>{open_now}</b>",
                 ),
                 back_to_main_keyboard(),
             )
+        open_after = self._mirror_live_spot_state(reason="close_one_after")
         if closed:
             return DashboardView(
-                format_action_result("إغلاق ناجح ✅", f"تم إغلاق {symbol} @ {price:,.2f}"),
+                format_action_result(
+                    "إغلاق ناجح ✅",
+                    f"تم إغلاق {symbol} @ {price:,.2f}\n"
+                    f"📂 المفتوحة الآن على المنصة: <b>{open_after}</b>",
+                ),
                 back_to_main_keyboard(),
             )
         return DashboardView(
-            format_action_result("إغلاق", f"تعذر إغلاق {symbol}"),
+            format_action_result(
+                "إغلاق",
+                f"تعذر إغلاق {symbol}\n📂 المفتوحة الآن: <b>{open_after}</b>",
+            ),
             back_to_main_keyboard(),
         )
 
@@ -835,7 +873,7 @@ class TelegramDashboard:
                 back_to_main_keyboard(),
             )
 
-        self._maybe_sync_spot_holdings(force=True)
+        self._mirror_live_spot_state(reason="manual_enter")
 
         cached = self.market.entries.get(symbol) or {}
         price = float(cached.get("price") or self.market.prices.get(symbol) or 0.0)
