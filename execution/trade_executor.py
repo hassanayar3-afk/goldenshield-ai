@@ -574,10 +574,15 @@ class TradeExecutor:
             return self._reject(result.symbol, "سعر غير صالح للدخول", snapshot=snapshot)
 
         # طبقة مضافة: رفض فتح غبار تحت حد المشروع (مرجع 5000)
+        # الفتح اليدوي (force_open) يتجاوز حد 25$ — حرية التجربة Demo
         try:
             from config.project_rules import assert_entry_notional
 
-            dust_reject = assert_entry_notional(float(amount), float(result.price))
+            dust_reject = assert_entry_notional(
+                float(amount),
+                float(result.price),
+                force_open=bool(force_open),
+            )
             if dust_reject:
                 return self._reject(result.symbol, dust_reject, snapshot=snapshot)
         except Exception as rules_exc:  # noqa: BLE001

@@ -213,8 +213,22 @@ def format_main_dashboard(
 ) -> str:
     status = "موقوف ⏸️" if paused else "يعمل ✅"
     mode_note = "تجريبي" if mode.upper() == "PAPER" else "حقيقي"
+    # النظام الهجين (قاعدة دائمة): تلقائي 9–10 | يدوي 7–8
+    try:
+        from config.project_rules import load_project_rules
+
+        rules = load_project_rules()
+        hybrid = bool(rules.hybrid_mode)
+    except Exception:
+        hybrid = True
     auto_pct = get_settings().auto_entry_min_percent
-    if auto_pct >= 100:
+    if hybrid:
+        entry_note = "هجين ⚡🖐"
+        mode_hint = (
+            "<i>⚡ تلقائي فقط عند قوة 9–10/10 — "
+            "🖐 إشارات 7–8 تُرسل لتيليجرام للفتح اليدوي (حرية Demo).</i>"
+        )
+    elif auto_pct >= 100:
         entry_note = "ذهبي ⚡"
         mode_hint = (
             "<i>⚡ دخول تلقائي للفرص الذهبية فقط 100/100 — "

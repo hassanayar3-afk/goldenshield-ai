@@ -45,7 +45,8 @@ class LotCalculator:
 
         units_to_buy = risk_amount(bal, risk_pct) / loss_per_unit
         amount = round(float(units_to_buy), 8)
-        # منع غبار تحت حد المشروع قبل التنفيذ
+        # منع غبار تحت حد المشروع قبل التنفيذ التلقائي
+        # (الفتح اليدوي يتجاوز هذا عبر force_open في trade_executor)
         if assert_entry_notional(amount, current_price):
             return 0.0, stop_loss, take_profit
         return amount, stop_loss, take_profit

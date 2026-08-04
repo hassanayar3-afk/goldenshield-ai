@@ -116,10 +116,10 @@ def _log_project_rules_banner() -> None:
 
         rules = load_project_rules()
         msg = (
-            f"ProjectRules ref={rules.reference_capital:.0f} "
+            f"ProjectRules HYBRID auto≥9/10 manual=7–8 "
+            f"ref={rules.reference_capital:.0f} "
             f"min_trade={rules.min_trade_notional:.0f}$ "
-            f"min_ex={rules.min_exchange_notional:.0f}$ "
-            f"risk={rules.risk_per_trade_pct}% "
+            f"notify={rules.notify_min_percent} "
             f"BOT_FORCE_ACTIVE={os.getenv('BOT_FORCE_ACTIVE', 'true')}"
         )
         logger.info(msg)

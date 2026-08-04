@@ -12,14 +12,14 @@ TIMEFRAME_LABELS: dict[str, str] = {
 }
 
 # عتبات الجودة
-SIGNAL_MIN_SCORE: float = 8.0
+SIGNAL_MIN_SCORE: float = 7.0  # هجين: درجة 7+ مؤهلة للإشارة (يدوي أو تلقائي)
 SIGNAL_MAX_SCORE: int = 10
-SIGNAL_MIN_PERCENT: int = 75
-SIGNAL_NOTIFY_MIN_PERCENT: int = 85  # إرسال تيليجرام من 85 فما فوق
+SIGNAL_MIN_PERCENT: int = 70  # درجة 7 = 70 — بث يدوي
+SIGNAL_NOTIFY_MIN_PERCENT: int = 70  # إرسال تيليجرام من درجة 7 فما فوق
 SIGNAL_MAX_PERCENT: int = 100
 
-# دخول تلقائي من 90/100 فما فوق (درجة 9–10)
-# 75–89: يدوي فقط | 90–99: تلقائي ناعم | 100: تلقائي قوي / ذهبي
+# دخول تلقائي من 90/100 فما فوق (درجة 9–10 فقط في النظام الهجين)
+# 70–89 (درجة 7–8): يدوي فقط عبر تيليجرام | 90–100: تلقائي
 SIGNAL_AUTO_SOFT_MIN: int = 90
 SIGNAL_AUTO_SOFT_MAX_EXCLUSIVE: int = 100
 SIGNAL_AUTO_STRONG_MIN: int = 100

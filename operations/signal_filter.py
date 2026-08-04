@@ -1,4 +1,4 @@
-"""فلتر الإشارات — فقط صفقات جاهزة للدخول (تلقائي أو يدوي)."""
+"""فلتر الإشارات — النظام الهجين: تلقائي 9–10 | يدوي 7–8 عبر تيليجرام."""
 
 from __future__ import annotations
 
@@ -21,24 +21,37 @@ _ENTRY_SIGNALS = frozenset({"BUY SIGNAL", "SELL SIGNAL"})
 
 def _telegram_notify_min_percent() -> int:
     try:
-        from config.settings import get_settings
+        from config.project_rules import load_project_rules
 
-        return int(
-            getattr(get_settings(), "telegram_signal_min_percent", SIGNAL_NOTIFY_MIN_PERCENT)
-            or SIGNAL_NOTIFY_MIN_PERCENT
-        )
+        rules = load_project_rules()
+        return int(rules.notify_min_percent or SIGNAL_NOTIFY_MIN_PERCENT)
     except Exception:
-        return int(SIGNAL_NOTIFY_MIN_PERCENT)
+        try:
+            from config.settings import get_settings
+
+            return int(
+                getattr(get_settings(), "telegram_signal_min_percent", SIGNAL_NOTIFY_MIN_PERCENT)
+                or SIGNAL_NOTIFY_MIN_PERCENT
+            )
+        except Exception:
+            return int(SIGNAL_NOTIFY_MIN_PERCENT)
 
 
 def is_notifiable_trade_signal(result: AnalysisResult | object) -> bool:
-    """تُرسل لتليجرام فقط إذا شراء/بيع ≥85 — لا WAIT ولا انتظار."""
+    """تُرسل لتليجرام: شراء/بيع بدرجة ≥7 (هجين) — لا WAIT."""
     if getattr(result, "halted", False):
         return False
     signal = str(getattr(result, "signal", ""))
     if signal not in _ENTRY_SIGNALS:
         return False
     score = getattr(result, "score", 0)
+    try:
+        from config.project_rules import is_hybrid_notifiable_score, load_project_rules
+
+        if load_project_rules().hybrid_mode:
+            return is_hybrid_notifiable_score(score)
+    except Exception:
+        pass
     passed = bool(getattr(result, "passed", False))
     return passed and meets_telegram_notify_minimum(
         score, min_percent=_telegram_notify_min_percent()
@@ -51,6 +64,13 @@ def is_notifiable_entry(entry: dict) -> bool:
     if signal not in _ENTRY_SIGNALS:
         return False
     score = int(entry.get("score", 0) or 0)
+    try:
+        from config.project_rules import is_hybrid_notifiable_score, load_project_rules
+
+        if load_project_rules().hybrid_mode:
+            return is_hybrid_notifiable_score(score)
+    except Exception:
+        pass
     if entry.get("passed") is False:
         return False
     return meets_telegram_notify_minimum(
@@ -59,7 +79,15 @@ def is_notifiable_entry(entry: dict) -> bool:
 
 
 def entry_action_label(score: int | float, open_positions: int = 0) -> str:
-    """وسم طريقة الدخول: تلقائي (≥90) أو يدوي."""
+    """وسم طريقة الدخول — هجين: تلقائي 9–10 / يدوي 7–8."""
+    try:
+        from config.project_rules import hybrid_entry_label, load_project_rules
+
+        if load_project_rules().hybrid_mode:
+            return hybrid_entry_label(score)
+    except Exception:
+        pass
+
     from config.settings import get_settings
     from core.constants import is_golden_opportunity
 

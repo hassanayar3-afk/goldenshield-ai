@@ -272,14 +272,14 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        # إرسال إشارات تيليجرام من 85/100 فما فوق (BUY/SELL فقط)
-        telegram_signal_min_percent=int(os.getenv("TELEGRAM_SIGNAL_MIN_PERCENT", "85")),
-        # false = مختلط/تلقائي حسب AUTO_ENTRY_MIN_PERCENT | true = يدوي لكل شيء
+        # إرسال إشارات تيليجرام من 70/100 فما فوق (درجة 7+ — هجين يدوي/تلقائي)
+        telegram_signal_min_percent=int(os.getenv("TELEGRAM_SIGNAL_MIN_PERCENT", "70")),
+        # false = هجين: تلقائي عند ≥ AUTO_ENTRY | يدوي عبر تيليجرام للدرجات الأقل
         manual_entry_required=os.getenv("MANUAL_ENTRY_REQUIRED", "false")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        # دخول تلقائي من 90/100 فما فوق (درجة 9–10)
+        # دخول تلقائي من 90/100 فما فوق (درجة 9–10 فقط)
         auto_entry_min_percent=int(os.getenv("AUTO_ENTRY_MIN_PERCENT", "90")),
         news_filter_enabled=bool(hybrid.get("news_filter_enabled", True)),
         news_blackout_minutes=int(hybrid.get("news_blackout_minutes", 30)),

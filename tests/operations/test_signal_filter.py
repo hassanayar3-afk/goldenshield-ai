@@ -35,12 +35,24 @@ def test_buy_low_score_not_premium():
     assert is_premium_trade_signal(result) is False
 
 
-def test_buy_score_eight_below_notify_threshold():
-    """درجة 8 = 75 < 85 — لا تُرسل لتليجرام."""
+def test_buy_score_eight_is_manual_notifiable():
+    """هجين: درجة 8 = يدوي — تُرسل لتليجرام."""
     result = _result(halted=False, signal="BUY SIGNAL", passed=True, score=8)
     consensus = SimpleNamespace(approved=True)
     risk = RiskApproval(approved=True, reason="ok", amount=0.1, stop_loss=1.0, take_profit=2.0)
-    assert is_premium_trade_signal(result, consensus=consensus, risk_approval=risk) is False
+    assert is_notifiable_trade_signal(result) is True
+    assert is_premium_trade_signal(result, consensus=consensus, risk_approval=risk) is True
+
+
+def test_buy_score_seven_is_manual_notifiable():
+    """هجين: درجة 7 = يدوي — تُرسل لتليجرام."""
+    result = _result(halted=False, signal="BUY SIGNAL", passed=True, score=7)
+    assert is_notifiable_trade_signal(result) is True
+
+
+def test_buy_score_six_not_notifiable():
+    result = _result(halted=False, signal="BUY SIGNAL", passed=False, score=6)
+    assert is_notifiable_trade_signal(result) is False
 
 
 def test_buy_score_nine_is_premium():
@@ -50,9 +62,12 @@ def test_buy_score_nine_is_premium():
     assert is_premium_trade_signal(result, consensus=consensus, risk_approval=risk) is True
 
 
-def test_buy_score_seven_not_premium():
+def test_buy_score_seven_not_premium_without_gates():
+    """درجة 7 قابلة للبث، لكن بدون موافقة مخاطر لا تُعدّ premium كامل."""
     result = _result(halted=False, signal="BUY SIGNAL", passed=True, score=7)
-    assert is_premium_trade_signal(result) is False
+    risk = RiskApproval(approved=False, reason="wait")
+    assert is_notifiable_trade_signal(result) is True
+    assert is_premium_trade_signal(result, risk_approval=risk) is False
 
 
 def test_buy_without_risk_approval_not_premium():
@@ -61,28 +76,25 @@ def test_buy_without_risk_approval_not_premium():
     assert is_premium_trade_signal(result, risk_approval=risk) is False
 
 
-def test_notify_buy_sell_from_85_only(monkeypatch):
-    from types import SimpleNamespace
-
-    monkeypatch.setattr(
-        "config.settings.get_settings",
-        lambda: SimpleNamespace(telegram_signal_min_percent=85, auto_entry_min_percent=90),
+def test_hybrid_notifies_score_seven_and_eight(monkeypatch):
+    """هجين: درجات 7–8 تُبث ليدوي؛ 6 لا."""
+    monkeypatch.setenv("HYBRID_SIGNAL_MODE", "true")
+    assert is_notifiable_trade_signal(
+        _result(halted=False, signal="BUY SIGNAL", passed=True, score=7)
     )
-    # درجة 8 = 75 < 85 → لا إرسال
-    assert not is_notifiable_trade_signal(
+    assert is_notifiable_trade_signal(
         _result(halted=False, signal="BUY SIGNAL", passed=True, score=8)
     )
-    # درجة 9 = 90 ≥ 85 → إرسال
+    assert not is_notifiable_trade_signal(
+        _result(halted=False, signal="BUY SIGNAL", passed=True, score=6)
+    )
     assert is_notifiable_trade_signal(
         _result(halted=False, signal="SELL SIGNAL", passed=True, score=9)
     )
     assert not is_notifiable_trade_signal(
         _result(halted=False, signal="WAIT", passed=True, score=9)
     )
-    assert not is_notifiable_trade_signal(
-        _result(halted=False, signal="BUY SIGNAL", passed=True, score=7)
-    )
-    assert SIGNAL_MIN_PERCENT == 75
+    assert SIGNAL_MIN_PERCENT == 70
     assert meets_signal_minimum(8)
 
 
