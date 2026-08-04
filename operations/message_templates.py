@@ -299,6 +299,20 @@ def format_emergency_message(title: str, detail: str) -> str:
     )
 
 
+def _ssot_open_positions(executor: TradeExecutor) -> int:
+    """عدد المفتوحة من Binance عبر SSoT — نفس سياق اللوحة."""
+    try:
+        from execution.binance_position_sync import get_live_open_positions_ssot
+
+        _, n = get_live_open_positions_ssot(executor)
+        return int(n or 0)
+    except Exception:
+        try:
+            return int(executor.position_manager.count())
+        except Exception:
+            return 0
+
+
 def format_daily_report_plain(
     *,
     risk: RiskOrchestrator,
@@ -308,7 +322,7 @@ def format_daily_report_plain(
 ) -> str:
     today = report_date or date.today()
     state = risk.state
-    open_positions = executor.position_manager.count()
+    open_positions = _ssot_open_positions(executor)
     audit_count = len(audit.decisions.records) if audit else 0
 
     if state is None:
@@ -411,7 +425,7 @@ def format_daily_report_telegram(
 ) -> str:
     today = report_date or date.today()
     state = risk.state
-    open_positions = executor.position_manager.count()
+    open_positions = _ssot_open_positions(executor)
 
     if state is None:
         return "\n".join(

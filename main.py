@@ -95,6 +95,39 @@ _telegram_handler: TelegramCommandHandler | None = None
 _cycle_opened_trades: list[dict] = []
 
 
+def _ssot_open_count() -> int:
+    """عدد المراكز المفتوحة من مصدر الحقيقة الوحيد (Binance) — سياق موحّد مع اللوحة."""
+    try:
+        from execution.binance_position_sync import get_live_open_positions_ssot
+
+        _, n = get_live_open_positions_ssot(_executor)
+        return int(n or 0)
+    except Exception:
+        try:
+            return int(_executor.position_manager.count())
+        except Exception:
+            return 0
+
+
+def _log_project_rules_banner() -> None:
+    """يسجّل قواعد المحادثة عند الإقلاع — مقترنة بملف التشغيل."""
+    try:
+        from config.project_rules import load_project_rules
+
+        rules = load_project_rules()
+        msg = (
+            f"ProjectRules ref={rules.reference_capital:.0f} "
+            f"min_trade={rules.min_trade_notional:.0f}$ "
+            f"min_ex={rules.min_exchange_notional:.0f}$ "
+            f"risk={rules.risk_per_trade_pct}% "
+            f"BOT_FORCE_ACTIVE={os.getenv('BOT_FORCE_ACTIVE', 'true')}"
+        )
+        logger.info(msg)
+        print(f"📐 {msg}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("project_rules banner: %s", exc)
+
+
 def _init_persistence(settings) -> None:
     global _audit, _backup_manager, _operations_repo
 
@@ -138,15 +171,31 @@ def _init_persistence(settings) -> None:
     restored = _executor.restore_open_positions()
     if restored:
         logger.info("Open positions restored: %s", restored)
+    # مصدر الحقيقة الوحيد عند الإقلاع (نفس فلتر اللوحة/مراكزي)
     try:
-        from execution.binance_position_sync import sync_binance_spot_positions
+        from execution.binance_position_sync import get_live_open_positions_ssot
 
-        synced = sync_binance_spot_positions(_executor)
-        if synced:
-            logger.info("Binance holdings synced: %s", ", ".join(synced))
-            print(f"🔄 مزامنة أرصدة Binance → مراكز: {', '.join(synced)}")
+        live_positions, live_count = get_live_open_positions_ssot(_executor)
+        logger.info(
+            "Startup SSoT open positions: %s (symbols=%s)",
+            live_count,
+            ",".join(p.symbol for p in live_positions) or "-",
+        )
+        if live_count:
+            print(f"🔄 مرآة Binance عند الإقلاع: {live_count} مركز مفتوح")
+        else:
+            print("🔄 مرآة Binance عند الإقلاع: لا مراكز مفتوحة (مطابق للمنصة)")
     except Exception as exc:  # noqa: BLE001
-        logger.warning("binance position sync: %s", exc)
+        logger.warning("startup SSoT sync: %s", exc)
+        try:
+            from execution.binance_position_sync import sync_binance_spot_positions
+
+            synced = sync_binance_spot_positions(_executor)
+            if synced:
+                logger.info("Binance holdings synced: %s", ", ".join(synced))
+                print(f"🔄 مزامنة أرصدة Binance → مراكز: {', '.join(synced)}")
+        except Exception as sync_exc:  # noqa: BLE001
+            logger.warning("binance position sync: %s", sync_exc)
 
     _backup_manager = BackupManager(settings.db_path)
 
@@ -363,7 +412,7 @@ def _maybe_send_alive_pulse(telegram_handler: TelegramCommandHandler, entries: l
         except Exception:
             ping_ms = "fail"
 
-        open_n = _executor.position_manager.count()
+        open_n = _ssot_open_count()
         provider = _connection_monitor.last_provider or "n/a"
         err = _connection_monitor.last_error or "لا أخطاء"
         msg = (
@@ -409,7 +458,7 @@ async def check_symbol(symbol: str) -> dict | None:
         signal_label = "HALTED" if result.halted else result.signal
         balance = _executor.get_account_balance()
         side = "sell" if result.signal == "SELL SIGNAL" else "buy"
-        open_count = _executor.position_manager.count()
+        open_count = _ssot_open_count()
         prefs = resolve_trade_prefs(symbol=symbol, signal_score=result.score)
         hc_protocol = evaluate_high_conviction_eligibility(
             result,
@@ -699,8 +748,9 @@ async def run_bot() -> None:
         sys.exit(1)
 
     _init_persistence(settings)
-    open_n = _executor.position_manager.count()
-    print(f"📦 مراكز بعد الاستعادة/المزامنة: {open_n}")
+    _log_project_rules_banner()
+    open_n = _ssot_open_count()
+    print(f"📦 مراكز بعد الاستعادة/المزامنة (SSoT): {open_n}")
 
     registry = get_symbol_registry()
     active_symbols = registry.load(settings.trading_pairs)
@@ -948,7 +998,7 @@ async def run_bot() -> None:
 
         _run_open_position_management(prices)
 
-        open_count = _executor.position_manager.count()
+        open_count = _ssot_open_count()
         audit_count = len(_audit.decisions.records)
         if open_count:
             print(f"📊 مراكز مفتوحة: {open_count} | سجلات تدقيق: {audit_count}")

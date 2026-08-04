@@ -1,11 +1,11 @@
-# GoldenShield Official Worker v2026.08 — مثيل واحد مخفي
+# GoldenShield Official Worker v2026.08.1 — مثيل واحد مخفي
 # المهمة: GoldenShieldBotOfficial
 # لا تشغّل يدوياً — استخدم START_BOT.bat / REST_BOT.bat
-# متوافق مع: project_rules / Live Mirror / startup_cleanup / BOT_FORCE_ACTIVE
+# مقترن بقواعد المحادثة: project_rules / SSoT Live Mirror / startup_cleanup / BOT_FORCE_ACTIVE
 
 $ErrorActionPreference = "Continue"
 $Root = "C:\GoldenShield_Binance"
-$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08"
+$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08_1"
 Set-Location $Root
 
 # —— بيئة رسمية (لا تكتب أسراراً؛ تقرأ .env عبر Python) ——
@@ -17,7 +17,7 @@ $env:GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT = "true"
 $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:DB_PATH = Join-Path $Root "storage\db\goldenshield.db"
 $env:BOT_FORCE_ACTIVE = "true"
-# قواعد مضافة — defaults آمنة إن غابت من العملية الأب
+# قواعد المحادثة — defaults آمنة إن غابت من العملية الأب / .env
 if (-not $env:PROJECT_REFERENCE_CAPITAL) { $env:PROJECT_REFERENCE_CAPITAL = "5000" }
 if (-not $env:PROJECT_MIN_TRADE_NOTIONAL) { $env:PROJECT_MIN_TRADE_NOTIONAL = "25" }
 if (-not $env:PROJECT_MIN_EXCHANGE_NOTIONAL) { $env:PROJECT_MIN_EXCHANGE_NOTIONAL = "5" }
@@ -53,7 +53,6 @@ function Get-MainPids {
 }
 
 function Clear-OperationalLocks {
-    # أقفال تشغيل فقط — لا تلمس DB / reports / trades
     foreach ($p in @($stopFlag, $lockFile, $pdLock)) {
         if (Test-Path $p) {
             Remove-Item $p -Force -ErrorAction SilentlyContinue
@@ -65,6 +64,29 @@ function Clear-OperationalLocks {
 
 $py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
 if (-not (Test-Path $py)) { $py = "py" }
+
+function Invoke-ConversationRulesPreflight {
+    $pre = Join-Path $Root "storage\runtime\_worker_preflight.py"
+    @"
+import os, sys
+sys.path.insert(0, r"C:\GoldenShield_Binance")
+os.chdir(r"C:\GoldenShield_Binance")
+from config.project_rules import load_project_rules, assert_entry_notional
+from operations.startup_cleanup import run_startup_cleanup
+r = load_project_rules()
+assert float(r.reference_capital) >= 5000
+assert float(r.min_trade_notional) >= 25
+assert assert_entry_notional(0.001, 10)
+run_startup_cleanup()
+print("PREFLIGHT_OK", r.reference_capital, r.min_trade_notional, "BOT_FORCE", os.getenv("BOT_FORCE_ACTIVE", "true"))
+"@ | Set-Content -Path $pre -Encoding UTF8
+    try {
+        $out = & $py $pre 2>&1
+        Write-WorkerLog ("PREFLIGHT " + (($out | Out-String).Trim()))
+    } catch {
+        Write-WorkerLog ("PREFLIGHT_WARN " + $_.Exception.Message)
+    }
+}
 
 if (-not (Test-Path (Join-Path $Root "main.py"))) {
     Write-WorkerLog "FATAL missing main.py"
@@ -82,7 +104,6 @@ if ($mains.Count -ge 1) {
     exit 0
 }
 
-# أوقف عمال bat/ps1 المكررين غير هذه العملية
 Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.ProcessId -ne $myPid -and
     $_.CommandLine -and
@@ -92,7 +113,8 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
 }
 
 Clear-OperationalLocks
-Write-WorkerLog "WORKER_START hidden single root=$Root"
+Write-WorkerLog "WORKER_START hidden single root=$Root rules=5000/25/SSoT"
+Invoke-ConversationRulesPreflight
 
 while ($true) {
     if (Test-Path $stopFlag) {
