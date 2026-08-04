@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from execution.trade_executor import TradeExecutor
     from risk.risk_orchestrator import RiskOrchestrator
 
-DIVIDER = "━━━━━━━━━━━━━━━"
+DIVIDER = "──────────────"
 _BRAND = "🛡️ <b>GoldenShield AI</b>"
 
 _LEVEL_META: dict[str, tuple[str, str]] = {
@@ -36,6 +36,13 @@ def _header(subtitle: str | None = None) -> str:
     if subtitle:
         lines.append(f"<i>{escape(subtitle)}</i>")
     return "\n".join(lines)
+
+
+def _row(label: str, value: str, *, icon: str = "") -> str:
+    """سطر متوازن للقراءة على الهاتف: أيقونة + تسمية + قيمة."""
+    lab = f"{label:<10}"
+    prefix = f"{icon} " if icon else ""
+    return f"{prefix}<code>{escape(lab)}</code>  {value}"
 
 
 def _money(value: float, currency: str = "USDT") -> str:

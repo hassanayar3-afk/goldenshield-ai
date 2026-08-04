@@ -14,7 +14,7 @@ from core.constants import (
     meets_telegram_notify_minimum,
     score_to_percent,
 )
-from operations.message_templates import DIVIDER, _BRAND, _money, escape
+from operations.message_templates import DIVIDER, _BRAND, _money, _row, escape
 
 if TYPE_CHECKING:
     from execution.models.trade import Position
@@ -229,33 +229,26 @@ def format_main_dashboard(
             f"<i>⚡ تلقائي من {auto_pct}/100 فما فوق — "
             f"🖐 يدوي من تيليجرام عند {SIGNAL_MIN_PERCENT}–{max(SIGNAL_MIN_PERCENT, auto_pct - 1)}/100.</i>"
         )
-    float_line = ""
+    float_val = "—"
     if floating_pnl is not None and open_count > 0:
         fsign = "+" if floating_pnl >= 0 else ""
-        ficon = "🟢" if floating_pnl >= 0 else "🔴"
-        float_line = (
-            f"{ficon} عائم المراكز: <b><code>{fsign}{floating_pnl:,.2f} USD</code></b>"
-        )
+        float_val = f"<code>{fsign}{floating_pnl:,.2f}</code> USD"
     lines = [
-        _header("الرئيسية"),
+        _header("لوحة التحكم"),
         "",
-        f"🤖 البوت <b>{status}</b>  |  وضع <b>{mode_note}</b>  |  دخول <b>{entry_note}</b>",
+        _row("الحالة", f"<b>{status}</b>", icon="🤖"),
+        _row("الوضع", f"<b>{mode_note}</b>", icon="⚙️"),
+        _row("الدخول", f"<b>{entry_note}</b>", icon="🎯"),
+        DIVIDER,
+        _row("الرصيد", f"<b>{_money(balance)}</b>", icon="💰"),
+        _row("العائم", float_val, icon="📊"),
+        _row("اليوم", f"<b>{escape(daily_pnl)}</b>", icon="📈"),
+        _row("المفتوحة", f"<b>{open_count}</b>", icon="📂"),
+        _row("المراقبة", f"<b>{pairs_count}</b> عملات", icon="📡"),
         "",
-        f"💰 رصيدك: <b>{_money(balance)}</b>",
+        mode_hint,
+        "<i>📡 الإشارات · 📂 المراكز · 📜 السجل</i>",
     ]
-    if float_line:
-        lines.append(float_line)
-    lines.extend(
-        [
-            f"📈 نتيجة اليوم: <b>{escape(daily_pnl)}</b>",
-            f"📂 صفقات مفتوحة: <b>{open_count}</b>",
-            "",
-            f"📡 يراقب <b>{pairs_count}</b> عملات",
-            "",
-            mode_hint,
-            "<i>اضغط 📡 الإشارات لمتابعة السوق.</i>",
-        ]
-    )
     return "\n".join(lines)
 
 
@@ -836,7 +829,7 @@ def format_positions_list(
 
 
 def format_action_result(title: str, detail: str) -> str:
-    return "\n".join([_header(title), "", escape(detail)])
+    return "\n".join([_header(title), "", detail if "<" in detail else escape(detail)])
 
 
 def format_closed_trades_history(

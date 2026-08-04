@@ -36,6 +36,7 @@ from operations.message_templates import DIVIDER, escape
 from operations.symbol_registry import get_symbol_registry
 from operations.telegram_keyboards import (
     back_to_main_keyboard,
+    close_menu_keyboard,
     decode_symbol,
     encode_symbol,
     history_keyboard,
@@ -43,6 +44,7 @@ from operations.telegram_keyboards import (
     market_keyboard,
     position_trade_keyboard,
     positions_list_keyboard,
+    report_period_keyboard,
     trade_entry_keyboard,
 )
 
@@ -602,6 +604,20 @@ class TelegramDashboard:
         if data == "view:report":
             self.disable_live_positions()
             return self.render_report()
+        if data in {"view:report_week", "view:report_month"}:
+            self.disable_live_positions()
+            kind = "week" if data.endswith("week") else "month"
+            return self.render_period_report(kind)
+        if data == "view:close_menu":
+            self.disable_live_positions()
+            return DashboardView(
+                format_action_result(
+                    "إغلاق الصفقات",
+                    "اختر نوع الإغلاق:\n"
+                    "🟢 الرابحة فقط · 🔴 الخاسرة فقط · ❌ الجميع",
+                ),
+                close_menu_keyboard(),
+            )
         if data == "act:pause":
             # مع BOT_FORCE_ACTIVE=true لا يُسمح بالسكون — الإشارات يجب أن تستمر
             if (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower() in {
@@ -629,49 +645,13 @@ class TelegramDashboard:
                 )
             self.runtime.resume()
             return self.render_main()
-        if data == "act:close_all":
-            symbols = list(self.executor.position_manager.open_symbols())
-            if not symbols:
-                return DashboardView(
-                    format_action_result("إغلاق", "لا توجد مراكز مفتوحة."),
-                    main_menu_keyboard(paused=self.runtime.paused),
-                )
-            # مزامنة أولاً لإزالة الأشباح / تحديث الكميات
-            try:
-                self._maybe_sync_spot_holdings(force=True)
-            except Exception:
-                pass
-            symbols = list(self.executor.position_manager.open_symbols())
-            prices = dict(self.market.prices)
-            missing = [s for s in symbols if s not in prices or prices.get(s, 0) <= 0]
-            if missing:
-                prices.update(self._fetch_prices(missing))
-            closed: list[str] = []
-            failed: list[str] = []
-            for symbol in symbols:
-                position = self.executor.position_manager.get(symbol)
-                if position is None:
-                    continue
-                price = prices.get(symbol) or position.entry_price
-                try:
-                    if self.executor.close_position(
-                        symbol, float(price), reason="إغلاق الكل — لوحة التحكم"
-                    ):
-                        closed.append(symbol)
-                    else:
-                        failed.append(symbol)
-                except Exception as close_exc:  # noqa: BLE001
-                    logger.warning("close_all %s: %s", symbol, close_exc)
-                    failed.append(f"{symbol}")
-            detail = f"أُغلق {len(closed)} مركز"
-            if closed:
-                detail += f": {', '.join(closed)}"
-            if failed:
-                detail += f"\nتعذّر: {', '.join(failed)}"
-            return DashboardView(
-                format_action_result("إغلاق الكل", detail),
-                main_menu_keyboard(paused=self.runtime.paused),
+        if data in {"act:close_all", "act:close_winners", "act:close_losers"}:
+            mode = (
+                "all"
+                if data == "act:close_all"
+                else ("winners" if data == "act:close_winners" else "losers")
             )
+            return self._close_filtered(mode)
         if data == "act:panic":
             # أغلق أولاً وحدّث الواجهة؛ الإيقاف الدائم بعد إرجاع الرسالة
             symbols = list(self.executor.position_manager.open_symbols())

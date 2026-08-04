@@ -47,8 +47,37 @@ def main_menu_keyboard(*, paused: bool) -> dict:
             [
                 toggle,
             ],
-            [{"text": "❌ إغلاق كل الصفقات", "callback_data": "act:close_all"}],
+            [{"text": "❌ إغلاق الصفقات", "callback_data": "view:close_menu"}],
             [{"text": "🚨 طوارئ — إيقاف كامل", "callback_data": "act:panic"}],
+        ]
+    }
+
+
+def close_menu_keyboard() -> dict:
+    """قائمة إغلاق ثلاثية — بدون حذف زر الإغلاق من الرئيسية."""
+    return {
+        "inline_keyboard": [
+            [{"text": "🟢 إغلاق الرابحة فقط", "callback_data": "act:close_winners"}],
+            [{"text": "🔴 إغلاق الخاسرة فقط", "callback_data": "act:close_losers"}],
+            [{"text": "❌ إغلاق جميع الصفقات", "callback_data": "act:close_all"}],
+            [{"text": "◀️ الرئيسية", "callback_data": "view:main"}],
+        ]
+    }
+
+
+def report_period_keyboard() -> dict:
+    """فترات التقرير — مع الحفاظ على التقرير اليومي والسجل."""
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "📅 اليوم", "callback_data": "view:report"},
+                {"text": "🗓 أسبوع", "callback_data": "view:report_week"},
+            ],
+            [
+                {"text": "📆 شهر", "callback_data": "view:report_month"},
+                {"text": "📜 السجل", "callback_data": "view:history"},
+            ],
+            [{"text": "◀️ الرئيسية", "callback_data": "view:main"}],
         ]
     }
 
@@ -209,6 +238,10 @@ def history_keyboard() -> dict:
             [
                 {"text": "🔄 تحديث السجل", "callback_data": "view:history"},
                 {"text": "📂 مراكزي", "callback_data": "view:positions"},
+            ],
+            [
+                {"text": "📋 تقرير أسبوع", "callback_data": "view:report_week"},
+                {"text": "📋 تقرير شهر", "callback_data": "view:report_month"},
             ],
             [{"text": "◀️ الرئيسية", "callback_data": "view:main"}],
         ]
