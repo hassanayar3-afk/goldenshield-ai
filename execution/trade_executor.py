@@ -573,6 +573,16 @@ class TradeExecutor:
         if result.price <= 0:
             return self._reject(result.symbol, "سعر غير صالح للدخول", snapshot=snapshot)
 
+        # طبقة مضافة: رفض فتح غبار تحت حد المشروع (مرجع 5000)
+        try:
+            from config.project_rules import assert_entry_notional
+
+            dust_reject = assert_entry_notional(float(amount), float(result.price))
+            if dust_reject:
+                return self._reject(result.symbol, dust_reject, snapshot=snapshot)
+        except Exception as rules_exc:  # noqa: BLE001
+            logger.debug("project_rules entry check: %s", rules_exc)
+
         # —— Pre-trade Max Slippage من دفتر الأوامر (v1.3) ——
         try:
             from data.orderbook_fetcher import OrderBookFetcher
@@ -1316,6 +1326,56 @@ class TradeExecutor:
                 pass
             return False, ""
 
+    def _verify_spot_close_confirmed(
+        self,
+        symbol: str,
+        *,
+        amount: float,
+        price: float,
+    ) -> bool:
+        """تحقق مزدوج من API قبل اعتبار الصفقة مغلقة في DB."""
+        import time as _time
+
+        try:
+            settings = get_settings()
+            if settings.execution_mode != "live" and not bool(
+                getattr(settings, "binance_demo_trading", False)
+            ):
+                return True
+        except Exception:
+            return True
+
+        for attempt in range(2):
+            try:
+                if attempt:
+                    _time.sleep(0.55)
+                else:
+                    _time.sleep(0.35)
+                if self._spot_base_is_flat(symbol):
+                    return True
+                # متبقٍ غبار فقط = إغلاق ناجح عملياً
+                rem = float(amount or 0.0)
+                try:
+                    exchange = get_exchange()
+                    bal = exchange.fetch_balance() or {}
+                    base = symbol.split("/", 1)[0].upper()
+                    asset = bal.get(base) or {}
+                    rem = float(
+                        asset.get("free")
+                        if isinstance(asset, dict)
+                        else (asset or 0.0)
+                    )
+                except Exception:
+                    pass
+                is_dust, _ = self._spot_sell_is_dust(
+                    symbol, rem, float(price or 0.0)
+                )
+                if is_dust:
+                    return True
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("verify_spot_close %s attempt %s: %s", symbol, attempt, exc)
+        return False
+
     def _close_position(self, position: Position, price: float, reason: str) -> None:
         if position.side == OrderSide.BUY:
             pnl = (price - position.entry_price) * position.amount
@@ -1466,6 +1526,25 @@ class TradeExecutor:
 
         if not order_ok:
             return
+
+        # تحقق مزدوج من المنصة قبل تعديل DB (Spot — لا reduceOnly)
+        try:
+            if not self._verify_spot_close_confirmed(
+                position.symbol,
+                amount=float(sell_amount or position.amount or 0.0),
+                price=float(price or position.entry_price or 0.0),
+            ):
+                raise ExecutionError(
+                    f"أمر الإغلاق لـ {position.symbol} لم يُؤكد من الرصيد بعد — "
+                    "أبقينا المركز مفتوحاً في DB. أعد المحاولة بعد ثوانٍ."
+                )
+        except ExecutionError:
+            raise
+        except Exception as verify_exc:  # noqa: BLE001
+            logger.warning("verify close %s: %s", position.symbol, verify_exc)
+            raise ExecutionError(
+                f"تعذّر التحقق من إغلاق {position.symbol}: {verify_exc}"
+            ) from verify_exc
 
         self.position_manager.remove(position.symbol)
         self.risk.record_closed_trade(pnl)

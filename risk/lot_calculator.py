@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from config.project_rules import assert_entry_notional, sizing_balance
 from config.settings import get_settings
 from execution.sl_tp_calculator import calculate_sl_tp
 from risk.compound_growth import risk_amount
@@ -29,6 +30,8 @@ class LotCalculator:
         settings = get_settings()
         sl = sl_pct if sl_pct is not None else settings.default_sl_pct
         rr = rr_ratio if rr_ratio is not None else settings.default_rr_ratio
+        # طبقة مضافة: رصيد مرجعي 5000 إن كان الحي ضعيفاً جداً
+        bal = sizing_balance(float(self.balance))
 
         stop_loss, take_profit = calculate_sl_tp(
             current_price,
@@ -40,8 +43,12 @@ class LotCalculator:
         if loss_per_unit <= 0:
             return 0.0, 0.0, 0.0
 
-        units_to_buy = risk_amount(self.balance, risk_pct) / loss_per_unit
-        return round(units_to_buy, 8), stop_loss, take_profit
+        units_to_buy = risk_amount(bal, risk_pct) / loss_per_unit
+        amount = round(float(units_to_buy), 8)
+        # منع غبار تحت حد المشروع قبل التنفيذ
+        if assert_entry_notional(amount, current_price):
+            return 0.0, stop_loss, take_profit
+        return amount, stop_loss, take_profit
 
     def is_rr_acceptable(
         self,

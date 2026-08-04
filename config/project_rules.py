@@ -12,7 +12,7 @@ from config.settings import get_settings
 from core.constants import (
     SIGNAL_MIN_PERCENT,
     SIGNAL_NOTIFY_MIN_PERCENT,
-    AUTO_ENTRY_SOFT_MIN_PERCENT,
+    SIGNAL_AUTO_SOFT_MIN,
 )
 from risk.compound_growth import risk_amount
 from execution.sl_tp_calculator import calculate_sl_tp
@@ -27,7 +27,7 @@ class ProjectRules:
     min_exchange_notional: float = 5.0
     min_trade_notional: float = 25.0  # يمنع الغبار على رأس مال 5000
     notify_min_percent: int = SIGNAL_NOTIFY_MIN_PERCENT
-    auto_soft_min_percent: int = AUTO_ENTRY_SOFT_MIN_PERCENT
+    auto_soft_min_percent: int = SIGNAL_AUTO_SOFT_MIN
     signal_min_percent: int = SIGNAL_MIN_PERCENT
 
 
@@ -58,8 +58,8 @@ def load_project_rules() -> ProjectRules:
             or SIGNAL_NOTIFY_MIN_PERCENT
         ),
         auto_soft_min_percent=int(
-            getattr(settings, "auto_entry_min_percent", AUTO_ENTRY_SOFT_MIN_PERCENT)
-            or AUTO_ENTRY_SOFT_MIN_PERCENT
+            getattr(settings, "auto_entry_min_percent", SIGNAL_AUTO_SOFT_MIN)
+            or SIGNAL_AUTO_SOFT_MIN
         ),
         signal_min_percent=SIGNAL_MIN_PERCENT,
     )

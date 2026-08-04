@@ -264,12 +264,12 @@ class TelegramDashboard:
         )
 
     def _live_positions_interval(self) -> float:
-        """فاصل تحديث بث المراكز على تيليجرام — آمن ضد 429 (افتراضي 5ث)."""
-        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "5").strip()
+        """فاصل تحديث بث المراكز على تيليجرام — هدف ~1ث مع سقف ضد 429."""
+        raw = os.getenv("TELEGRAM_LIVE_POSITIONS_SECONDS", "1").strip()
         try:
-            return max(5.0, min(float(raw or "5"), 60.0))
+            return max(1.0, min(float(raw or "1"), 60.0))
         except (TypeError, ValueError):
-            return 5.0
+            return 1.0
 
     def enable_live_positions(self, message_id: int, chat_id: str | None = None) -> None:
         self._live_positions_enabled = True
@@ -485,7 +485,31 @@ class TelegramDashboard:
                 text = f"{text}\n\n{DIVIDER}\n{hist}"
         except Exception as exc:  # noqa: BLE001
             logger.debug("history in report: %s", exc)
-        return DashboardView(text, history_keyboard())
+        return DashboardView(text, report_period_keyboard())
+
+    def render_period_report(self, kind: str) -> DashboardView:
+        """تقرير أسبوع/شهر من سجل DB الدائم."""
+        try:
+            from operations.period_report import analyze_period_trades, period_bounds
+
+            label, from_iso, to_iso = period_bounds(kind)
+            repo = getattr(self.executor, "trade_repo", None)
+            trades = []
+            if repo is not None and hasattr(repo, "list_closed_trades_between"):
+                trades = repo.list_closed_trades_between(from_iso, to_iso, limit=300)
+            elif repo is not None:
+                # توافق خلفي: صفّ من آخر المغلقات
+                trades = [
+                    t
+                    for t in repo.list_closed_trades(limit=300)
+                    if (getattr(t, "closed_at", None) or getattr(t, "opened_at", "") or "")
+                    >= from_iso
+                ]
+            text = analyze_period_trades(trades, label=label)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("render_period_report: %s", exc)
+            text = format_action_result("تقرير الفترة", f"تعذّر البناء: {exc}")
+        return DashboardView(text, report_period_keyboard())
 
     def render_trade_history(self) -> DashboardView:
         """عرض الصفقات المغلقة دائماً — لا تختفي بعد الإغلاق."""
@@ -688,6 +712,85 @@ class TelegramDashboard:
         if data.startswith("enter:"):
             return self._manual_enter(decode_symbol(data.split(":", 1)[1]))
         return self.render_main()
+
+    def _close_filtered(self, mode: str) -> DashboardView:
+        """إغلاق حسب الفلتر: all | winners | losers."""
+        try:
+            self._maybe_sync_spot_holdings(force=True)
+        except Exception:
+            pass
+        positions = list(self.executor.position_manager.all())
+        if not positions:
+            return DashboardView(
+                format_action_result("إغلاق", "لا توجد مراكز مفتوحة."),
+                main_menu_keyboard(paused=self.runtime.paused),
+            )
+        symbols = [p.symbol for p in positions]
+        prices = dict(self.market.prices)
+        missing = [s for s in symbols if s not in prices or float(prices.get(s) or 0) <= 0]
+        if missing:
+            try:
+                prices.update(self._fetch_prices(missing))
+            except Exception:
+                pass
+
+        def _pnl(pos) -> float:
+            px = float(prices.get(pos.symbol) or pos.entry_price or 0)
+            if str(getattr(pos.side, "value", pos.side)).lower() == "buy":
+                return (px - float(pos.entry_price)) * float(pos.amount)
+            return (float(pos.entry_price) - px) * float(pos.amount)
+
+        selected = []
+        for pos in positions:
+            pnl = _pnl(pos)
+            if mode == "winners" and pnl <= 0:
+                continue
+            if mode == "losers" and pnl >= 0:
+                continue
+            selected.append(pos)
+
+        if not selected:
+            label = {
+                "winners": "لا توجد صفقات رابحة الآن.",
+                "losers": "لا توجد صفقات خاسرة الآن.",
+            }.get(mode, "لا مراكز مطابقة.")
+            return DashboardView(
+                format_action_result("إغلاق", label),
+                close_menu_keyboard(),
+            )
+
+        closed: list[str] = []
+        failed: list[str] = []
+        reason = {
+            "all": "إغلاق الكل — لوحة التحكم",
+            "winners": "إغلاق الرابحة — لوحة التحكم",
+            "losers": "إغلاق الخاسرة — لوحة التحكم",
+        }.get(mode, "إغلاق — لوحة التحكم")
+        for pos in selected:
+            price = float(prices.get(pos.symbol) or pos.entry_price or 0)
+            try:
+                if self.executor.close_position(pos.symbol, price, reason=reason):
+                    closed.append(pos.symbol)
+                else:
+                    failed.append(pos.symbol)
+            except Exception as close_exc:  # noqa: BLE001
+                logger.warning("close_filtered %s %s: %s", mode, pos.symbol, close_exc)
+                failed.append(pos.symbol)
+
+        title = {
+            "all": "إغلاق الكل",
+            "winners": "إغلاق الرابحة",
+            "losers": "إغلاق الخاسرة",
+        }.get(mode, "إغلاق")
+        detail = f"أُغلق {len(closed)} مركز"
+        if closed:
+            detail += f": {', '.join(closed)}"
+        if failed:
+            detail += f"\nتعذّر: {', '.join(failed)}"
+        return DashboardView(
+            format_action_result(title, detail),
+            main_menu_keyboard(paused=self.runtime.paused),
+        )
 
     def _close_position(self, symbol: str) -> DashboardView:
         position = self.executor.position_manager.get(symbol)

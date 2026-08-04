@@ -275,17 +275,18 @@ class TelegramCommandHandler:
             nav_or_simple = data.startswith(
                 ("view:", "act:pause", "act:resume", "sym:", "pos:")
             )
-            action_alert = data.startswith(("enter:", "close:", "act:close_all", "act:panic"))
-
-            if action_alert:
-                self.telegram.send_message(
-                    view.text,
-                    reply_markup=view.keyboard,
-                    chat_id=chat_id or None,
+            action_alert = data.startswith(
+                (
+                    "enter:",
+                    "close:",
+                    "act:close_all",
+                    "act:close_winners",
+                    "act:close_losers",
+                    "act:panic",
                 )
-                return True
+            )
 
-            if nav_or_simple:
+            if action_alert or nav_or_simple:
                 sent_id = self.telegram.send_message(
                     view.text,
                     reply_markup=view.keyboard,

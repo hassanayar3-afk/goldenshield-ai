@@ -133,6 +133,33 @@ class TradeRepository:
             ).fetchall()
         return [self._row_to_trade(row) for row in rows]
 
+    def list_closed_trades_between(
+        self,
+        from_iso: str,
+        to_iso: str,
+        *,
+        limit: int = 300,
+    ) -> list[TradeRow]:
+        """مغلقات ضمن فترة [from_iso, to_iso) حسب closed_at ثم opened_at."""
+        lim = max(1, min(int(limit or 300), 500))
+        start = str(from_iso or "").strip()
+        end = str(to_iso or "").strip()
+        if not start or not end:
+            return self.list_closed_trades(limit=lim)
+        with self._db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM trades
+                WHERE status = 'closed'
+                  AND COALESCE(closed_at, opened_at) >= ?
+                  AND COALESCE(closed_at, opened_at) < ?
+                ORDER BY COALESCE(closed_at, opened_at) DESC
+                LIMIT ?
+                """,
+                (start, end, lim),
+            ).fetchall()
+        return [self._row_to_trade(row) for row in rows]
+
     def trade_history_summary(self) -> dict[str, float | int]:
         """ملخص دائم للتجارب: مفتوح/مغلق/ربح/خسارة."""
         with self._db.connect() as conn:

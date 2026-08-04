@@ -127,6 +127,14 @@ def _init_persistence(settings) -> None:
     _executor.audit = _audit
     _executor.trade_repo = trade_repo
     _executor.alerts = _alerts
+    try:
+        from operations.startup_cleanup import run_startup_cleanup
+
+        cleaned = run_startup_cleanup()
+        if cleaned:
+            logger.info("startup_cleanup: %s", cleaned)
+    except Exception as cleanup_exc:  # noqa: BLE001
+        logger.warning("startup_cleanup skipped: %s", cleanup_exc)
     restored = _executor.restore_open_positions()
     if restored:
         logger.info("Open positions restored: %s", restored)
