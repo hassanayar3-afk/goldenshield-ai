@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 
 from config.settings import get_settings
@@ -42,16 +43,27 @@ def live_mirror_sync_from_binance(executor) -> list[str]:
     return sync_binance_spot_positions(executor)
 
 
-def count_live_spot_positions_from_binance(executor: object | None = None) -> int:
-    """عدد المراكز المفتوحة حسب رصيد Binance الحالي (مرآة مباشرة)."""
+def count_live_spot_positions_from_binance(
+    executor: object | None = None,
+    *,
+    exchange_only: bool = False,
+) -> int:
+    """عدد المراكز المفتوحة حسب رصيد Binance الحالي (مرآة مباشرة).
+
+    exchange_only=True: لا رجوع أبداً لـ position_manager/DB — للمنصة فقط.
+    """
     try:
         settings = get_settings()
         if str(getattr(settings, "execution_backend", "binance")).lower() != "binance":
+            if exchange_only:
+                return 0
             if executor is not None:
                 return int(executor.position_manager.count())
             return 0
         if not bool(getattr(settings, "binance_demo_trading", False)) and settings.execution_mode != "live":
             if settings.execution_mode == "paper" and not settings.binance_demo_trading:
+                if exchange_only:
+                    return 0
                 if executor is not None:
                     return int(executor.position_manager.count())
                 return 0
@@ -59,6 +71,7 @@ def count_live_spot_positions_from_binance(executor: object | None = None) -> in
         from data.exchange_client import get_exchange
 
         exchange = get_exchange()
+        # استعلام فوري — بدون كاش عدّاد محلي
         bal = exchange.fetch_balance() or {}
         total = bal.get("total") or {}
         pairs = set(getattr(settings, "trading_pairs", ()) or ())
@@ -78,6 +91,14 @@ def count_live_spot_positions_from_binance(executor: object | None = None) -> in
             "TRX/USDT",
             "POL/USDT",
         }
+        # حد المنصة ~5$ — غبار تحتها لا يُعدّ «صفقة مفتوحة»
+        try:
+            min_notional = float(os.getenv("PROJECT_MIN_EXCHANGE_NOTIONAL", "5") or 5)
+        except (TypeError, ValueError):
+            min_notional = 5.0
+        if min_notional < 5.0:
+            min_notional = 5.0
+
         n = 0
         for asset, qty_raw in total.items():
             asset_u = str(asset).upper()
@@ -93,10 +114,23 @@ def count_live_spot_positions_from_binance(executor: object | None = None) -> in
             if symbol not in pairs and symbol not in allowed_extra:
                 if not any(str(p).upper().startswith(f"{asset_u}/") for p in pairs):
                     continue
+            # عند العدّ للمنصة فقط: تجاهل الغبار بالقيمة الدولارية
+            if exchange_only:
+                try:
+                    t = exchange.fetch_ticker(symbol)
+                    px = float(t.get("last") or t.get("close") or 0.0)
+                except Exception:
+                    px = 0.0
+                if px <= 0:
+                    continue
+                if (qty * px) + 1e-9 < min_notional:
+                    continue
             n += 1
-        return n
+        return int(n)
     except Exception as exc:  # noqa: BLE001
         logger.debug("count_live_spot_positions_from_binance: %s", exc)
+        if exchange_only:
+            return 0
         if executor is not None:
             try:
                 return int(executor.position_manager.count())

@@ -161,7 +161,31 @@ class TelegramDashboard:
             logger.debug("spot holdings sync: %s", exc)
 
     def render_main(self) -> DashboardView:
-        open_count = self._mirror_live_spot_state(reason="render_main")
+        """لوحة رئيسية — خانة «المفتوحة» من Binance Spot فقط (مرآة فورية)."""
+        from execution.binance_position_sync import (
+            count_live_spot_positions_from_binance,
+            live_mirror_sync_from_binance,
+        )
+
+        # 1) مزامنة إجبارية فورية من المنصة (لا كاش زمني)
+        try:
+            live_mirror_sync_from_binance(self.executor)
+            self._last_spot_sync_ts = time.monotonic()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("render_main live mirror: %s", exc)
+
+        # 2) عدّاد «المفتوحة» = استعلام رصيد Spot الحالي فقط (لا DB / لا position_manager)
+        try:
+            open_count = int(
+                count_live_spot_positions_from_binance(
+                    self.executor,
+                    exchange_only=True,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("render_main open_count exchange: %s", exc)
+            open_count = 0
+
         settings = get_settings()
         active_pairs = get_symbol_registry().active_pairs()
         state = self.risk.state
@@ -174,7 +198,8 @@ class TelegramDashboard:
             prices.setdefault(pos.symbol, pos.entry_price)
         floating = None
         try:
-            if positions:
+            # إن المنصة فارغة — لا تعرض عائماً من ذاكرة محلية قديمة
+            if open_count > 0 and positions:
                 floating, _ = compute_open_floating_pnl(positions, prices)
         except Exception:
             floating = None
