@@ -1,3 +1,4 @@
 @echo off
-rem توافق خلفي — يوجّه إلى STOP_BOT.bat المنظم
-call "%~dp0STOP_BOT.bat"
+REM Deprecated redirect → stop_bot.bat
+cd /d "%~dp0"
+call "%~dp0stop_bot.bat"

@@ -1,25 +1,25 @@
-========================================================
-  GoldenShield — official launchers
-  Folder: C:\GoldenShield_Binance
-========================================================
-
-Use ONLY these 3 desktop shortcuts:
-
-  1) START BOT
-     Starts one bot instance + ONE status window
-     Status shows: ACTIVE / STOPPED + readable log
-
-  2) STOP BOT
-     Stops bot + closes status window
-
-  3) REST BOT
-     Restart cleanly (one instance + one status window)
-
-IMPORTANT about the status window:
-  - Text is English/ASCII on purpose (stable, no broken symbols)
-  - Do NOT click inside the black window (Windows freezes it)
-  - Closing status window does NOT stop the bot
-  - Full stop = STOP BOT only
-  - If window looks empty: press START BOT again
-
-========================================================
+# GoldenShield Launch Package — Binance only / Visible CMD
+#
+# Official files:
+#   start_bot.bat         Start visible bot + live signals board
+#   restart_bot.bat       Full restart
+#   stop_bot.bat          Full stop
+#   run_bot_visible.cmd   Core window (main.py + pulse ~4s)
+#   live_console.ps1      Signals board mirror
+#   scripts\gs_common_env.cmd
+#   scripts\gs_kill_all.ps1
+#
+# Extra aliases:
+#   GS_START.bat / GS_RESTART.bat / GS_STOP.bat
+#   00_START.bat / 00_STOP.bat / REST_BOT.bat
+#
+# Guarantees:
+#   - Single instance (kill helpers + lock in main.py)
+#   - No-Sleep (NO_SLEEP_MODE + powercfg)
+#   - Live pulse 3–5s in BOT LIVE CMD
+#   - Telegram dashboard / SSoT / project rules via main.py
+#
+# Path: C:\GoldenShield_Binance only
+#
+# NOTE (Windows): start_bot.bat and START_BOT.bat are the SAME file
+# (case-insensitive). Use start_bot.bat or GS_START.bat.

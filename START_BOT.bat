@@ -1,18 +1,19 @@
 @echo off
 setlocal EnableExtensions
-title GoldenShield START BOT
+title GoldenShield — START BOT
 color 0A
 
-set "GS_ROOT=C:\GoldenShield_Binance"
-set "GS_TASK=GoldenShieldBotOfficial"
-set "GS_DB=%GS_ROOT%\storage\db\goldenshield.db"
-set "GS_WORKER=%GS_ROOT%\run_official_bot.ps1"
-set "GS_KILL=%GS_ROOT%\scripts\_kill_gs_workers.ps1"
+set "GS_ROOT=%~dp0"
+if "%GS_ROOT:~-1%"=="\" set "GS_ROOT=%GS_ROOT:~0,-1%"
+if not exist "%GS_ROOT%\main.py" set "GS_ROOT=C:\GoldenShield_Binance"
+
+call "%GS_ROOT%\scripts\gs_common_env.cmd"
 
 echo.
 echo ========================================================
-echo   GoldenShield AI ^| START BOT
-echo   Single hidden worker + visible live signals window
+echo   GoldenShield AI ^| START BOT ^(VISIBLE^)
+echo   Binance only ^| Single Instance ^| No-Sleep 24/7
+echo   Telegram + Dashboard + SSoT + Live CMD pulse
 echo ========================================================
 echo.
 
@@ -22,92 +23,62 @@ if not exist "%GS_ROOT%\main.py" (
   exit /b 1
 )
 if not exist "%GS_ROOT%\.env" (
-  echo [ERROR] .env file not found
-  pause
-  exit /b 1
-)
-if not exist "%GS_WORKER%" (
-  echo [ERROR] run_official_bot.ps1 not found
+  echo [ERROR] .env not found in %GS_ROOT%
   pause
   exit /b 1
 )
 
 cd /d "%GS_ROOT%"
-set "PYTHONPATH=%GS_ROOT%"
-set "PYTHONIOENCODING=utf-8"
-set "PYTHONUNBUFFERED=1"
-set "GOLDENSHIELD_OFFICIAL_ROOT=%GS_ROOT%"
-set "GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT=true"
-set "GOLDENSHIELD_LOCK_FAIL_CLOSED=true"
-set "DB_PATH=%GS_DB%"
-set "BOT_FORCE_ACTIVE=true"
-if not defined HYBRID_SIGNAL_MODE set "HYBRID_SIGNAL_MODE=true"
-if not defined PROJECT_REFERENCE_CAPITAL set "PROJECT_REFERENCE_CAPITAL=5000"
-if not defined PROJECT_MIN_TRADE_NOTIONAL set "PROJECT_MIN_TRADE_NOTIONAL=25"
-if not defined PROJECT_MIN_EXCHANGE_NOTIONAL set "PROJECT_MIN_EXCHANGE_NOTIONAL=5"
-if not defined AUTO_ENTRY_MIN_PERCENT set "AUTO_ENTRY_MIN_PERCENT=90"
-if not defined TELEGRAM_SIGNAL_MIN_PERCENT set "TELEGRAM_SIGNAL_MIN_PERCENT=70"
-if not defined MANUAL_ENTRY_REQUIRED set "MANUAL_ENTRY_REQUIRED=false"
-if not defined TELEGRAM_LIVE_SIGNALS set "TELEGRAM_LIVE_SIGNALS=true"
-if not defined NO_SLEEP_MODE set "NO_SLEEP_MODE=true"
-if not defined LOOP_INTERVAL_SECONDS set "LOOP_INTERVAL_SECONDS=4"
-if not defined TELEGRAM_LIVE_SIGNALS_SECONDS set "TELEGRAM_LIVE_SIGNALS_SECONDS=4"
-if not defined TELEGRAM_LIVE_POSITIONS_SECONDS set "TELEGRAM_LIVE_POSITIONS_SECONDS=3"
-if not defined ENTERPRISE_PIPELINE_ENABLED set "ENTERPRISE_PIPELINE_ENABLED=true"
-if not defined SSOT_SYNC_ENABLED set "SSOT_SYNC_ENABLED=true"
-if not defined POST_MORTEM_ENGINE_ACTIVE set "POST_MORTEM_ENGINE_ACTIVE=true"
-if not defined CIRCUIT_BREAKER_MAX_LOSSES set "CIRCUIT_BREAKER_MAX_LOSSES=3"
 
+echo [1/6] Disable Windows sleep / hibernate...
 powercfg -change -standby-timeout-ac 0 >nul 2>&1
 powercfg -change -hibernate-timeout-ac 0 >nul 2>&1
+powercfg -change -monitor-timeout-ac 0 >nul 2>&1
 
-echo [1/5] Stop old worker processes...
+echo [2/6] Stop any previous bot / duplicate workers...
 schtasks /End /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /End /TN "GoldenShieldLiveConsole" /F >nul 2>&1
 schtasks /End /TN "GoldenShieldStatusWindow" /F >nul 2>&1
+schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
+schtasks /Delete /TN "GoldenShieldLiveConsole" /F >nul 2>&1
 if exist "%GS_KILL%" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%GS_KILL%"
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|run_official_bot|BOT_WINDOW|00_LIVE_CONSOLE' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|run_official_bot|run_bot_visible|BOT_WINDOW|live_console|00_LIVE_CONSOLE' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
 )
 timeout /t 2 /nobreak >nul
 
-echo [2/5] Clear runtime locks only...
-if exist "%GS_ROOT%\storage\runtime\user_stopped.flag" del /f /q "%GS_ROOT%\storage\runtime\user_stopped.flag" >nul 2>&1
-if exist "%GS_ROOT%\storage\runtime\bot_instance.lock" del /f /q "%GS_ROOT%\storage\runtime\bot_instance.lock" >nul 2>&1
+echo [3/6] Clear stop flag and stale locks only...
+if not exist "%GS_RUNTIME%" mkdir "%GS_RUNTIME%" >nul 2>&1
+if not exist "%GS_LOGS%" mkdir "%GS_LOGS%" >nul 2>&1
+if exist "%GS_RUNTIME%\user_stopped.flag" del /f /q "%GS_RUNTIME%\user_stopped.flag" >nul 2>&1
+if exist "%GS_RUNTIME%\bot_instance.lock" del /f /q "%GS_RUNTIME%\bot_instance.lock" >nul 2>&1
 if exist "C:\ProgramData\GoldenShield\bot_instance.lock" del /f /q "C:\ProgramData\GoldenShield\bot_instance.lock" >nul 2>&1
-del /f /q "%GS_ROOT%\storage\runtime\*.tmp" >nul 2>&1
-del /f /q "%GS_ROOT%\storage\runtime\*.temp" >nul 2>&1
 
-echo [3/5] Register hidden official task...
+echo [4/6] Register ONSTART visible core ^(no hidden worker^)...
 schtasks /Delete /TN "%GS_TASK%" /F >nul 2>&1
-schtasks /Create /TN "%GS_TASK%" /TR "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"%GS_WORKER%\"" /SC ONSTART /RL HIGHEST /F >nul
+schtasks /Create /TN "%GS_TASK%" /TR "cmd.exe /c start \"GoldenShield BOT LIVE\" /D \"%GS_ROOT%\" cmd.exe /k call \"%GS_ROOT%\run_bot_visible.cmd\"" /SC ONSTART /RL HIGHEST /F >nul 2>&1
 
-echo [4/5] Start bot worker...
-schtasks /Run /TN "%GS_TASK%" >nul 2>&1
-timeout /t 8 /nobreak >nul
+echo [5/6] Open VISIBLE bot window ^(live pulse in CMD^)...
+start "GoldenShield BOT LIVE" /D "%GS_ROOT%" cmd.exe /k call "%GS_ROOT%\run_bot_visible.cmd"
+timeout /t 5 /nobreak >nul
 
-echo [5/5] Open live signals window...
-schtasks /End /TN "GoldenShieldStatusWindow" /F >nul 2>&1
-schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|BOT STATUS|LIVE SIGNALS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
-timeout /t 1 /nobreak >nul
-if exist "%GS_ROOT%\BOT_WINDOW.ps1" (
-  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%GS_ROOT%\BOT_WINDOW.ps1"
-) else if exist "%GS_ROOT%\BOT_WINDOW.bat" (
-  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" cmd.exe /k call "%GS_ROOT%\BOT_WINDOW.bat"
-) else if exist "%GS_ROOT%\00_LIVE_CONSOLE.bat" (
-  start "GoldenShield LIVE CONSOLE" /D "%GS_ROOT%" cmd.exe /k call "%GS_ROOT%\00_LIVE_CONSOLE.bat"
-) else (
-  echo [WARN] Live window file not found
+echo [6/6] Open live signals board companion window...
+if exist "%GS_PULSE%" (
+  start "GoldenShield LIVE SIGNALS BOARD" /D "%GS_ROOT%" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%GS_PULSE%"
+) else if exist "%GS_ROOT%\BOT_WINDOW.ps1" (
+  start "GoldenShield LIVE SIGNALS BOARD" /D "%GS_ROOT%" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%GS_ROOT%\BOT_WINDOW.ps1"
 )
 
 echo.
 echo --------------------------------------------------------
-echo   Bot status: running
-echo   Project dir: %GS_ROOT%
-echo   Worker: %GS_WORKER%
-echo   Live window should open now
+echo   Status: STARTED ^(visible^)
+echo   Root:   %GS_ROOT%
+echo   Windows:
+echo     1^) GoldenShield BOT LIVE  — main.py + pulse ~4s
+echo     2^) LIVE SIGNALS BOARD     — signals_board mirror
+echo   Telegram dashboard / close menu / reports: active
+echo   Stop with:  stop_bot.bat
 echo --------------------------------------------------------
 echo.
 timeout /t 4 /nobreak >nul
