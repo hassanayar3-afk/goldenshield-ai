@@ -13,13 +13,39 @@ load_dotenv(ROOT / ".env", override=True)
 
 PS = r"""
 $g = 'C:\GoldenShield_Binance'
+Write-Output '=== TASK STATUS ==='
+try {
+  $task = schtasks /Query /TN 'GoldenShieldBotOfficial' 2>$null
+  if ($LASTEXITCODE -eq 0) { Write-Output 'TASK=EXISTS' } else { Write-Output 'TASK=MISSING' }
+} catch {
+  Write-Output 'TASK=ERROR'
+}
+
+Write-Output '=== PROCESS STATUS ==='
 $m = @(Get-CimInstance Win32_Process -EA SilentlyContinue | Where-Object {
   $_.CommandLine -and $_.CommandLine -match 'main\.py'
 })
+$w = @(Get-CimInstance Win32_Process -EA SilentlyContinue | Where-Object {
+  $_.CommandLine -and $_.CommandLine -match 'BOT_WINDOW\.ps1|00_LIVE_CONSOLE'
+})
 Write-Output ("MAIN=" + $m.Count)
+Write-Output ("LIVE_WINDOW=" + $w.Count)
+
+Write-Output '=== SIGNALS BOARD ==='
+$board = Join-Path $g 'storage\runtime\signals_board.txt'
+if (Test-Path $board) {
+  Write-Output 'BOARD=EXISTS'
+  Get-Content $board -Tail 20 -Encoding UTF8 -EA SilentlyContinue
+} else {
+  Write-Output 'BOARD=MISSING'
+}
+
+Write-Output '=== LOG TAIL ==='
 $log = Join-Path $g 'storage\logs\bot_stdout.log'
 if (Test-Path $log) {
   Get-Content $log -Tail 35 -Encoding UTF8 -EA SilentlyContinue
+} else {
+  Write-Output 'LOG=MISSING'
 }
 """
 

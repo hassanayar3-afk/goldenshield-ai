@@ -82,7 +82,6 @@ del /f /q "%GS_ROOT%\storage\runtime\*.temp" >nul 2>&1
 echo [3/5] Register hidden official task...
 schtasks /Delete /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /Create /TN "%GS_TASK%" /TR "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"%GS_WORKER%\"" /SC ONSTART /RL HIGHEST /F >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=Get-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -EA Stop; $t.Settings.Hidden=$true; $t.Settings.ExecutionTimeLimit='PT0S'; $t | Set-ScheduledTask | Out-Null } catch {}"
 
 echo [4/5] Start bot worker...
 schtasks /Run /TN "%GS_TASK%" >nul 2>&1

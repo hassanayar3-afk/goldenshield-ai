@@ -75,7 +75,6 @@ if exist "C:\ProgramData\GoldenShield\bot_instance.lock" del /f /q "C:\ProgramDa
 echo [3/4] Recreate and run official task...
 schtasks /Delete /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /Create /TN "%GS_TASK%" /TR "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"%GS_WORKER%\"" /SC ONSTART /RL HIGHEST /F >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=Get-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -EA Stop; $t.Settings.Hidden=$true; $t.Settings.ExecutionTimeLimit='PT0S'; $t | Set-ScheduledTask | Out-Null } catch {}"
 schtasks /Run /TN "%GS_TASK%" >nul 2>&1
 timeout /t 8 /nobreak >nul
 

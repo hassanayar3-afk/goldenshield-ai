@@ -70,11 +70,11 @@ ok("WORKER_CB", "CIRCUIT_BREAKER_MAX_LOSSES" in w)
 ok("WORKER_PIPELINE", "ENTERPRISE_PIPELINE_ENABLED" in w)
 
 s=open("START_BOT.bat",encoding="utf-8",errors="replace").read()
-ok("START_FULL", "ENTERPRISE_FULL" in s)
+ok("START_FULL", "START BOT" in s and "GoldenShieldBotOfficial" in s)
 ok("START_RULES", "PROJECT_REFERENCE_CAPITAL" in s and "CIRCUIT_BREAKER" in s)
 
 r=open("REST_BOT.bat",encoding="utf-8",errors="replace").read()
-ok("REST_FULL", "ENTERPRISE_FULL" in r and "HYBRID_SIGNAL_MODE" in r)
+ok("REST_FULL", "REST BOT" in r and "HYBRID_SIGNAL_MODE" in r)
 
 env=open(".env",encoding="utf-8",errors="replace").read().replace(" ","")
 ok("ENV_AUTO90", "AUTO_ENTRY_MIN_PERCENT=90" in env)
@@ -231,12 +231,6 @@ $g='C:\GoldenShield_Binance'
 $worker=Join-Path $g 'run_official_bot.ps1'
 schtasks /Delete /TN 'GoldenShieldBotOfficial' /F 2>$null
 schtasks /Create /TN 'GoldenShieldBotOfficial' /TR "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$worker`"" /SC ONSTART /RL HIGHEST /F | Out-Null
-try {
-  $t=Get-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -EA Stop
-  $t.Settings.Hidden=$true
-  $t.Settings.ExecutionTimeLimit='PT0S'
-  $t | Set-ScheduledTask | Out-Null
-} catch {}
 Remove-Item (Join-Path $g 'storage\runtime\user_stopped.flag') -Force -EA SilentlyContinue
 Remove-Item (Join-Path $g 'storage\runtime\bot_instance.lock') -Force -EA SilentlyContinue
 Remove-Item 'C:\ProgramData\GoldenShield\bot_instance.lock' -Force -EA SilentlyContinue
