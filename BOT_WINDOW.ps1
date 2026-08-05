@@ -104,5 +104,5 @@ while ($true) {
 
     Write-Host ""
     Write-Host "  Tip: do not click inside window | close window != stop bot"
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 1
 }

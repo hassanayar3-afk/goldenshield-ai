@@ -48,8 +48,10 @@ if not defined AUTO_ENTRY_MIN_PERCENT set "AUTO_ENTRY_MIN_PERCENT=90"
 if not defined TELEGRAM_SIGNAL_MIN_PERCENT set "TELEGRAM_SIGNAL_MIN_PERCENT=70"
 if not defined MANUAL_ENTRY_REQUIRED set "MANUAL_ENTRY_REQUIRED=false"
 if not defined TELEGRAM_LIVE_SIGNALS set "TELEGRAM_LIVE_SIGNALS=true"
-if not defined TELEGRAM_LIVE_SIGNALS_SECONDS set "TELEGRAM_LIVE_SIGNALS_SECONDS=15"
-if not defined TELEGRAM_LIVE_POSITIONS_SECONDS set "TELEGRAM_LIVE_POSITIONS_SECONDS=1"
+if not defined NO_SLEEP_MODE set "NO_SLEEP_MODE=true"
+if not defined LOOP_INTERVAL_SECONDS set "LOOP_INTERVAL_SECONDS=4"
+if not defined TELEGRAM_LIVE_SIGNALS_SECONDS set "TELEGRAM_LIVE_SIGNALS_SECONDS=4"
+if not defined TELEGRAM_LIVE_POSITIONS_SECONDS set "TELEGRAM_LIVE_POSITIONS_SECONDS=3"
 if not defined ENTERPRISE_PIPELINE_ENABLED set "ENTERPRISE_PIPELINE_ENABLED=true"
 if not defined SSOT_SYNC_ENABLED set "SSOT_SYNC_ENABLED=true"
 if not defined POST_MORTEM_ENGINE_ACTIVE set "POST_MORTEM_ENGINE_ACTIVE=true"
@@ -93,12 +95,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=Get-ScheduledTa
 schtasks /Run /TN "%GS_TASK%" >nul 2>&1
 timeout /t 8 /nobreak >nul
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|نافذة الحالة|BOT STATUS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+rem نافذة CMD ظاهرة مباشرة (أوضح من schtasks /IT على VPS/RDP)
+echo  [CMD] فتح نافذة مراقبة الإشارات الحية...
+schtasks /End /TN "GoldenShieldStatusWindow" /F >nul 2>&1
 schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
-schtasks /Create /TN "GoldenShieldStatusWindow" /TR "\"%GS_ROOT%\BOT_WINDOW.bat\"" /SC ONCE /ST 00:00 /RL HIGHEST /IT /F >nul 2>&1
-schtasks /Run /TN "GoldenShieldStatusWindow" >nul 2>&1
-if errorlevel 1 (
-  if exist "%GS_ROOT%\BOT_WINDOW.bat" start "GoldenShield BOT — يعمل" "%GS_ROOT%\BOT_WINDOW.bat"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|BOT STATUS|LIVE SIGNALS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+timeout /t 1 /nobreak >nul
+if exist "%GS_ROOT%\BOT_WINDOW.bat" (
+  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" cmd /k call "%GS_ROOT%\BOT_WINDOW.bat"
+) else if exist "%GS_ROOT%\00_LIVE_CONSOLE.bat" (
+  start "GoldenShield LIVE CONSOLE" /D "%GS_ROOT%" cmd /k call "%GS_ROOT%\00_LIVE_CONSOLE.bat"
+) else (
+  echo  [WARN] BOT_WINDOW.bat غير موجود
 )
 
 echo.

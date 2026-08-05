@@ -1,5 +1,5 @@
 app:
-  loop_interval_seconds: 15
+  loop_interval_seconds: 4
   log_level: WARNING
 
 database:

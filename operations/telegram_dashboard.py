@@ -107,7 +107,7 @@ class TelegramDashboard:
         self._live_signals_last_ts: float = 0.0
         self._live_signals_last_text: str = ""
         self._live_signals_last_body: str = ""
-        self._live_signals_interval_seconds: float = 15.0
+        self._live_signals_interval_seconds: float = 4.0
 
     def update_market(
         self,
@@ -334,15 +334,22 @@ class TelegramDashboard:
         return raw in {"1", "true", "yes", "on"}
 
     def _live_signals_interval(self) -> float:
-        """فاصل تحديث رسالة تيليجرام للإشارات — آمن ضد 429 (افتراضي 15ث).
+        """فاصل تحديث رسالة تيليجرام للإشارات — آمن ضد 429 (افتراضي 4ث).
 
         سرعة CMD منفصلة عبر signals_board.txt ولا تعتمد على هذا الفاصل العدواني.
         """
-        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "15").strip()
+        raw = os.getenv("TELEGRAM_LIVE_SIGNALS_SECONDS", "4").strip()
         try:
-            return max(5.0, min(float(raw or "15"), 60.0))
+            base = float(raw or "4")
         except (TypeError, ValueError):
-            return 15.0
+            base = 4.0
+        try:
+            from operations.console_pulse import no_sleep_mode_enabled
+
+            floor = 3.0 if no_sleep_mode_enabled() else 5.0
+        except Exception:
+            floor = 3.0
+        return max(floor, min(base, 60.0))
 
     def render_live_signals(self, *, refresh_prices: bool = False) -> DashboardView:
         from datetime import datetime, timezone

@@ -27,8 +27,10 @@ if (-not $env:AUTO_ENTRY_MIN_PERCENT) { $env:AUTO_ENTRY_MIN_PERCENT = "90" }
 if (-not $env:TELEGRAM_SIGNAL_MIN_PERCENT) { $env:TELEGRAM_SIGNAL_MIN_PERCENT = "70" }
 if (-not $env:MANUAL_ENTRY_REQUIRED) { $env:MANUAL_ENTRY_REQUIRED = "false" }
 if (-not $env:TELEGRAM_LIVE_SIGNALS) { $env:TELEGRAM_LIVE_SIGNALS = "true" }
-if (-not $env:TELEGRAM_LIVE_SIGNALS_SECONDS) { $env:TELEGRAM_LIVE_SIGNALS_SECONDS = "15" }
-if (-not $env:TELEGRAM_LIVE_POSITIONS_SECONDS) { $env:TELEGRAM_LIVE_POSITIONS_SECONDS = "1" }
+if (-not $env:NO_SLEEP_MODE) { $env:NO_SLEEP_MODE = "true" }
+if (-not $env:LOOP_INTERVAL_SECONDS) { $env:LOOP_INTERVAL_SECONDS = "4" }
+if (-not $env:TELEGRAM_LIVE_SIGNALS_SECONDS) { $env:TELEGRAM_LIVE_SIGNALS_SECONDS = "4" }
+if (-not $env:TELEGRAM_LIVE_POSITIONS_SECONDS) { $env:TELEGRAM_LIVE_POSITIONS_SECONDS = "3" }
 if (-not $env:ENTERPRISE_PIPELINE_ENABLED) { $env:ENTERPRISE_PIPELINE_ENABLED = "true" }
 if (-not $env:SSOT_SYNC_ENABLED) { $env:SSOT_SYNC_ENABLED = "true" }
 if (-not $env:POST_MORTEM_ENGINE_ACTIVE) { $env:POST_MORTEM_ENGINE_ACTIVE = "true" }
@@ -172,7 +174,7 @@ while ($true) {
                 Stop-Process -Id $p -Force -ErrorAction SilentlyContinue
             }
         }
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 1
         continue
     }
 
@@ -185,8 +187,8 @@ while ($true) {
         if ($null -ne $p) {
             Wait-Process -Id $p.Id -ErrorAction SilentlyContinue
         }
-        Write-WorkerLog "WORKER_EXIT restart_in_5s"
+        Write-WorkerLog "WORKER_EXIT restart_in_2s"
     }
 
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 2
 }

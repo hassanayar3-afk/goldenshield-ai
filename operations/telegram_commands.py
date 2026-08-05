@@ -457,7 +457,7 @@ class TelegramCommandHandler:
         """توافق خلفي — يفضّل start_background_polling."""
         self.start_background_polling()
         while not self._stop_poll.is_set():
-            await asyncio.sleep(max(interval_seconds, 5.0))
+            await asyncio.sleep(max(interval_seconds, 3.0))
 
     def _fetch_prices(self, symbols: list[str]) -> dict[str, float]:
         if self._price_fetcher is None:

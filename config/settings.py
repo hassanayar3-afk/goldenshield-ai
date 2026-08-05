@@ -245,7 +245,7 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         loss_streak_limit=int(risk.get("loss_streak_limit", 3)),
         cooldown_hours=int(risk.get("cooldown_hours", 24)),
         loop_interval_seconds=int(
-            os.getenv("LOOP_INTERVAL_SECONDS") or app.get("loop_interval_seconds", 60)
+            os.getenv("LOOP_INTERVAL_SECONDS") or app.get("loop_interval_seconds", 4)
         ),
         log_level=str(app.get("log_level", "INFO")),
         db_path=_resolve_db_path(

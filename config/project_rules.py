@@ -50,6 +50,11 @@ ENTERPRISE_PIPELINE_ENABLED: bool = True
 
 # أطر المؤسسة: اتجاه 4H / نطاق 1H / دخول 15m·5m / انزلاق 1m
 ENTERPRISE_TIMEFRAMES: tuple[str, ...] = ("4h", "1h", "15m", "5m", "1m")
+# —— وضع النبض السريع / No Sleep (24/7) ——
+NO_SLEEP_MODE: bool = True
+PULSE_LOOP_INTERVAL_SECONDS: int = 4  # هدف 3–5 ثوانٍ
+PULSE_LIVE_SIGNALS_SECONDS: int = 4
+PULSE_LIVE_POSITIONS_SECONDS: int = 3
 
 
 @dataclass(frozen=True)

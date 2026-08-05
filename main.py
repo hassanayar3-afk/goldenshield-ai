@@ -745,6 +745,15 @@ def _bot_force_active_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _loop_sleep_seconds(settings) -> int:
+    try:
+        from operations.console_pulse import effective_loop_seconds
+
+        return effective_loop_seconds(getattr(settings, "loop_interval_seconds", 4))
+    except Exception:
+        return 4
+
+
 async def run_bot() -> None:
     global _telegram_handler
     _force_official_workdir()
@@ -753,6 +762,11 @@ async def run_bot() -> None:
 
     settings = load_settings(reload=True)
     setup_operations_logging(settings.log_level)
+    loop_sec = _loop_sleep_seconds(settings)
+    print(
+        f"⚡ وضع النبض السريع | No-Sleep=ON | فاصل الدورة ~{loop_sec}s | "
+        f"بث إشارات CMD/سجل لحظي"
+    )
     print(f"📂 CWD={Path.cwd()} | DB={settings.db_path}")
 
     # عند فتح/تشغيل الملف: ممنوع البدء متوقفاً أو في سكون
@@ -876,6 +890,13 @@ async def run_bot() -> None:
                 logger.warning("ApiWatchdog: %s", ", ".join(watchdog.failures))
 
         symbols = get_symbol_registry().active_pairs()
+        loop_sec = _loop_sleep_seconds(settings)
+        try:
+            from operations.console_pulse import print_cycle_pulse_header
+
+            print_cycle_pulse_header(loop_sec)
+        except Exception:
+            pass
         _sync_risk_session()
         _notify_kill_switch_if_needed()
 
@@ -901,7 +922,7 @@ async def run_bot() -> None:
             heartbeat = check_heartbeat_guard(_connection_monitor)
             if heartbeat.should_emergency_flat:
                 _emergency_flat_if_needed(heartbeat.reason, symbols)
-            await asyncio.sleep(settings.loop_interval_seconds)
+            await asyncio.sleep(loop_sec)
             continue
 
         if _connection_monitor.is_disconnected():
@@ -909,14 +930,14 @@ async def run_bot() -> None:
                 f"⚠️ لا اتصال منذ أكثر من {_connection_monitor.timeout_seconds} ثانية — تخطي التداول"
             )
             _emergency_flat_if_needed("انقطاع Heartbeat", symbols)
-            await asyncio.sleep(settings.loop_interval_seconds)
+            await asyncio.sleep(loop_sec)
             continue
 
         market_halt = check_market_halt()
         if market_halt.halted:
             print(f"⏸️ توقف السوق: {market_halt.reason}")
             _emergency_flat_if_needed(f"توقف السوق: {market_halt.reason}", symbols)
-            await asyncio.sleep(settings.loop_interval_seconds)
+            await asyncio.sleep(loop_sec)
             continue
 
         # —— Priority 0: حماية رأس المال قبل أي أوامر دخول جديدة (v1.1.2) ——
@@ -953,7 +974,7 @@ async def run_bot() -> None:
             if outage.block_new_entries:
                 print(f"🛡️ Network Outage Shield: {outage.reason}")
                 _run_open_position_management(prices, label="outage")
-                await asyncio.sleep(settings.loop_interval_seconds)
+                await asyncio.sleep(loop_sec)
                 continue
         except Exception as exc:  # noqa: BLE001
             logger.warning("network outage shield فشل: %s", exc)
@@ -973,7 +994,7 @@ async def run_bot() -> None:
                     except Exception:
                         pass
                 _alerts.emergency("Flash Crash", flash.reason)
-                await asyncio.sleep(settings.loop_interval_seconds)
+                await asyncio.sleep(loop_sec)
                 continue
         except Exception as exc:  # noqa: BLE001
             logger.warning("flash crash check فشل: %s", exc)
@@ -985,7 +1006,7 @@ async def run_bot() -> None:
             if should_force_weekend_flat():
                 print("🗓️ Weekend Flat — إغلاق احترازي / منع دخول")
                 _emergency_flat_if_needed("Weekend Flat Policy", symbols)
-                await asyncio.sleep(settings.loop_interval_seconds)
+                await asyncio.sleep(loop_sec)
                 continue
         except Exception as exc:  # noqa: BLE001
             logger.warning("weekend flat check فشل: %s", exc)
@@ -1011,9 +1032,7 @@ async def run_bot() -> None:
 
                 write_console_signals_board_file(
                     cycle_entries,
-                    interval_seconds=float(
-                        getattr(settings, "loop_interval_seconds", 15) or 15
-                    ),
+                    interval_seconds=float(loop_sec),
                     updated_at=datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
                     + " UTC",
                 )
@@ -1022,13 +1041,22 @@ async def run_bot() -> None:
             _maybe_send_qualified_signals_list(telegram_handler, cycle_entries)
             _maybe_send_watchlist_digest(telegram_handler, cycle_entries)
             _maybe_send_alive_pulse(telegram_handler, cycle_entries)
-            # بث حي لكل الأزواج (بما فيها WAIT) — تحديث الرسالة كل ~15 ثانية
+            # بث حي لكل الأزواج (بما فيها WAIT) — تحديث الرسالة كل ~4 ثوانٍ
             try:
                 telegram_handler.dashboard.publish_live_signals(force=True)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("publish_live_signals فشل: %s", exc)
         else:
             _maybe_send_alive_pulse(telegram_handler, [])
+        try:
+            from operations.console_pulse import print_console_signals_board
+
+            print_console_signals_board(
+                cycle_entries,
+                interval_seconds=loop_sec,
+            )
+        except Exception as pulse_exc:  # noqa: BLE001
+            logger.debug("console pulse board: %s", pulse_exc)
         _flush_opened_trades_list()
         if settings.telegram_send_cycle_signals:
             _send_cycle_signals(cycle_entries)
@@ -1040,8 +1068,13 @@ async def run_bot() -> None:
         if open_count:
             print(f"📊 مراكز مفتوحة: {open_count} | سجلات تدقيق: {audit_count}")
 
-        print(f"--- 🔄 تحديث الدورة اكتمل. انتظار {settings.loop_interval_seconds} ثانية... ---")
-        await asyncio.sleep(settings.loop_interval_seconds)
+        try:
+            from operations.console_pulse import print_cycle_pulse_footer
+
+            print_cycle_pulse_footer(loop_sec, open_count=open_count)
+        except Exception:
+            pass
+        await asyncio.sleep(loop_sec)
 
 
 if __name__ == "__main__":
