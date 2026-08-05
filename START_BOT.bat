@@ -5,9 +5,9 @@ title GoldenShield — START BOT
 color 0A
 
 rem ============================================================
-rem  START_BOT.bat — تشغيل رسمي موحّد v2026.08
+rem  START_BOT.bat — تشغيل رسمي موحّد v2026.08 ENTERPRISE FULL
 rem  مثيل واحد مخفي + نافذة حالة واحدة
-rem  متوافق مع: project_rules / Live Mirror / BOT_FORCE_ACTIVE
+rem  قواعد: 5000 / 25$ / هجين 70-90 / SSoT / Pipeline / Post-Mortem / CB
 rem ============================================================
 
 set "GS_ROOT=C:\GoldenShield_Binance"
@@ -15,12 +15,12 @@ set "GS_TASK=GoldenShieldBotOfficial"
 set "GS_DB=%GS_ROOT%\storage\db\goldenshield.db"
 set "GS_WORKER=%GS_ROOT%\run_official_bot.ps1"
 set "GS_KILL=%GS_ROOT%\scripts\_kill_gs_workers.ps1"
-set "GS_MARKER=GS_LAUNCHER_v2026_08_ENTERPRISE"
+set "GS_MARKER=GS_LAUNCHER_v2026_08_ENTERPRISE_FULL"
 
 echo.
 echo  ========================================================
 echo    GoldenShield AI  ^|  START BOT  (%GS_MARKER%)
-echo    مؤسسة ذاتية ^| هجين ^| مثيل واحد مخفي
+echo    مؤسسة ذاتية كاملة ^| هجين 70/90 ^| مثيل واحد
 echo  ========================================================
 echo.
 
@@ -68,7 +68,7 @@ echo  [1/6] منع سكون ويندوز...
 powercfg -change -standby-timeout-ac 0 >nul 2>&1
 powercfg -change -hibernate-timeout-ac 0 >nul 2>&1
 
-echo  [2/6] إيقاف القديم القديم القديم/النوافذ المكررة...
+echo  [2/6] إيقاف العمال القدامى/النوافذ المكررة...
 schtasks /End /TN "%GS_TASK%" /F >nul 2>&1
 schtasks /End /TN "GoldenShieldLiveConsole" /F >nul 2>&1
 schtasks /Change /TN "GoldenShieldLiveConsole" /DISABLE >nul 2>&1
@@ -119,7 +119,7 @@ echo  --------------------------------------------------------
 echo   الحالة : البوت يعمل + نافذة CMD واحدة للمراقبة
 echo   المجلد : %GS_ROOT%
 echo   العامل : %GS_WORKER%
-echo   القواعد: رأس مال مرجعي 5000 / منع الغبار / Live Mirror
+echo   القواعد: 5000 / 25$ / هجين 70-90 / SSoT / Pipeline / PM
 echo   ملاحظة : اغلاق نافذة الحالة لا يوقف البوت
 echo  --------------------------------------------------------
 echo.

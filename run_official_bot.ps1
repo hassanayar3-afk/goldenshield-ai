@@ -1,14 +1,14 @@
-# GoldenShield Official Worker v2026.08.1 — مثيل واحد مخفي
+# GoldenShield Official Master Worker — v2026.08 ENTERPRISE FULL
 # المهمة: GoldenShieldBotOfficial
-# لا تشغّل يدوياً — استخدم START_BOT.bat / REST_BOT.bat
-# مقترن بقواعد المحادثة: project_rules / SSoT Live Mirror / startup_cleanup / BOT_FORCE_ACTIVE
+# لا تشغّل يدوياً — استخدم START_BOT.bat / REST_BOT.bat / STOP_BOT.bat فقط
+# يضم: project_rules · Hybrid 70/90 · SSoT · Pipeline Fail-Closed · Post-Mortem · CB · Micro TF
 
 $ErrorActionPreference = "Continue"
 $Root = "C:\GoldenShield_Binance"
-$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08_ENTERPRISE"
+$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08_ENTERPRISE_FULL"
 Set-Location $Root
 
-# —— بيئة رسمية (لا تكتب أسراراً؛ تقرأ .env عبر Python) ——
+# —— بيئة رسمية (لا تكتب أسراراً؛ تُقرأ من .env عبر Python) ——
 $env:PYTHONPATH = $Root
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUNBUFFERED = "1"
@@ -17,7 +17,8 @@ $env:GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT = "true"
 $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:DB_PATH = Join-Path $Root "storage\db\goldenshield.db"
 $env:BOT_FORCE_ACTIVE = "true"
-# قواعد المؤسسة + النظام الهجين (دائم)
+
+# قواعد المؤسسة + الهجين + إغلاق الفجوات (دائم)
 if (-not $env:HYBRID_SIGNAL_MODE) { $env:HYBRID_SIGNAL_MODE = "true" }
 if (-not $env:PROJECT_REFERENCE_CAPITAL) { $env:PROJECT_REFERENCE_CAPITAL = "5000" }
 if (-not $env:PROJECT_MIN_TRADE_NOTIONAL) { $env:PROJECT_MIN_TRADE_NOTIONAL = "25" }
@@ -35,7 +36,9 @@ if (-not $env:CIRCUIT_BREAKER_MAX_LOSSES) { $env:CIRCUIT_BREAKER_MAX_LOSSES = "3
 
 $logDir = Join-Path $Root "storage\logs"
 $runtime = Join-Path $Root "storage\runtime"
-foreach ($d in @($logDir, $runtime, (Join-Path $Root "storage\db"), (Join-Path $Root "storage\reports"))) {
+$reports = Join-Path $Root "storage\reports"
+$dbDir = Join-Path $Root "storage\db"
+foreach ($d in @($logDir, $runtime, $dbDir, $reports, (Join-Path $reports "post_mortem"))) {
     if (-not (Test-Path $d)) {
         New-Item -ItemType Directory -Path $d -Force | Out-Null
     }
@@ -73,27 +76,51 @@ function Clear-OperationalLocks {
 $py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
 if (-not (Test-Path $py)) { $py = "py" }
 
-function Invoke-ConversationRulesPreflight {
+function Invoke-EnterprisePreflight {
     $pre = Join-Path $Root "storage\runtime\_worker_preflight.py"
     @"
 import os, sys
 sys.path.insert(0, r"C:\GoldenShield_Binance")
 os.chdir(r"C:\GoldenShield_Binance")
-from config.project_rules import load_project_rules, assert_entry_notional, is_hybrid_auto_score, is_hybrid_manual_broadcast_score
+from config.project_rules import (
+    load_project_rules, assert_entry_notional,
+    is_hybrid_auto_score, is_hybrid_manual_broadcast_score,
+    HYBRID_AUTO_MIN_PERCENT, HYBRID_MANUAL_MIN_PERCENT,
+    ENTERPRISE_MANUAL_PREFERRED_PERCENT, ENTERPRISE_TIMEFRAMES,
+)
+from core.constants import ANALYSIS_TIMEFRAMES, SIGNAL_NOTIFY_MIN_PERCENT, SIGNAL_AUTO_PERCENT
 from operations.startup_cleanup import run_startup_cleanup
 from core.pre_flight import run_pre_flight_checks
+from core.enterprise_pipeline import PIPELINE_STAGES
+from operations.post_mortem import record_close_post_mortem
 r = load_project_rules()
 assert float(r.reference_capital) >= 5000
 assert float(r.min_trade_notional) >= 25
-assert r.hybrid_mode
-assert r.enterprise_pipeline
+assert r.hybrid_mode and r.enterprise_pipeline
+assert HYBRID_AUTO_MIN_PERCENT == 90 and SIGNAL_AUTO_PERCENT == 90
+assert HYBRID_MANUAL_MIN_PERCENT == 70 and SIGNAL_NOTIFY_MIN_PERCENT == 70
+assert ENTERPRISE_MANUAL_PREFERRED_PERCENT == 70
+assert set(ANALYSIS_TIMEFRAMES) >= set(["4h","1h","15m","5m","1m"])
+assert set(ENTERPRISE_TIMEFRAMES) >= set(["4h","1h","15m","5m","1m"])
+assert len(PIPELINE_STAGES) >= 8
 assert is_hybrid_auto_score(9) and is_hybrid_auto_score(10)
 assert is_hybrid_manual_broadcast_score(7) and is_hybrid_manual_broadcast_score(8)
 assert not is_hybrid_auto_score(8)
 assert assert_entry_notional(0.001, 10)
+assert callable(record_close_post_mortem)
+main_src = open("main.py", encoding="utf-8", errors="replace").read()
+assert "FAIL-CLOSED" in main_src or "FAIL_CLOSED" in main_src
+tex = open("execution/trade_executor.py", encoding="utf-8", errors="replace").read()
+assert "_record_post_mortem_safe" in tex
 run_startup_cleanup()
 run_pre_flight_checks(soft=True)
-print("PREFLIGHT_OK", "ENTERPRISE", "HYBRID", r.reference_capital, r.min_trade_notional, "BOT_FORCE", os.getenv("BOT_FORCE_ACTIVE", "true"))
+print(
+    "PREFLIGHT_OK", "ENTERPRISE_FULL",
+    "auto", HYBRID_AUTO_MIN_PERCENT, "manual", HYBRID_MANUAL_MIN_PERCENT,
+    "cap", r.reference_capital, "min", r.min_trade_notional,
+    "frames", ",".join(ANALYSIS_TIMEFRAMES),
+    "BOT_FORCE", os.getenv("BOT_FORCE_ACTIVE", "true"),
+)
 "@ | Set-Content -Path $pre -Encoding UTF8
     try {
         $out = & $py $pre 2>&1
@@ -128,8 +155,8 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
 }
 
 Clear-OperationalLocks
-Write-WorkerLog "WORKER_START hidden single root=$Root rules=5000/25/SSoT"
-Invoke-ConversationRulesPreflight
+Write-WorkerLog "WORKER_START hidden single root=$Root rules=5000/25/hybrid70-90/SSoT/pipeline/postmortem"
+Invoke-EnterprisePreflight
 
 while ($true) {
     if (Test-Path $stopFlag) {

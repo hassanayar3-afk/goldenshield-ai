@@ -62,12 +62,27 @@ if(Test-Path 'C:\GoldenShield_Binance\run_official_bot.ps1'){
         print("STDERR:", err[-800:])
 
     # 2) Tail bot_stdout.log
-    tail_cmd = (
-        rf'powershell -NoProfile -Command "if(Test-Path ''{LOG}''){{ '
-        rf"Get-Content -Path '{LOG}' -Tail 40 -Encoding UTF8 "
-        rf"}} else {{ Write-Output 'LOG_MISSING' }}\""
+    tail_ps = rf"""
+$log = '{LOG}'
+if (Test-Path $log) {{
+  $item = Get-Item $log
+  Write-Output ('LOG_SIZE=' + $item.Length)
+  Write-Output ('LOG_MOD=' + $item.LastWriteTime)
+  Get-Content -Path $log -Tail 40 -Encoding UTF8
+}} else {{
+  Write-Output 'LOG_MISSING'
+}}
+"""
+    sftp = client.open_sftp()
+    ps_path = rf"{KEEP}\storage\runtime\_monitor_tail.ps1"
+    with sftp.open(ps_path, "w") as f:
+        f.write(tail_ps.encode("utf-8"))
+    sftp.close()
+    _code, log_tail, _err = _run(
+        client,
+        rf'powershell -NoProfile -ExecutionPolicy Bypass -File "{ps_path}"',
+        timeout=60,
     )
-    _code, log_tail, _err = _run(client, tail_cmd, timeout=60)
     print("\n--- bot_stdout.log (last 40 lines) ---")
     print(log_tail.strip() or "(empty)")
 
