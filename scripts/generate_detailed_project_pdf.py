@@ -113,11 +113,11 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     )
     section(
         "1.2 قرار التنفيذ الحي",
-        "التداول الحقيقي عبر XM + MetaTrader 5 على Windows.",
+        "التداول عبر Binance على Windows (Demo أو Live حسب الإعداد).",
         [
-            "Binance/ccxt يُستخدم كمصدر بيانات وتحليل ووضع paper.",
-            "التنفيذ الحي يتم عبر جسر MT5 على ويندوز (مكتبة MT5 لا تعمل على Linux).",
-            "Contabo يبقى paper 24/7 للتحليل المستمر دون أوامر XM من السحابة.",
+            "Binance/ccxt يُستخدم كمصدر بيانات وتحليل وتنفيذ.",
+            "التنفيذ الحي يتم عبر EXECUTION_BACKEND=binance.",
+            "Contabo يبقى paper 24/7 للتحليل المستمر دون أوامر تنفيذ حية من السحابة.",
         ],
     )
 
@@ -128,7 +128,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
         "Contabo paper + Windows live يعملان معاً بأدوار مختلفة.",
         [
             "Contabo Linux: حاوية Docker، تحليل مستمر، إشعارات تيليجرام حسب الإعداد.",
-            "Windows VPS: MT5 مفتوح + 00_START.bat + تنفيذ صفقات XM الحقيقية.",
+            "Windows VPS: حزمة Binance + 00_START.bat + تنفيذ صفقات المنصة.",
             "لا يُنصح بتشغيل نسختين على نفس الحساب في نفس الوقت لتفادي تضارب الإشعارات.",
         ],
     )
@@ -141,7 +141,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "3) ذكاء هجين + إيقاف سوق عند الأخبار/الاضطراب.",
             "4) Shadow Consensus (ظل القرار).",
             "5) بوابة المخاطر (حجم الصفقة وحدود الحساب).",
-            "6) التنفيذ (paper أو MT5) ثم تنبيه تيليجرام وحفظ في SQLite.",
+            "6) التنفيذ (paper أو Binance) ثم تنبيه تيليجرام وحفظ في SQLite.",
         ],
     )
 
@@ -163,7 +163,6 @@ def generate_pdf(out_path: Path | None = None) -> Path:
         [
             "OHLCV وTicker وOrderbook وVolume Profile وCache.",
             "مراقبة heartbeat لانقطاع الاتصال.",
-            "امتداد بيانات MT5 للرموز الحية (فوركس/معادن).",
         ],
     )
     section(
@@ -192,8 +191,8 @@ def generate_pdf(out_path: Path | None = None) -> Path:
         [
             "إدارة أوامر ومراكز + SL/TP + Breakeven + Emergency Flat.",
             "Mutex وCorrelation لمنع تضارب الأزواج.",
-            "جسر mt5_bridge.py وخريطة رموز XM.",
-            "أصول مدعومة: كريبتو + ذهب XAU + فضة XAG + نفط USOIL.",
+            "خلفية تنفيذ Binance Spot (Demo أو Live).",
+            "أصول مدعومة: أزواج Binance حسب trading_pairs.",
         ],
     )
     section(
@@ -243,7 +242,6 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "Docker + Compose إنتاجي + Contabo paper.",
             "healthcheck وnginx وCI workflows.",
             "حزمة Windows: 00_START.bat / STOP / Autostart.",
-            "دليل MT5_WINDOWS_SETUP.md.",
         ],
     )
 
@@ -325,10 +323,9 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     )
     section(
         "6.2 أصول وتنفيذ",
-        "توسيع السوق ودعم الوسيط.",
+        "توسيع السوق ودعم المنصة.",
         [
-            "ذهب/فضة/نفط عبر FOREX/XAUUSD وXAGUSD وUSOIL.",
-            "خريطة رموز MT5: GOLD / SILVER / USOIL.",
+            "أزواج Binance Spot حسب الإعداد.",
             "حفظ قوة الإشارة على المراكز لاستعراضها لاحقاً.",
         ],
     )
@@ -365,22 +362,21 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     # ——— 8 ———
     h1("8) التشغيل العملي")
     section(
-        "8.1 Windows live",
-        "استخراج الحزمة وتشغيل البوت مع MT5.",
+        "8.1 Windows Binance",
+        "استخراج الحزمة وتشغيل البوت.",
         [
-            "استخرج ZIP إلى C:\\GoldenShield.",
-            "افتح XM MT5 وسجّل دخول الحساب (مثال: XMGlobal-MT5 10).",
+            "استخرج ZIP إلى C:\\GoldenShield_Binance.",
             "شغّل 00_START.bat واترك النافذة مفتوحة.",
             "Disconnect RDP — لا تعمل Log off أو Shutdown.",
         ],
     )
     section(
         "8.2 Contabo paper",
-        "تحليل 24/7 بدون تنفيذ XM.",
+        "تحليل 24/7 بدون تنفيذ حي.",
         [
             "docker compose على /opt/goldenshield.",
             "EXECUTION_MODE=paper.",
-            "لا تفعّل MT5_ENABLED على Linux.",
+            "EXECUTION_BACKEND=binance.",
         ],
     )
 

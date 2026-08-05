@@ -39,10 +39,9 @@ def active_runtime_label() -> str:
 
 
 def is_crypto_symbol(symbol: str) -> bool:
-    s = (symbol or "").strip().upper()
-    if not s or s.startswith("FOREX/") or s.startswith("STOCK/"):
-        return False
-    return "/" in s
+    from data.symbol_routing import is_binance_crypto_pair
+
+    return is_binance_crypto_pair(symbol)
 
 
 def uses_binance_orderbook(symbol: str) -> bool:

@@ -32,7 +32,7 @@
 | 9 | Emergency De-Risk | تقليص تحت ضغط — ليس hedge عكسي |
 | 10 | Vol-Based Risk % | خلف علم `vol_based_risk_scaling_enabled` |
 | 18 | Funding Guard | stub — يتخطى Spot |
-| 19 | Weekend Flat | خلف علم — أنسب لـ MT5 |
+| 19 | Weekend Flat | خلف علم — اختياري (Spot عادة 24/7) |
 
 ## تفعيل سريع
 - أعلام الموجة 1/2 الافتراضية: ON للحماية، OFF للطبقات الاختيارية (derisk/vol/funding/weekend).

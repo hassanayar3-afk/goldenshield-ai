@@ -37,11 +37,13 @@ def test_runtime_profile_binance_default(monkeypatch):
     assert profile.requires_binance_ping is True
 
 
-def test_forex_does_not_use_binance_orderbook():
+def test_only_binance_crypto_uses_orderbook():
+    assert uses_binance_orderbook("BTC/USDT") is True
     assert uses_binance_orderbook("FOREX/EURUSD") is False
     assert uses_binance_orderbook("STOCK/AAPL") is False
+    assert uses_binance_orderbook("EURUSD") is False
     assert is_crypto_symbol("BTC/USDT") is True
-    assert is_crypto_symbol("FOREX/EURUSD") is False
+    assert is_crypto_symbol("GOLD") is False
 
 
 def test_get_runtime_profile_uses_loaded_settings(monkeypatch):

@@ -93,7 +93,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "نظام تداول آلي هجين: تحليل فني SMC/FVG + ذكاء سوقي",
             "يدمج: أخبار، VIX، مشاعر، سيولة، حيتان",
             "درع مخاطر: 1% لكل صفقة · Kill Switch −3%",
-            "يُدار من تيليجرام · يعمل على Contabo (paper) وWindows/MT5/XM (live)",
+            "يُدار من تيليجرام · يعمل على Contabo (paper) وWindows/Binance (Demo أو Live)",
         ]
     )
 
@@ -102,7 +102,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
         [
             "المراحل 1–9: إعدادات، بيانات، تحليل، هجين، تنفيذ، مخاطر، ظل، تيليجرام، قاعدة بيانات",
             "المرحلة 11: Docker، Contabo 24/7، CI، حزمة Windows",
-            "جسر MT5/XM + ذهب/فضة/نفط + استعادة مراكز بعد إعادة التشغيل",
+            "تنفيذ Binance + استعادة مراكز بعد إعادة التشغيل",
             "واجهة تيليجرام عربية + قوائم صفقات بأيقونات",
             "بروتوكولات التشغيل المؤسسية (HC + Standard/Bonus) مدمجة برمجياً",
         ]
@@ -151,7 +151,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     h("7) التشغيل السريع")
     bullets(
         [
-            "Windows: استخرج ZIP إلى C:\\GoldenShield → افتح MT5 → 00_START.bat",
+            "Windows: استخرج ZIP إلى C:\\GoldenShield_Binance → 00_START.bat",
             "Contabo: docker compose up -d (paper 24/7)",
             "لا تشغّل محلياً وعلى السحابة لنفس الحساب معاً",
         ]
@@ -161,7 +161,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     bullets(
         [
             "GoldenShield v1 مكتمل 100% لكل ما وصلنا إليه",
-            "جاهز للتجربة الحية على XM/MT5 عبر Windows",
+            "جاهز لتجربة Binance Demo على Windows",
             "الخطوة التالية: شهر تقييم live ثم قرار SaaS أو ذكاء متقدم",
         ]
     )

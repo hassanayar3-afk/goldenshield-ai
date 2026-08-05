@@ -806,7 +806,7 @@ async def run_bot() -> None:
     registry = get_symbol_registry()
     active_symbols = registry.load(settings.trading_pairs)
     profile = resolve_runtime_profile(settings)
-    # وضع Binance فقط — لا فوركس/أسهم/MT5 أبداً
+    # وضع Binance فقط — لا فوركس/أسهم أبداً
     active_symbols = [
         s for s in registry.active_pairs()
         if not str(s).startswith(("FOREX/", "STOCK/"))

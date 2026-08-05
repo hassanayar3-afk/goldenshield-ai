@@ -18,7 +18,7 @@
 
 ## البوت بعد الإصلاح
 - المسار الحي: Contabo Demo على ويندوز
-- `MT5=false` · `backend=binance` · `mode=live` · `demo=true`
+- التنفيذ عبر Binance فقط (Demo/Spot) · `backend=binance` · `mode=live` · `demo=true`
 - حد الدخول الناعم: 5
 - مراكزي: بث حي كل ~5 ثوانٍ
 - PID عند آخر تحقق: **3348**

@@ -2,7 +2,7 @@
 
 > **التاريخ:** 2026-07-18  
 > **البناء:** `2026-07-18-v112-sl`  
-> **المعنى:** المشروع **مكتمل 100%** لكل ما وصلنا إليه حتى هذه اللحظة — الكود، التشغيل، التيليجرام، MT5/XM، البروتوكولات، والنشر.
+> **المعنى:** المشروع **مكتمل 100%** لكل ما وصلنا إليه حتى هذه اللحظة — الكود، التشغيل، التيليجرام، Binance، البروتوكولات، والنشر.
 
 ---
 
@@ -16,7 +16,7 @@
 | **بروتوكولات التشغيل المؤسسية** | ✅ موثقة + مدمجة برمجياً |
 | **بروتوكول حماية وقف الخسارة v1.1.2** | ✅ مدمج (Pre-Execution Gate · Emergency ATR · Priority-0 Watchdog) |
 | **واجهة التيليجرام** | ✅ مكتملة |
-| **MT5 / XM (Windows live)** | ✅ جسر جاهز + دليل + حزمة Windows |
+| **Binance (Demo/Spot)** | ✅ التنفيذ عبر Binance فقط (Demo/Spot) |
 | **المرحلة 10 SaaS** | ⏸️ خارج نطاق v1 — مؤجّلة بعد شهر التجربة |
 | **المرحلة 12 ذكاء متقدم** | ⏸️ خارج نطاق v1 — مؤجّلة بعد بيانات كافية |
 
@@ -38,8 +38,7 @@
 - ✅ طبقة بيانات Binance/ccxt + cache + مراقبة اتصال
 - ✅ تحليل فني SMC/FVG + توافق M15/H1/H4 + Signal Scorer
 - ✅ ذكاء هجين: أخبار، VIX، مشاعر، حيتان، إيقاف سوق
-- ✅ محرك تنفيذ: أوامر، مراكز، Mutex، Correlation، Breakeven، Emergency Flat
-- ✅ جسر MT5/XM + خريطة رموز + ذهب/فضة/نفط
+- ✅ محرك تنفيذ Binance Spot/Demo: أوامر، مراكز، Mutex، Correlation، Breakeven، Emergency Flat + خريطة رموز كريبتو
 - ✅ إدارة مخاطر: 1%، Kill Switch −3%، Monte Carlo، راحة 24h
 - ✅ تدقيق وظل: Snapshot، Decision Log، Shadow، Consensus
 - ✅ تيليجرام: أوامر، لوحة عربية، digests بأيقونات، فلتر إشارات
@@ -50,7 +49,7 @@
 - ✅ Contabo paper 24/7
 - ✅ healthcheck + nginx + CI workflows
 - ✅ `deploy_to_contabo.py` + `00_START.bat` + autostart Windows
-- ✅ `docs/MT5_WINDOWS_SETUP.md`
+- ✅ التشغيل: التنفيذ عبر Binance فقط (Demo/Spot)
 
 ### ميزات التشغيل الحية (2026-07)
 - ✅ دخول تلقائي **≥90** · عرض إشارات **≥75** · 75–89 يدوي
@@ -86,7 +85,7 @@
 
 ```env
 EXECUTION_MODE=live
-EXECUTION_BACKEND=mt5
+EXECUTION_BACKEND=binance
 AUTO_ENTRY_MIN_PERCENT=90
 MANUAL_ENTRY_REQUIRED=false
 TELEGRAM_SIGNALS_ONLY=true
@@ -104,7 +103,7 @@ python main.py
 ```
 
 ```powershell
-# Windows MT5
+# Windows
 00_START.bat
 ```
 
@@ -112,4 +111,4 @@ python main.py
 
 ## الخلاصة
 
-**GoldenShield AI v1 مكتمل 100%** لكل ما وصلنا إليه: نظام تداول هجين يعمل على Contabo (paper) وWindows/MT5/XM (live)، يُدار من التيليجرام، مع درع مخاطر وبروتوكولات مؤسسية اختيارية. الخطوة التالية **قرار منتج** (شهر تقييم) وليس إكمال برمجي للإصدار الحالي.
+**GoldenShield AI v1 مكتمل 100%** لكل ما وصلنا إليه: نظام تداول هجين يعمل على Contabo / Windows عبر Binance فقط (Demo/Spot)، يُدار من التيليجرام، مع درع مخاطر وبروتوكولات مؤسسية اختيارية. الخطوة التالية **قرار منتج** (شهر تقييم) وليس إكمال برمجي للإصدار الحالي.

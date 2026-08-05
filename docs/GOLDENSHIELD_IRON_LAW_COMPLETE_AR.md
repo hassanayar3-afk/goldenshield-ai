@@ -35,7 +35,7 @@
 |--------|---------|
 | الاسم | GoldenShield AI |
 | النوع | نظام تداول آلي هجين |
-| يجمع | تحليل فني (SMC/FVG) + ذكاء سوقي (VIX · أخبار · مشاعر · حيتان) + مخاطر + تنفيذ + تيليجرام + MT5/Binance + SQLite |
+| يجمع | تحليل فني (SMC/FVG) + ذكاء سوقي (VIX · أخبار · مشاعر · حيتان) + مخاطر + تنفيذ + تيليجرام + Binance + SQLite |
 | اللغة | Python (asyncio) |
 | الحالة | مكتمل لنطاق v1 مع بروتوكولات v1.1 / v1.1.2 وطبقة Iron Law |
 
@@ -63,7 +63,7 @@
 | `config/` | YAML و `.env` والإعدادات |
 | `data/` | جلب بيانات السوق |
 | `core/` | التحليل والذكاء الهجين |
-| `execution/` | تنفيذ الصفقات + MT5/Binance |
+| `execution/` | تنفيذ الصفقات عبر Binance فقط (Demo/Spot) |
 | `risk/` | درع المخاطر + البوابات الحديدية |
 | `audit/` | التدقيق والظل + أحداث التنفيذ |
 | `operations/` | تيليجرام والمراقبة |
@@ -104,7 +104,7 @@ Snapshot رقمي لكل صفقة (دخول/خروج/حالة سوق) يُخزّ
 # الباب 6 — بروتوكول وقف الخسارة v1.1.2 (الحديد المطلق)
 
 ## 6.1 Zero-SL/TP Denial
-يمنع إرسال أي صفقة دخول إلى المنصة (MT5/Binance) إلا إذا كان **SL و TP معرفين صالحين مسبقاً**. أي إشارة بلا قيم صحيحة = رفض تلقائي.
+يمنع إرسال أي صفقة دخول إلى المنصة (Binance) إلا إذا كان **SL و TP معرفين صالحين مسبقاً**. أي إشارة بلا قيم صحيحة = رفض تلقائي.
 
 ## 6.2 Emergency ATR SL
 إذا عجز التحليل عن تحديد منطقة سيولة دقيقة للـ SL:
@@ -142,7 +142,7 @@ Snapshot رقمي لكل صفقة (دخول/خروج/حالة سوق) يُخزّ
 | Iron Protocol (فرض الإعدادات) | `risk/iron_protocol.py` |
 | توثيق الأحداث | `audit/execution_events.py` |
 | حارس التذكرة | `execution/sl_attachment_guard.py` |
-| أوامر المنصة | `execution/order_manager.py` / `execution/mt5_bridge.py` |
+| أوامر المنصة | `execution/order_manager.py` / `execution/trade_executor.py` |
 | Priority 0 | `main.py` |
 
 ---
@@ -179,7 +179,7 @@ Snapshot رقمي لكل صفقة (دخول/خروج/حالة سوق) يُخزّ
 4. Dark Pool Splitter مع SL/TP على كل جزء.
 5. Emergency Flat.
 6. Slippage Guard.
-7. جسر MT5/XM للتداول الحي على Windows.
+7. التنفيذ عبر Binance فقط (Demo/Spot).
 8. Dynamic Profit Taking: نصف العقد عند الهدف الأول + Breakeven للمتبقي.
 9. Delayed Entry / Retest عند توفره في المسار.
 10. Consensus Gate: لا إرسال بلا إجماع المصادر المعتمدة.
@@ -225,10 +225,9 @@ Snapshot رقمي لكل صفقة (دخول/خروج/حالة سوق) يُخزّ
 1. SQLite + Migrations + مستودعات: صفقات · مخاطر · عمليات · snapshots · إعدادات.
 2. نسخ احتياطي + استعادة مراكز بعد إعادة التشغيل.
 3. رفع اختياري: تيليجرام / Google Drive.
-4. Docker + docker-compose · Contabo (paper) · Windows+MT5 (live).
+4. Docker + docker-compose · Contabo / Windows — التنفيذ عبر Binance فقط (Demo/Spot).
 5. healthcheck · nginx · CI · سكربتات نشر.
-6. دليل: `docs/MT5_WINDOWS_SETUP.md`.
-7. خدمة systemd لإعادة التشغيل الذاتي عند الفشل.
+6. خدمة systemd لإعادة التشغيل الذاتي عند الفشل.
 
 ---
 
@@ -249,7 +248,6 @@ VOLATILITY_GUARD_ENABLED=true
 REQUIRE_SL_ON_ALL_CHUNKS=true
 CLOSE_NAKED_TICKETS=true
 MANAGE_POSITIONS_DURING_HALT=true
-MT5_ATTACH_SL_TP=true
 AUTO_ENTRY_MIN_PERCENT=95
 MANUAL_ENTRY_REQUIRED=false
 default_rr_ratio=3.0
@@ -361,7 +359,7 @@ STANDARD_BONUS_PROFILE=false
 
 # الباب 21 — التقنيات المرجعية
 
-Python · asyncio · ccxt · pandas · PyYAML · dotenv · pytest · yfinance · requests · MT5 (Windows) · SQLite · Docker · Telegram Bot API.
+Python · asyncio · ccxt · pandas · PyYAML · dotenv · pytest · yfinance · requests · Binance (ccxt) · SQLite · Docker · Telegram Bot API.
 
 ---
 

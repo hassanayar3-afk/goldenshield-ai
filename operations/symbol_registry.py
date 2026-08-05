@@ -1,4 +1,4 @@
-"""سجل الرموز — أزواج Binance كريبتو."""
+"""سجل الرموز — أزواج Binance كريبتو فقط."""
 
 from __future__ import annotations
 
@@ -20,14 +20,11 @@ class SymbolSpec:
     id: str
     category: str
     data_source: str
-    yfinance_ticker: str | None = None
     enabled: bool = True
 
     @property
     def is_crypto(self) -> bool:
-        return self.category == "crypto" or (
-            "/" in self.id and not self.id.startswith(("STOCK/", "FOREX/"))
-        )
+        return self.category == "crypto" and "/" in self.id
 
 
 class SymbolRegistry:
@@ -38,11 +35,11 @@ class SymbolRegistry:
         self._specs.clear()
 
         for pair in base_pairs or []:
-            from data.symbol_routing import normalize_symbol_id
+            from data.symbol_routing import is_binance_crypto_pair, normalize_symbol_id
 
             sid = normalize_symbol_id(pair)
-            if sid.startswith(("FOREX/", "STOCK/")):
-                logger.info("تجاهل رمز غير كريبتو في السجل: %s", sid)
+            if not is_binance_crypto_pair(sid):
+                logger.info("تجاهل رمز غير Binance: %s", sid)
                 continue
             self._specs[sid] = SymbolSpec(
                 id=sid,
@@ -62,7 +59,7 @@ class SymbolRegistry:
                 logger.warning("فشل قراءة symbol_registry.yaml: %s", exc)
 
         active = self.active_pairs()
-        logger.info("Symbol registry: %s active symbol(s)", len(active))
+        logger.info("Symbol registry: %s Binance pair(s)", len(active))
         return active
 
     def _ensure(self, spec: SymbolSpec) -> None:
@@ -75,22 +72,15 @@ class SymbolRegistry:
         self._specs[spec.id] = spec
 
     def _spec_from_dict(self, item: dict[str, Any]) -> SymbolSpec | None:
-        symbol_id = str(item.get("id", "")).strip()
-        if not symbol_id:
+        from data.symbol_routing import is_binance_crypto_pair, normalize_symbol_id
+
+        symbol_id = normalize_symbol_id(str(item.get("id", "")).strip())
+        if not symbol_id or not is_binance_crypto_pair(symbol_id):
             return None
-        if symbol_id.startswith(("FOREX/", "STOCK/")):
-            return None
-        category = str(item.get("category", "crypto"))
-        if category in {"forex", "stock"}:
-            return None
-        data_source = str(item.get("data_source", "binance") or "binance")
-        if data_source in {"forex", "yfinance", "mt5", "stock"}:
-            data_source = "binance"
         return SymbolSpec(
             id=symbol_id,
             category="crypto",
-            data_source=data_source if data_source else "binance",
-            yfinance_ticker=None,
+            data_source="binance",
             enabled=bool(item.get("enabled", True)),
         )
 
@@ -104,29 +94,26 @@ class SymbolRegistry:
         return sorted(self._specs.values(), key=lambda s: s.id)
 
     def add_crypto(self, pair: str, *, enabled: bool = True) -> bool:
-        pair = pair.upper().replace("-", "/")
-        if "/" not in pair:
-            pair = f"{pair}/USDT"
+        from data.symbol_routing import is_binance_crypto_pair, normalize_symbol_id
+
+        raw = (pair or "").strip().upper().replace("-", "/")
+        # لا تُلحق /USDT برموز فوركس/أسهم المعروفة
+        candidate = normalize_symbol_id(raw)
+        if "/" not in candidate and not candidate.endswith("USDT"):
+            candidate = f"{candidate}/USDT"
+        if not is_binance_crypto_pair(candidate):
+            logger.info("رفض إضافة رمز غير Binance: %s", pair)
+            return False
         self._ensure(
             SymbolSpec(
-                id=pair,
+                id=candidate,
                 category="crypto",
                 data_source="binance",
                 enabled=enabled,
             )
         )
-        self._persist_extra(pair)
+        self._persist_extra(candidate)
         return True
-
-    def add_forex(self, pair: str, *, enabled: bool = True) -> bool:
-        """ملغى — Binance كريبتو فقط."""
-        logger.info("add_forex ignored (%s) — Binance-only registry", pair)
-        return False
-
-    def add_stock(self, ticker: str, *, enabled: bool = True) -> bool:
-        """ملغى — Binance كريبتو فقط."""
-        logger.info("add_stock ignored (%s) — Binance-only registry", ticker)
-        return False
 
     def remove(self, symbol_id: str) -> bool:
         spec = self._specs.get(symbol_id)
@@ -134,9 +121,8 @@ class SymbolRegistry:
             return False
         self._specs[symbol_id] = SymbolSpec(
             id=spec.id,
-            category=spec.category,
-            data_source=spec.data_source,
-            yfinance_ticker=spec.yfinance_ticker,
+            category="crypto",
+            data_source="binance",
             enabled=False,
         )
         self._persist_disable(symbol_id)
@@ -153,13 +139,12 @@ class SymbolRegistry:
             symbols.append(
                 {
                     "id": spec.id,
-                    "category": spec.category,
-                    "data_source": spec.data_source,
+                    "category": "crypto",
+                    "data_source": "binance",
                     "enabled": spec.enabled,
                 }
             )
             raw["symbols"] = symbols
-            raw.pop("auto_sync_mt5", None)
             self._write_registry_file(raw)
         except Exception as exc:  # noqa: BLE001
             logger.warning("فشل حفظ الرمز %s: %s", symbol_id, exc)
@@ -175,18 +160,19 @@ class SymbolRegistry:
             for item in symbols:
                 if str(item.get("id")) == symbol_id:
                     item["enabled"] = False
+                    item["category"] = "crypto"
+                    item["data_source"] = "binance"
                     updated = True
             if not updated:
                 symbols.append(
                     {
                         "id": spec.id,
-                        "category": spec.category,
-                        "data_source": spec.data_source,
+                        "category": "crypto",
+                        "data_source": "binance",
                         "enabled": False,
                     }
                 )
             raw["symbols"] = symbols
-            raw.pop("auto_sync_mt5", None)
             self._write_registry_file(raw)
         except Exception as exc:  # noqa: BLE001
             logger.warning("فشل تعطيل الرمز %s: %s", symbol_id, exc)
