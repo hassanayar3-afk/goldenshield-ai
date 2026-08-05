@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = "Continue"
 $Root = "C:\GoldenShield_Binance"
-$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08_HYBRID"
+$WorkerTag = "GS_OFFICIAL_WORKER_v2026_08_ENTERPRISE"
 Set-Location $Root
 
 # —— بيئة رسمية (لا تكتب أسراراً؛ تقرأ .env عبر Python) ——
@@ -17,7 +17,7 @@ $env:GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT = "true"
 $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:DB_PATH = Join-Path $Root "storage\db\goldenshield.db"
 $env:BOT_FORCE_ACTIVE = "true"
-# قواعد المحادثة + النظام الهجين (دائم)
+# قواعد المؤسسة + النظام الهجين (دائم)
 if (-not $env:HYBRID_SIGNAL_MODE) { $env:HYBRID_SIGNAL_MODE = "true" }
 if (-not $env:PROJECT_REFERENCE_CAPITAL) { $env:PROJECT_REFERENCE_CAPITAL = "5000" }
 if (-not $env:PROJECT_MIN_TRADE_NOTIONAL) { $env:PROJECT_MIN_TRADE_NOTIONAL = "25" }
@@ -28,6 +28,10 @@ if (-not $env:MANUAL_ENTRY_REQUIRED) { $env:MANUAL_ENTRY_REQUIRED = "false" }
 if (-not $env:TELEGRAM_LIVE_SIGNALS) { $env:TELEGRAM_LIVE_SIGNALS = "true" }
 if (-not $env:TELEGRAM_LIVE_SIGNALS_SECONDS) { $env:TELEGRAM_LIVE_SIGNALS_SECONDS = "15" }
 if (-not $env:TELEGRAM_LIVE_POSITIONS_SECONDS) { $env:TELEGRAM_LIVE_POSITIONS_SECONDS = "1" }
+if (-not $env:ENTERPRISE_PIPELINE_ENABLED) { $env:ENTERPRISE_PIPELINE_ENABLED = "true" }
+if (-not $env:SSOT_SYNC_ENABLED) { $env:SSOT_SYNC_ENABLED = "true" }
+if (-not $env:POST_MORTEM_ENGINE_ACTIVE) { $env:POST_MORTEM_ENGINE_ACTIVE = "true" }
+if (-not $env:CIRCUIT_BREAKER_MAX_LOSSES) { $env:CIRCUIT_BREAKER_MAX_LOSSES = "3" }
 
 $logDir = Join-Path $Root "storage\logs"
 $runtime = Join-Path $Root "storage\runtime"
@@ -77,16 +81,19 @@ sys.path.insert(0, r"C:\GoldenShield_Binance")
 os.chdir(r"C:\GoldenShield_Binance")
 from config.project_rules import load_project_rules, assert_entry_notional, is_hybrid_auto_score, is_hybrid_manual_broadcast_score
 from operations.startup_cleanup import run_startup_cleanup
+from core.pre_flight import run_pre_flight_checks
 r = load_project_rules()
 assert float(r.reference_capital) >= 5000
 assert float(r.min_trade_notional) >= 25
 assert r.hybrid_mode
+assert r.enterprise_pipeline
 assert is_hybrid_auto_score(9) and is_hybrid_auto_score(10)
 assert is_hybrid_manual_broadcast_score(7) and is_hybrid_manual_broadcast_score(8)
 assert not is_hybrid_auto_score(8)
 assert assert_entry_notional(0.001, 10)
 run_startup_cleanup()
-print("PREFLIGHT_OK", "HYBRID", r.reference_capital, r.min_trade_notional, "BOT_FORCE", os.getenv("BOT_FORCE_ACTIVE", "true"))
+run_pre_flight_checks(soft=True)
+print("PREFLIGHT_OK", "ENTERPRISE", "HYBRID", r.reference_capital, r.min_trade_notional, "BOT_FORCE", os.getenv("BOT_FORCE_ACTIVE", "true"))
 "@ | Set-Content -Path $pre -Encoding UTF8
     try {
         $out = & $py $pre 2>&1

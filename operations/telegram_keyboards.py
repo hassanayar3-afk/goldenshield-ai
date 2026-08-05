@@ -48,6 +48,10 @@ def main_menu_keyboard(*, paused: bool) -> dict:
                 toggle,
             ],
             [{"text": "❌ إغلاق الصفقات", "callback_data": "view:close_menu"}],
+            [
+                {"text": "🛠 صحة المؤسسة", "callback_data": "view:enterprise_health"},
+                {"text": "🔁 تشخيص", "callback_data": "act:enterprise_diag"},
+            ],
             [{"text": "🚨 طوارئ — إيقاف كامل", "callback_data": "act:panic"}],
         ]
     }

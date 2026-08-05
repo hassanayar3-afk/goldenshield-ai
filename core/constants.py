@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 
-# الأطر الزمنية المعتمدة في النظام
+# الأطر الزمنية الأساسية للتحليل (لا تُكسر — متوافقة مع المحلل الحالي)
 TIMEFRAMES: tuple[str, ...] = ("15m", "1h", "4h")
+# أطر المؤسسة الإضافية (انزلاق/دخول دقيق) — تُستخدم في خط الأنابيب دون فرضها على كل جلب
+ENTERPRISE_EXTRA_TIMEFRAMES: tuple[str, ...] = ("5m", "1m")
 
 TIMEFRAME_LABELS: dict[str, str] = {
     "15m": "M15",

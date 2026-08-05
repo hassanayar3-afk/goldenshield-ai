@@ -659,6 +659,24 @@ class TelegramDashboard:
                 ),
                 close_menu_keyboard(),
             )
+        if data in {"view:enterprise_health", "act:enterprise_diag"}:
+            self.disable_live_positions()
+            try:
+                from operations.enterprise_health import build_enterprise_health_report
+
+                n = None
+                try:
+                    _, n = self._live_open_ssot()
+                except Exception:
+                    n = None
+                body = build_enterprise_health_report(open_positions=n)
+            except Exception as exc:  # noqa: BLE001
+                body = f"تعذر التشخيص: {exc}"
+            title = "صحة المؤسسة" if data.startswith("view:") else "تشخيص سريع"
+            return DashboardView(
+                format_action_result(title, body),
+                main_menu_keyboard(paused=bool(getattr(self.runtime, "paused", False))),
+            )
         if data == "act:pause":
             # مع BOT_FORCE_ACTIVE=true لا يُسمح بالسكون — الإشارات يجب أن تستمر
             if (os.getenv("BOT_FORCE_ACTIVE", "true") or "true").strip().lower() in {

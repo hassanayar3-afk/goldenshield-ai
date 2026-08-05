@@ -1,4 +1,5 @@
 @echo off
-REM Opens classic CMD window that stays open (not PowerShell)
-cd /d "%~dp0"
-start "GoldenShield Binance Demo" /D "%~dp0" cmd.exe /k "00_START.bat"
+rem DEPRECATED — لا تشغّل main.py من هنا (صراع مثيلات).
+rem استخدم START_BOT.bat / REST_BOT.bat فقط.
+echo [GS] 00_START_KEEP_OPEN deprecated — redirecting to START_BOT.bat
+call "%~dp0START_BOT.bat"

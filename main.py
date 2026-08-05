@@ -112,14 +112,16 @@ def _ssot_open_count() -> int:
 def _log_project_rules_banner() -> None:
     """يسجّل قواعد المحادثة عند الإقلاع — مقترنة بملف التشغيل."""
     try:
-        from config.project_rules import load_project_rules
+        from config.project_rules import ARCHITECTURE_MODE, PROJECT_RULES_VERSION, load_project_rules
 
         rules = load_project_rules()
         msg = (
-            f"ProjectRules HYBRID auto≥9/10 manual=7–8 "
+            f"{PROJECT_RULES_VERSION} | {ARCHITECTURE_MODE} | "
+            f"HYBRID auto≥9/10 manual=7–8 "
             f"ref={rules.reference_capital:.0f} "
             f"min_trade={rules.min_trade_notional:.0f}$ "
-            f"notify={rules.notify_min_percent} "
+            f"CB={rules.circuit_breaker_max_losses} "
+            f"pipeline={'ON' if rules.enterprise_pipeline else 'OFF'} "
             f"BOT_FORCE_ACTIVE={os.getenv('BOT_FORCE_ACTIVE', 'true')}"
         )
         logger.info(msg)

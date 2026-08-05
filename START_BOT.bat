@@ -15,12 +15,12 @@ set "GS_TASK=GoldenShieldBotOfficial"
 set "GS_DB=%GS_ROOT%\storage\db\goldenshield.db"
 set "GS_WORKER=%GS_ROOT%\run_official_bot.ps1"
 set "GS_KILL=%GS_ROOT%\scripts\_kill_gs_workers.ps1"
-set "GS_MARKER=GS_LAUNCHER_v2026_08"
+set "GS_MARKER=GS_LAUNCHER_v2026_08_ENTERPRISE"
 
 echo.
 echo  ========================================================
 echo    GoldenShield AI  ^|  START BOT  (%GS_MARKER%)
-echo    مثيل واحد في الخلفية — بلا نوافذ مكررة
+echo    مؤسسة ذاتية ^| هجين ^| مثيل واحد مخفي
 echo  ========================================================
 echo.
 
@@ -59,6 +59,10 @@ if not defined MANUAL_ENTRY_REQUIRED set "MANUAL_ENTRY_REQUIRED=false"
 if not defined TELEGRAM_LIVE_SIGNALS set "TELEGRAM_LIVE_SIGNALS=true"
 if not defined TELEGRAM_LIVE_SIGNALS_SECONDS set "TELEGRAM_LIVE_SIGNALS_SECONDS=15"
 if not defined TELEGRAM_LIVE_POSITIONS_SECONDS set "TELEGRAM_LIVE_POSITIONS_SECONDS=1"
+if not defined ENTERPRISE_PIPELINE_ENABLED set "ENTERPRISE_PIPELINE_ENABLED=true"
+if not defined SSOT_SYNC_ENABLED set "SSOT_SYNC_ENABLED=true"
+if not defined POST_MORTEM_ENGINE_ACTIVE set "POST_MORTEM_ENGINE_ACTIVE=true"
+if not defined CIRCUIT_BREAKER_MAX_LOSSES set "CIRCUIT_BREAKER_MAX_LOSSES=3"
 
 echo  [1/6] منع سكون ويندوز...
 powercfg -change -standby-timeout-ac 0 >nul 2>&1
