@@ -192,23 +192,18 @@ class TelegramDashboard:
         return DashboardView(text, main_menu_keyboard(paused=self.runtime.paused))
 
     def render_market(self) -> DashboardView:
-        from operations.signal_filter import annotate_entry_actions
-
-        _, open_count = self._live_open_ssot(reason="render_market")
+        """كل الأزواج المراقبة — جاهزة + WAIT (مثل CMD ولوحة البث الحي)."""
         active_pairs = get_symbol_registry().active_pairs()
         all_entries = [
             self.market.entries[s]
             for s in active_pairs
             if s in self.market.entries
         ]
-        qualified = annotate_entry_actions(
-            all_entries,
-            open_positions=open_count,
-        )
-        symbols = [e["symbol"] for e in qualified]
+        ordered = sorted(all_entries, key=lambda e: int(e.get("score", 0) or 0))
+        symbols = [e["symbol"] for e in ordered]
         return DashboardView(
-            format_qualified_signals_digest(qualified),
-            market_keyboard(symbols, entries=qualified)
+            format_market_overview(ordered),
+            market_keyboard(symbols, entries=ordered)
             if symbols
             else {
                 "inline_keyboard": [
