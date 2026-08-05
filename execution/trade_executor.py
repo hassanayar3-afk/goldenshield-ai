@@ -75,20 +75,6 @@ class TradeExecutor:
             self._balance_cache_at = now
             return self._balance_cache
 
-        from config.runtime_profile import resolve_runtime_profile
-
-        if resolve_runtime_profile(settings).uses_mt5:
-            try:
-                from execution.mt5_bridge import get_mt5_bridge
-
-                bal = float(get_mt5_bridge().account_balance())
-                self._balance_cache = bal
-                self._balance_cache_at = now
-                return bal
-            except Exception:
-                logger.exception("فشل رصيد MT5 — استخدام رصيد paper")
-                return settings.paper_account_balance
-
         if not settings.binance_api_key or not settings.binance_api_secret:
             return settings.paper_account_balance
 
@@ -488,31 +474,6 @@ class TradeExecutor:
         except Exception as exc:  # noqa: BLE001
             logger.warning("post_mortem on close: %s", exc)
 
-    def _sync_mt5_sl_tp(
-        self,
-        symbol: str,
-        *,
-        stop_loss: float | None = None,
-        take_profit: float | None = None,
-    ) -> None:
-        settings = get_settings()
-        if settings.execution_mode != "live" or not settings.mt5_attach_sl_tp:
-            return
-        from config.runtime_profile import resolve_runtime_profile
-
-        if not resolve_runtime_profile(settings).uses_mt5:
-            return
-        try:
-            from execution.mt5_bridge import get_mt5_bridge
-
-            get_mt5_bridge().modify_position_sl_tp(
-                symbol,
-                stop_loss=stop_loss,
-                take_profit=take_profit,
-            )
-        except Exception:
-            logger.exception("فشل مزامنة SL/TP مع MT5 لـ %s", symbol)
-
     def _execute_entry(
         self,
         result: AnalysisResult,
@@ -709,7 +670,7 @@ class TradeExecutor:
             )
 
         chunks = split_order(amount, result.price)
-        # إجباري: لا تقسيم — أمر واحد يقلل فشل MT5
+        # إجباري: لا تقسيم — أمر واحد عند force_open
         if force_open:
             chunks = [amount]
 
@@ -784,13 +745,7 @@ class TradeExecutor:
                 filled_amount += order.amount
                 last_fill = fill_px
         except ExecutionError as exc:
-            msg = str(exc)
-            if "10027" in msg or "AutoTrading" in msg:
-                msg = (
-                    "MT5: التداول الآلي مطفي (10027). "
-                    "افتح XM MT5 → اضغط Algo Trading حتى يصير أخضر ثم أعد المحاولة."
-                )
-            return self._reject(result.symbol, msg, snapshot=snapshot)
+            return self._reject(result.symbol, str(exc), snapshot=snapshot)
 
         # Slippage Monitor بعد التنفيذ
         max_slip_pct = float(getattr(settings, "max_slippage_pct", 0.05))
@@ -930,7 +885,6 @@ class TradeExecutor:
         updated = self.position_manager.update_stop_loss(symbol, position.entry_price)
         if updated is not None:
             self._persist_open_trade(updated)
-            self._sync_mt5_sl_tp(symbol, stop_loss=updated.stop_loss)
         return True
 
     def adjust_position_sl(self, symbol: str, sl_pct: float) -> bool:
@@ -944,7 +898,6 @@ class TradeExecutor:
         updated = self.position_manager.update_stop_loss(symbol, stop_loss)
         if updated is not None:
             self._persist_open_trade(updated)
-            self._sync_mt5_sl_tp(symbol, stop_loss=updated.stop_loss)
         return True
 
     def adjust_position_tp(self, symbol: str, rr_ratio: float) -> bool:
@@ -964,7 +917,6 @@ class TradeExecutor:
         updated = self.position_manager.update_take_profit(symbol, take_profit)
         if updated is not None:
             self._persist_open_trade(updated)
-            self._sync_mt5_sl_tp(symbol, take_profit=updated.take_profit)
         return True
 
     def manage_positions(self, prices: dict[str, float]) -> list[BreakevenAction]:
@@ -1051,9 +1003,6 @@ class TradeExecutor:
                         if updated is not None:
                             updated.breakeven_applied = True
                             self._persist_open_trade(updated)
-                            self._sync_mt5_sl_tp(
-                                position.symbol, stop_loss=updated.stop_loss
-                            )
                             position = updated
                     if smart.partial_exit_amount > 0:
                         exit_side = (
@@ -1139,9 +1088,6 @@ class TradeExecutor:
                         )
                         if updated is not None:
                             self._persist_open_trade(updated)
-                            self._sync_mt5_sl_tp(
-                                position.symbol, stop_loss=updated.stop_loss
-                            )
                     continue
             except Exception as exc:  # noqa: BLE001
                 logger.warning("smart_exits فشل %s: %s", position.symbol, exc)
@@ -1185,9 +1131,6 @@ class TradeExecutor:
                         )
                         if updated is not None:
                             self._persist_open_trade(updated)
-                            self._sync_mt5_sl_tp(
-                                position.symbol, stop_loss=updated.stop_loss
-                            )
                     continue
             except Exception:
                 pass
@@ -1209,7 +1152,6 @@ class TradeExecutor:
                 if updated is not None:
                     updated.breakeven_applied = True
                     self._persist_open_trade(updated)
-                    self._sync_mt5_sl_tp(position.symbol, stop_loss=updated.stop_loss)
                     position = updated
 
             if action.partial_exit_amount > 0 and not position.partial_exit_done:
@@ -1239,7 +1181,6 @@ class TradeExecutor:
                 )
                 if updated is not None:
                     self._persist_open_trade(updated)
-                    self._sync_mt5_sl_tp(position.symbol, stop_loss=updated.stop_loss)
                     action = BreakevenAction(
                         move_sl_to_breakeven=False,
                         partial_exit_amount=0.0,

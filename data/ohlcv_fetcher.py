@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.constants import DEFAULT_OHLCV_LIMIT, ANALYSIS_TIMEFRAMES, TIMEFRAMES
+from core.constants import DEFAULT_OHLCV_LIMIT, ANALYSIS_TIMEFRAMES
 from data.cache_manager import get_cache_manager
 from data.connection_utils import fetch_with_retry
 from data.exchange_client import get_exchange
@@ -11,7 +11,7 @@ SUPPORTED_TIMEFRAMES: tuple[str, ...] = (*ANALYSIS_TIMEFRAMES, "1d")
 
 
 class OHLCVFetcher:
-    """جلب شموع OHLCV — Binance أو MT5 أو yfinance."""
+    """جلب شموع OHLCV من Binance (كريبتو فقط)."""
 
     def __init__(self, cache_ttl_seconds: int | None = None) -> None:
         self._cache = get_cache_manager()
@@ -34,6 +34,12 @@ class OHLCVFetcher:
             )
 
         source = infer_data_source(symbol)
+        if source != "binance":
+            raise ValueError(
+                f"مصدر غير مدعوم لـ {symbol}: {source}. "
+                "GoldenShield يعمل على Binance (كريبتو) فقط."
+            )
+
         cache_key = self._cache_key(symbol, timeframe, limit, source)
         if use_cache:
             cached = self._cache.get(cache_key)
@@ -41,36 +47,19 @@ class OHLCVFetcher:
                 return cached
 
         def _fetch() -> list[Candle]:
-            if source == "forex":
-                from data.forex_market_data import fetch_forex_ohlcv
-
-                return fetch_forex_ohlcv(symbol, timeframe, limit=limit)
-            if source == "yfinance":
-                from data.stock_market_data import fetch_stock_ohlcv
-
-                return fetch_stock_ohlcv(symbol, timeframe, limit=limit)
-            if source == "mt5":
-                from data.mt5_market_data import fetch_mt5_ohlcv
-
-                return fetch_mt5_ohlcv(symbol, timeframe, limit=limit)
             exchange = get_exchange()
             raw_rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
             return [Candle.from_ohlcv_row(row) for row in raw_rows]
 
-        retries = 3 if source == "binance" else 1
         candles = fetch_with_retry(
             _fetch,
-            max_retries=retries,
+            max_retries=3,
             base_delay=0.5,
             operation_name=f"fetch_ohlcv({symbol},{timeframe})",
         )
 
         if use_cache:
-            # كاش أقصر للمصادر المختلطة حتى لا يتجمد مصدر فاشل
-            default_ttl = 60 if source == "binance" else 15
-            ttl = self._cache_ttl if self._cache_ttl is not None else default_ttl
-            if source != "binance":
-                ttl = min(ttl, 15)
+            ttl = self._cache_ttl if self._cache_ttl is not None else 60
             self._cache.set(cache_key, candles, ttl_seconds=ttl)
 
         return candles

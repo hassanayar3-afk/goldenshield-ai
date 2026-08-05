@@ -155,7 +155,7 @@ def format_floating_pnl_banner(
     pct: float | None = None,
     placement: str = "bottom",
 ) -> str:
-    """شريط المجموع الكلي للعائم — مثل MT5 (افتراضياً أسفل القائمة)."""
+    """شريط المجموع الكلي للعائم — أسفل قائمة المراكز المفتوحة افتراضياً."""
     if open_count <= 0:
         return (
             f"{DIVIDER}\n"

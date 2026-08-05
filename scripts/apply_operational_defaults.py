@@ -33,9 +33,6 @@ PATCHES: dict[str, str] = {
     "TRIAL_MODE": "false",
     "MAX_CONCURRENT_POSITIONS": "12",
     "BINANCE_DEMO_TRADING": "true",
-    "MT5_ENABLED": "false",
-    "BOT_AUTO_SYNC_MT5": "false",
-    "MT5_ATTACH_SL_TP": "false",
 }
 
 PLACEHOLDER_KEYS = (

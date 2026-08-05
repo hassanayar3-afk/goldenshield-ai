@@ -42,7 +42,6 @@ def _build_env_text() -> str:
         "EXECUTION_MODE": "live",
         "EXECUTION_BACKEND": "binance",
         "BINANCE_DEMO_TRADING": "true",
-        "MT5_ENABLED": "false",
         "BOT_FORCE_ACTIVE": "true",
         "NO_SLEEP_MODE": "true",
         "LOOP_INTERVAL_SECONDS": "4",

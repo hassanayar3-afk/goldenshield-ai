@@ -45,7 +45,7 @@ def main() -> int:
     run(
         ssh,
         "powershell -NoProfile -Command "
-        f"\"Get-Content '{KEEP}\\.env' | Where-Object {{ $_ -match '^(EXECUTION_|BINANCE_DEMO|MT5_ENABLED|BOT_AUTO|TELEGRAM_SIGNALS|MANUAL_ENTRY|AUTO_ENTRY|MAX_CONCURRENT)=' }}\"",
+        f"\"Get-Content '{KEEP}\\.env' | Where-Object {{ $_ -match '^(EXECUTION_|BINANCE_DEMO|TELEGRAM_SIGNALS|MANUAL_ENTRY|AUTO_ENTRY|MAX_CONCURRENT)=' }}\"",
     )
 
     print("=== STOP FLAG ===")
@@ -74,7 +74,6 @@ print('SETTINGS', {
   'mode': s.execution_mode,
   'backend': s.execution_backend,
   'demo': bool(getattr(s, 'binance_demo_trading', False)),
-  'mt5': bool(s.mt5_enabled),
   'manual_entry': bool(getattr(s, 'manual_entry_required', False)),
   'auto_min': getattr(s, 'auto_entry_min_percent', None),
   'signals_only': bool(getattr(s, 'telegram_signals_only', False)),

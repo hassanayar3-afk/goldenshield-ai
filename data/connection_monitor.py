@@ -7,7 +7,7 @@ from data.connection_utils import ping_exchange
 
 
 class ConnectionMonitor:
-    """مراقبة Heartbeat — حسب الخلفية النشطة (MT5 أو Binance)."""
+    """مراقبة Heartbeat — Binance فقط."""
 
     def __init__(self, timeout_seconds: int = HEARTBEAT_TIMEOUT_SECONDS) -> None:
         self._timeout_seconds = timeout_seconds
@@ -62,29 +62,6 @@ class ConnectionMonitor:
             self.record_failure(str(exc))
             return False
 
-    def heartbeat_mt5(self) -> bool:
-        self._last_provider = "mt5"
-        try:
-            from execution.mt5_bridge import get_mt5_bridge
-
-            mt5 = get_mt5_bridge().ensure_connected()
-            info = mt5.account_info()
-            if info is None:
-                raise RuntimeError(f"account_info فارغ: {mt5.last_error()}")
-            self.record_success()
-            return True
-        except Exception as exc:
-            self.record_failure(str(exc))
-            return False
-
     def heartbeat(self) -> bool:
-        """فحص اتصال الخلفية النشطة — لا يوقف MT5 بسبب Binance."""
-        try:
-            from config.runtime_profile import get_runtime_profile
-
-            profile = get_runtime_profile()
-            if profile.heartbeat_provider == "mt5":
-                return self.heartbeat_mt5()
-        except Exception:
-            pass
+        """فحص اتصال Binance."""
         return self.heartbeat_binance()

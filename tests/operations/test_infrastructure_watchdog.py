@@ -70,11 +70,11 @@ def test_diagnostic_alert_format():
         checks=[
             CheckResult(
                 "windows_unreachable",
-                "سيرفر Windows (MT5)",
+                "سيرفر Windows (Binance)",
                 False,
                 "timed out",
                 diagnosis="السيرفر مطفأ أو RDP مغلق.",
-                action="ادخل RDP وشغّل MT5 و00_START.bat",
+                action="ادخل RDP وشغّل 00_START.bat",
                 location="Windows Contabo 169.58.15.36",
             ),
             CheckResult(

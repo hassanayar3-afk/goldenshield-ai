@@ -1,4 +1,4 @@
-"""بروفايل تشغيل موحّد — Binance فقط (مسار MetaTrader ملغى)."""
+"""بروفايل تشغيل موحّد — Binance فقط."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ class RuntimeProfile:
 
     execution_backend: str  # binance
     execution_mode: str  # paper | live
-    uses_mt5: bool
     heartbeat_provider: str  # binance
     requires_binance_ping: bool
     label: str
@@ -21,12 +20,10 @@ class RuntimeProfile:
 
 def resolve_runtime_profile(settings: Settings | None = None) -> RuntimeProfile:
     s = settings or get_settings()
-    # MetaTrader ملغى بالكامل — التنفيذ عبر Binance فقط
     backend = "binance"
     return RuntimeProfile(
         execution_backend=backend,
         execution_mode=s.execution_mode,
-        uses_mt5=False,
         heartbeat_provider="binance",
         requires_binance_ping=True,
         label=f"{backend}/{s.execution_mode}",

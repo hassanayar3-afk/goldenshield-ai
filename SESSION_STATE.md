@@ -5,7 +5,7 @@
 - ✅ **v1 + إضافات مؤسسية v1.3 مكتملة برمجياً**
 - دخول تلقائي **≥95** · عرض إشارات **≥75** · مخاطرة افتراضية **1%** · R:R **1:3**
 - التشغيل الحالي المضبوط: **paper / Binance Spot**
-- الأسرار (تيليجرام / Binance / MT5): تُترك كما هي أو تُرسل لاحقاً عند الحاجة
+- الأسرار (تيليجرام / Binance): تُترك كما هي أو تُرسل لاحقاً عند الحاجة
 
 ## ما يعمل الآن (مفعّل)
 - Failover API · عزل تحليل/تنفيذ · Health ساعتي · Outage 10s
@@ -23,7 +23,7 @@
 ## بانتظار منك (عند الجاهزية)
 1. `BINANCE_API_KEY` / `SECRET` (+ اختياري `_2` للـ Failover)
 2. تأكيد `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID` إن لزم تحديث
-3. لـ Live MT5: `MT5_*` + `EXECUTION_BACKEND=mt5` + `EXECUTION_MODE=live`
+3. لـ Live Binance: `EXECUTION_BACKEND=binance` + `EXECUTION_MODE=live` (+ `BINANCE_DEMO_TRADING` حسب الحساب)
 
 ## أوامر
 ```powershell

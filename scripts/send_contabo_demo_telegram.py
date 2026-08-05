@@ -69,7 +69,6 @@ else
   grep -q '^BINANCE_DEMO_TRADING=' .env && sed -i 's/^BINANCE_DEMO_TRADING=.*/BINANCE_DEMO_TRADING=true/' .env || echo 'BINANCE_DEMO_TRADING=true' >> .env
   grep -q '^EXECUTION_MODE=' .env && sed -i 's/^EXECUTION_MODE=.*/EXECUTION_MODE=paper/' .env || echo 'EXECUTION_MODE=paper' >> .env
   grep -q '^EXECUTION_BACKEND=' .env && sed -i 's/^EXECUTION_BACKEND=.*/EXECUTION_BACKEND=binance/' .env || echo 'EXECUTION_BACKEND=binance' >> .env
-  grep -q '^MT5_ENABLED=' .env && sed -i 's/^MT5_ENABLED=.*/MT5_ENABLED=false/' .env || echo 'MT5_ENABLED=false' >> .env
   echo "تم تحديث أعلام Demo على .env الحالي"
 fi
 
@@ -103,7 +102,6 @@ README = """GoldenShield AI — حزمة Contabo Demo
 BINANCE_DEMO_TRADING=true
 EXECUTION_MODE=paper
 EXECUTION_BACKEND=binance
-MT5_ENABLED=false
 
 ملف .env.demo قالب جاهز — انسخه إلى /opt/goldenshield/.env إن لم يكن موجوداً
 ثم عدّل TELEGRAM_* و BINANCE_* إن احتجت.
@@ -140,7 +138,6 @@ def _build_env_demo() -> str:
         "EXECUTION_MODE=paper",
         "EXECUTION_BACKEND=binance",
         "BINANCE_DEMO_TRADING=true",
-        "MT5_ENABLED=false",
         "AUTO_ENTRY_MIN_PERCENT=95",
         "MANUAL_ENTRY_REQUIRED=false",
         "IRON_PROTOCOL_ENABLED=true",

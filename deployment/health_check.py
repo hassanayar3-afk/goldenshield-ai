@@ -30,7 +30,7 @@ def main() -> int:
     if not logs_dir.exists():
         logs_dir.mkdir(parents=True, exist_ok=True)
 
-    # Binance ping — مصدر البيانات (paper و live MT5 يعتمدون عليه غالباً)
+    # Binance ping — مصدر البيانات (paper و live)
     try:
         with urlopen("https://api.binance.com/api/v3/ping", timeout=10) as resp:
             if getattr(resp, "status", 200) != 200:

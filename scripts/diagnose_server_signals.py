@@ -49,7 +49,6 @@ def ssh(cmd: str, timeout: int = 90) -> str:
 def mask_env(text: str) -> str:
     text = re.sub(r"(TELEGRAM_TOKEN=).*", r"\1***", text)
     text = re.sub(r"(BINANCE_API_SECRET=).*", r"\1***", text)
-    text = re.sub(r"(MT5_PASSWORD=).*", r"\1***", text)
     return text
 
 
@@ -122,7 +121,7 @@ def main() -> int:
     print("=== 7) Note ===")
     print(
         "إذا TELEGRAM_CHAT_ID فارغ على Contabo فالورق لا يرسل إشارات لمحادثتك "
-        "(هذا مقصود لكتم الاختلاط). الإشارات الحية يجب أن تأتي من Windows MT5."
+        "(هذا مقصود لكتم الاختلاط). الإشارات الحية تأتي من Windows Binance Demo."
     )
     return 0
 

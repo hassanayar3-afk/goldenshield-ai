@@ -100,7 +100,6 @@ def production_env() -> str:
         "ENV": "production",
         "EXECUTION_MODE": "paper",
         "EXECUTION_BACKEND": "binance",
-        "MT5_ENABLED": "false",
         "MANUAL_ENTRY_REQUIRED": "false",
         "AUTO_ENTRY_MIN_PERCENT": "95",
         "MAX_CONCURRENT_POSITIONS": "12",
@@ -109,10 +108,9 @@ def production_env() -> str:
         "TRIAL_MODE": "false",
         "TRIAL_JOURNAL_ENABLED": "true",
         "BOT_ADMIN_FULL_ACCESS": "true",
-        "BOT_AUTO_SYNC_MT5": "false",
         "TELEGRAM_TOKEN": local.get("TELEGRAM_TOKEN", ""),
         "TELEGRAM_BOT_USERNAME": local.get("TELEGRAM_BOT_USERNAME", "GoldenShield_2026_bot"),
-        "TELEGRAM_CHAT_ID": "",  # ورقي — لا يرسل لمحادثتك الشخصية (يمنع الاختلاط مع MT5)
+        "TELEGRAM_CHAT_ID": "",  # ورقي — لا يرسل لمحادثتك الشخصية (يمنع اختلاط الإشعارات)
         "TELEGRAM_BACKUP_CHANNEL_ID": local.get("TELEGRAM_BACKUP_CHANNEL_ID", "-1004462420308"),
         "TELEGRAM_SEND_CYCLE_SIGNALS": "false",
         "TELEGRAM_SIGNALS_ONLY": "true",

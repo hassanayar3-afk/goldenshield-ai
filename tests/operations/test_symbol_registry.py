@@ -1,4 +1,4 @@
-"""اختبارات سجل الرموز وصلاحيات الإدارة."""
+"""اختبارات سجل الرموز وصلاحيات الإدارة — Binance كريبتو فقط."""
 
 from __future__ import annotations
 
@@ -10,108 +10,72 @@ from operations.symbol_registry import SymbolRegistry
 
 def test_add_crypto_and_list(tmp_path, monkeypatch):
     registry_path = tmp_path / "symbol_registry.yaml"
-    map_path = tmp_path / "mt5_symbol_map.yaml"
-    map_path.write_text(
-        yaml.safe_dump({"crypto": {"DOGE/USDT": "DOGEUSD"}, "forex": {}, "stocks": {}}),
-        encoding="utf-8",
-    )
     registry_path.write_text(
-        yaml.safe_dump({"auto_sync_mt5": True, "admin_full_access": True, "symbols": []}),
+        yaml.safe_dump({"admin_full_access": True, "symbols": []}),
         encoding="utf-8",
     )
     monkeypatch.setattr("operations.symbol_registry.REGISTRY_PATH", registry_path)
-    monkeypatch.setattr("operations.symbol_registry.MAP_PATH", map_path)
 
     registry = SymbolRegistry()
     registry.load(["BTC/USDT"])
     registry.add_crypto("DOGE/USDT", enabled=True)
 
     assert "DOGE/USDT" in registry.active_pairs()
+    assert "BTC/USDT" in registry.active_pairs()
+    doge = registry.get("DOGE/USDT")
+    assert doge is not None
+    assert doge.category == "crypto"
+    assert doge.data_source == "binance"
+    assert not hasattr(doge, "mt5_symbol")
     saved = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
     assert any(s["id"] == "DOGE/USDT" for s in saved["symbols"])
+    assert "auto_sync_mt5" not in saved
 
 
-def test_add_forex_uses_multi_source(tmp_path, monkeypatch):
+def test_forex_load_is_noop(tmp_path, monkeypatch):
+    """FOREX يُتجاهل عند التحميل — السجل Binance-only."""
     registry_path = tmp_path / "symbol_registry.yaml"
-    map_path = tmp_path / "mt5_symbol_map.yaml"
-    map_path.write_text(
-        yaml.safe_dump(
-            {"crypto": {}, "forex": {"FOREX/EURUSD": "EURUSD"}, "stocks": {}}
-        ),
-        encoding="utf-8",
-    )
     registry_path.write_text(
-        yaml.safe_dump({"auto_sync_mt5": True, "admin_full_access": True, "symbols": []}),
+        yaml.safe_dump({"admin_full_access": True, "symbols": []}),
         encoding="utf-8",
     )
     monkeypatch.setattr("operations.symbol_registry.REGISTRY_PATH", registry_path)
-    monkeypatch.setattr("operations.symbol_registry.MAP_PATH", map_path)
 
     registry = SymbolRegistry()
-    registry.load(["FOREX/EURUSD"])
-    spec = registry.get("FOREX/EURUSD")
-    assert spec is not None
-    assert spec.data_source == "forex"
-    assert spec.yfinance_ticker == "EURUSD=X"
-    assert spec.mt5_symbol == "EURUSD"
+    registry.load(["FOREX/EURUSD", "BTC/USDT"])
+    assert registry.get("FOREX/EURUSD") is None
+    assert "FOREX/EURUSD" not in registry.active_pairs()
+    assert "BTC/USDT" in registry.active_pairs()
+    assert registry.add_forex("EURUSD") is False
 
 
-def test_commodities_gold_silver_oil_in_registry(tmp_path, monkeypatch):
+def test_commodities_forex_ignored(tmp_path, monkeypatch):
     registry_path = tmp_path / "symbol_registry.yaml"
-    map_path = tmp_path / "mt5_symbol_map.yaml"
-    map_path.write_text(
-        yaml.safe_dump(
-            {
-                "crypto": {},
-                "forex": {
-                    "FOREX/XAUUSD": "GOLD",
-                    "FOREX/XAGUSD": "SILVER",
-                    "FOREX/USOIL": "USOIL",
-                },
-                "stocks": {},
-            }
-        ),
-        encoding="utf-8",
-    )
     registry_path.write_text(
-        yaml.safe_dump({"auto_sync_mt5": True, "admin_full_access": True, "symbols": []}),
+        yaml.safe_dump({"admin_full_access": True, "symbols": []}),
         encoding="utf-8",
     )
     monkeypatch.setattr("operations.symbol_registry.REGISTRY_PATH", registry_path)
-    monkeypatch.setattr("operations.symbol_registry.MAP_PATH", map_path)
 
     registry = SymbolRegistry()
     registry.load(["FOREX/XAUUSD", "FOREX/XAGUSD", "FOREX/USOIL"])
-    gold = registry.get("FOREX/XAUUSD")
-    assert gold is not None
-    assert gold.mt5_symbol == "GOLD"
-    assert gold.yfinance_ticker == "GC=F"
-    silver = registry.get("FOREX/XAGUSD")
-    assert silver is not None
-    assert silver.mt5_symbol == "SILVER"
-    oil = registry.get("FOREX/USOIL")
-    assert oil is not None
-    assert oil.yfinance_ticker == "CL=F"
+    assert registry.active_pairs() == []
+    assert registry.get("FOREX/XAUUSD") is None
 
 
-def test_add_stock_uses_yfinance_source(tmp_path, monkeypatch):
+def test_add_stock_is_noop(tmp_path, monkeypatch):
     registry_path = tmp_path / "symbol_registry.yaml"
-    map_path = tmp_path / "mt5_symbol_map.yaml"
-    map_path.write_text(yaml.safe_dump({"crypto": {}, "forex": {}, "stocks": {}}), encoding="utf-8")
     registry_path.write_text(
-        yaml.safe_dump({"auto_sync_mt5": True, "admin_full_access": True, "symbols": []}),
+        yaml.safe_dump({"admin_full_access": True, "symbols": []}),
         encoding="utf-8",
     )
     monkeypatch.setattr("operations.symbol_registry.REGISTRY_PATH", registry_path)
-    monkeypatch.setattr("operations.symbol_registry.MAP_PATH", map_path)
 
     registry = SymbolRegistry()
     registry.load([])
-    registry.add_stock("AAPL", enabled=True)
-    spec = registry.get("STOCK/AAPL")
-    assert spec is not None
-    assert spec.data_source == "yfinance"
-    assert spec.enabled is True
+    assert registry.add_stock("AAPL", enabled=True) is False
+    assert registry.get("STOCK/AAPL") is None
+    assert registry.active_pairs() == []
 
 
 def test_admin_can_control(monkeypatch):

@@ -1,7 +1,7 @@
 GoldenShield — Binance Demo ONLY (full package + Cognitive Hedge)
 ====================================================
 This package opens trades on Binance Spot Demo only.
-No MetaTrader / no XM / no forex / no real-money Live account.
+Binance Demo only — no forex broker terminal, no real-money Live account.
 
 INSTALL on Windows:
 1) Delete any old package folders
@@ -15,7 +15,6 @@ INSTALL on Windows:
 Package settings:
 - EXECUTION_BACKEND=binance
 - BINANCE_DEMO_TRADING=true
-- MetaTrader disabled (hard)
 - Telegram signals from 85/100
 - Auto entry from 90/100
 - Live positions board every ~1 second

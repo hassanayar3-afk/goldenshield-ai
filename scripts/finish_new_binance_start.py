@@ -73,7 +73,7 @@ def main() -> int:
         ssh,
         "powershell -NoProfile -Command "
         f"\"Set-Location '{KEEP}'; & '{PY}' -c \\\"from config.settings import load_settings; "
-        "s=load_settings(reload=True); print(s.mt5_enabled, s.execution_mode, s.execution_backend, s.binance_demo_trading)\\\"\"",
+        "s=load_settings(reload=True); print(s.execution_mode, s.execution_backend, s.binance_demo_trading)\\\"\"",
     )
     ssh.close()
     print("BOT_OK" if "ProcessId" in proc else "BOT_FAIL")

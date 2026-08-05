@@ -23,7 +23,6 @@ REL_FILES = [
     "core/constants.py",
     "config/runtime_profile.py",
     "config/settings.py",
-    "config/mt5_symbol_map.yaml",
     "config/trading_pairs.yaml",
     "operations/telegram_dashboard.py",
     "operations/telegram_keyboards.py",
@@ -33,7 +32,6 @@ REL_FILES = [
     "operations/message_templates.py",
     "operations/dashboard_templates.py",
     "risk/iron_protocol.py",
-    "execution/mt5_bridge.py",
     "scripts/windows_package.py",
 ]
 
@@ -90,30 +88,25 @@ foreach ($line in $lines) {
 $map['EXECUTION_MODE'] = 'live'
 $map['EXECUTION_BACKEND'] = 'binance'
 $map['BINANCE_DEMO_TRADING'] = 'true'
-$map['MT5_ENABLED'] = 'false'
-$map['BOT_AUTO_SYNC_MT5'] = 'false'
-$map['MT5_ATTACH_SL_TP'] = 'false'
 $map['TELEGRAM_SIGNALS_ONLY'] = 'false'
 $map['TELEGRAM_SEND_CYCLE_SIGNALS'] = 'true'
 $map['TELEGRAM_LIVE_SIGNALS'] = 'true'
 $map['TELEGRAM_LIVE_SIGNALS_SECONDS'] = '15'
 $map['LOOP_INTERVAL_SECONDS'] = '15'
-$drop = @('MT5_LOGIN','MT5_PASSWORD','MT5_SERVER','MT5_BROKER','MT5_TERMINAL_PATH')
 $out = New-Object System.Collections.Generic.List[string]
 foreach ($line in $lines) {
   if ($line -match '^\s*#') { $out.Add($line); continue }
   if ($line -notmatch '=') { $out.Add($line); continue }
   $k = ($line.Split('=',2)[0]).Trim()
-  if ($drop -contains $k) { continue }
   if ($map.ContainsKey($k)) { $out.Add("$k=$($map[$k])"); $map.Remove($k) }
   else { $out.Add($line) }
 }
-foreach ($k in @('EXECUTION_MODE','EXECUTION_BACKEND','BINANCE_DEMO_TRADING','MT5_ENABLED','BOT_AUTO_SYNC_MT5','MT5_ATTACH_SL_TP','TELEGRAM_SIGNALS_ONLY','TELEGRAM_SEND_CYCLE_SIGNALS','TELEGRAM_LIVE_SIGNALS','TELEGRAM_LIVE_SIGNALS_SECONDS','LOOP_INTERVAL_SECONDS')) {
+foreach ($k in @('EXECUTION_MODE','EXECUTION_BACKEND','BINANCE_DEMO_TRADING','TELEGRAM_SIGNALS_ONLY','TELEGRAM_SEND_CYCLE_SIGNALS','TELEGRAM_LIVE_SIGNALS','TELEGRAM_LIVE_SIGNALS_SECONDS','LOOP_INTERVAL_SECONDS')) {
   if ($map.ContainsKey($k)) { $out.Add("$k=$($map[$k])") }
 }
 Set-Content -Path $envPath -Value $out -Encoding UTF8
 Write-Output 'ENV_PATCHED'
-Select-String -Path $envPath -Pattern '^(EXECUTION_|BINANCE_DEMO|MT5_ENABLED|BOT_AUTO|TELEGRAM_SIGNALS)' | ForEach-Object { $_.Line }
+Select-String -Path $envPath -Pattern '^(EXECUTION_|BINANCE_DEMO|TELEGRAM_SIGNALS)' | ForEach-Object { $_.Line }
 """
     sftp = ssh.open_sftp()
     with sftp.file(remote_ps.replace("\\", "/"), "w") as f:

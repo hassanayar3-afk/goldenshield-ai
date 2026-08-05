@@ -41,7 +41,7 @@ def send_zip(zip_path: Path, *, token: str, chat_ids: list[str]) -> bool:
         "3) Run 00_START_VISIBLE.vbs\n"
         "4) Keep the black CMD window open\n"
         "5) Telegram: /start\n\n"
-        "Binance Demo only + Cognitive Hedge (no MetaTrader)"
+        "Binance Demo only + Cognitive Hedge"
     )
 
     url = f"https://api.telegram.org/bot{token}/sendDocument"

@@ -155,9 +155,6 @@ $map = @{
   'TELEGRAM_LIVE_POSITIONS_SECONDS'='5'
   'TELEGRAM_LIVE_SIGNALS'='true'
   'MANUAL_ENTRY_REQUIRED'='false'
-  'MT5_ENABLED'='false'
-  'BOT_AUTO_SYNC_MT5'='false'
-  'MT5_ATTACH_SL_TP'='false'
   'EXECUTION_BACKEND'='binance'
   'BINANCE_DEMO_TRADING'='true'
 }
@@ -172,8 +169,6 @@ $out = foreach ($line in $lines) {
 foreach ($k in $map.Keys) {
   if (-not $keys.ContainsKey($k)) { $out += "$k=$($map[$k])" }
 }
-# احذف أسطر بيانات MT5 الحساسة إن وُجدت
-$out = $out | Where-Object { $_ -notmatch '^(MT5_LOGIN|MT5_PASSWORD|MT5_SERVER|MT5_BROKER|MT5_TERMINAL_PATH)=' }
 $utf8 = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllLines($envp, $out, $utf8)
 Write-Host 'ENV_PATCHED'

@@ -117,8 +117,8 @@ def generate_pdf(out_path: Path | None = None) -> Path:
         [
             "الرؤية: بوت يحمي رأس المال أولاً ثم ينفّذ بدقة عالية بعد فلاتر متعددة",
             "الجمع بين: بيانات سوق + SMC/FVG متعدد الأطر + أخبار/VIX/سيولة + ظلال قرار + تنفيذ + تيليجرام",
-            "التداول الحقيقي عبر XM + MetaTrader 5 على Windows (وليس إيداع Binance محلياً)",
-            "Binance/ccxt مصدر بيانات وتحليل وpaper — مسار XM للتنفيذ الحي",
+            "التداول الحقيقي عبر Binance على Windows (Spot Demo أو Live حسب الإعداد)",
+            "Binance/ccxt مصدر بيانات وتحليل وتنفيذ",
             "تيليجرام: سيطرة وتنبيهات — وضع TELEGRAM_SIGNALS_ONLY لتقليل الضوضاء",
             "عتبات الجودة: عرض/تأهيل ≥75 · دخول تلقائي ≥90 · الشريحة 75–89 يدوي فقط",
             "شهر تقييم live قبل فتح SaaS والذكاء المتقدم للعملاء",
@@ -131,8 +131,8 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     h2("مساران متوازيان")
     bullets(
         [
-            "Contabo Linux: paper داخل Docker 24/7 — بيانات وتحليل مستمر بلا أوامر XM من Linux",
-            "Windows + MT5 + XM: تنفيذ حي عبر execution/mt5_bridge.py وحساب الوسيط",
+            "Contabo Linux: paper داخل Docker 24/7 — بيانات وتحليل مستمر",
+            "Windows + Binance: تنفيذ عبر EXECUTION_BACKEND=binance وحساب المنصة",
             "تدفق القرار: بيانات → تحليل فني → هجين/إيقاف سوق → ظل وإجماع → مخاطر → تنفيذ → تيليجرام + SQLite",
             "فصل التخزين: data/ لجلب السوق · storage/db لقاعدة البيانات · storage/logs للسجلات",
         ]
@@ -163,7 +163,6 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "OHLCV وTicker وOrderbook وVolume Profile وCache",
             "مراقبة الاتصال heartbeat",
             "نماذج candle/ticker/orderbook واختبارات data/",
-            "امتداد MT5 market data للرموز الحية",
         ],
         ["data/", "data/models/", "tests/data/"],
         ["Cache لتقليل استدعاءات API", "حد سبريد مرجعي لاحق 0.15%", "مراقبة انقطاع الاتصال"],
@@ -221,10 +220,10 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "Mutex وCorrelation وDark Pool splitter",
             "Breakeven عند 1:1 وخروج جزئي وEmergency Flat",
             "Trade Executor منسّق التنفيذ paper/live",
-            "جسر MT5 وخريطة رموز XM بما فيها ذهب/فضة/نفط",
+            "خلفية تنفيذ Binance Spot (Demo أو Live)",
         ],
-        ["execution/", "execution/models/", "config/execution_params.yaml", "config/mt5_symbol_map.yaml"],
-        ["SL افتراضي ~3% · R:R 1:2", "لا تنفيذ عالي الجودة دون مخاطر + ظل", "خلفيات binance/mt5"],
+        ["execution/", "execution/models/", "config/execution_params.yaml"],
+        ["SL افتراضي ~3% · R:R 1:2", "لا تنفيذ عالي الجودة دون مخاطر + ظل", "خلفية binance"],
     )
 
     phase(
@@ -268,7 +267,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "Pre-Flight Checklist وتقرير يومي وScheduler",
             "لوحة عربية: dashboard وkeyboards وقوالب الرسائل",
             "فلتر إشارات ≥75 وقوائم digests بأيقونات عمودية",
-            "إدارة تجربة: /add /sync_mt5 وسجل رموز وwatchdog بنية تحتية",
+            "إدارة تجربة: /add وسجل رموز وwatchdog بنية تحتية",
         ],
         ["operations/", "tests/operations/"],
         ["TELEGRAM_SIGNALS_ONLY للإشارات الأساسية", "تقليل سبام الدورة وتجميع الصفقات المفتوحة"],
@@ -305,17 +304,17 @@ def generate_pdf(out_path: Path | None = None) -> Path:
 
     phase(
         "المرحلة 11 — النشر والإنتاج ✓ / شبه مكتمل تشغيلياً",
-        "تشغيل 24/7 بحاويات وصحة خدمة وCI ومسار Windows للـ MT5",
+        "تشغيل 24/7 بحاويات وصحة خدمة وCI ومسار Windows لـ Binance",
         [
             "Dockerfile وCompose إنتاجي",
             "سكريبت Contabo وsystemd وnginx و/health",
             "health_check وworkflows للـ CI/Deploy",
             "نشر Contabo paper وسكربت deploy_to_contabo.py",
-            "دليل Windows MT5 وملفات 00_START / STOP / Autostart",
+            "حزمة Windows Binance وملفات 00_START / STOP / Autostart",
             "متبقي تشغيلي: ربط GitHub Secrets للنشر الآلي الكامل",
         ],
-        ["deployment/", ".github/workflows/", "Dockerfile*", "docs/MT5_WINDOWS_SETUP.md"],
-        ["Contabo = paper فقط", "MT5 على Windows فقط", "restart دائماً عبر Docker/systemd"],
+        ["deployment/", ".github/workflows/", "Dockerfile*"],
+        ["Contabo = paper فقط", "Binance على Windows", "restart دائماً عبر Docker/systemd"],
     )
 
     phase(
@@ -353,8 +352,8 @@ def generate_pdf(out_path: Path | None = None) -> Path:
     bullets(
         [
             " Contabo paper 24/7 + إصلاحات استيراد/صحة/استعادة مراكز/persist مخاطر",
-            "جسر MT5/XM ودليل ويندوز وتشغيل ذاتي",
-            "أزواج موسّعة: كريبتو + ذهب XAU + فضة XAG + نفط USOIL",
+            "حزمة Windows Binance Demo وتشغيل ذاتي",
+            "أزواج موسّعة: كريبتو + أصول إضافية حسب الإعداد",
             "لوحة تيلي عربية وقوائم صفقات بأيقونات عمودية مرتبة أضعف→أقوى",
             "سياسة الدخول الحالية: عرض ≥75 · تلقائي ≥90 فقط",
             "تجميع إشعارات الصفقات المفتوحة وتقليل السبام",
@@ -371,7 +370,7 @@ def generate_pdf(out_path: Path | None = None) -> Path:
             "المراحل 1–9 + 11 مكتملة برمجياً وتشغيلياً",
             "بروتوكولات التشغيل المؤسسية مدمجة (HC + Standard/Bonus)",
             "دخول تلقائي ≥90 · عرض ≥75 · مخاطرة افتراضية 1%",
-            "تيليجرام عربي + digests بأيقونات + MT5/XM",
+            "تيليجرام عربي + digests بأيقونات + Binance",
             "⏸️ SaaS (10) وذكاء متقدم (12) خارج نطاق v1 — مؤجّلان",
         ]
     )

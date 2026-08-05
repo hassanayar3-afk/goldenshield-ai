@@ -73,7 +73,7 @@ def main() -> int:
         "2) شغّل الأفضل: 00_START_VISIBLE.vbs\n"
         "3) اترك النافذة مفتوحة\n"
         "4) الإشارات تظهر على تيليجرام خلال دقيقة\n\n"
-        "Binance Demo فقط — بدون MT5"
+        "Binance Demo فقط"
     )
 
     targets: list[str] = []

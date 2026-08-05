@@ -1,4 +1,4 @@
-"""توجيه مصدر البيانات حسب نوع الرمز — لا يسقط الفوركس على Binance بالخطأ."""
+"""توجيه الرموز — Binance كريبتو؛ فوركس/أسهم غير مدعومة للتنفيذ."""
 
 from __future__ import annotations
 
@@ -50,18 +50,21 @@ def normalize_symbol_id(symbol: str) -> str:
 
 
 def infer_data_source(symbol: str) -> str:
-    """يستنتج المصدر من المعرّف حتى لو السجل ناقص."""
+    """يستنتج المصدر من المعرّف — الكريبتو → binance؛ غير ذلك يُرفض عند الجلب."""
     sid = normalize_symbol_id(symbol)
     if sid.startswith("FOREX/"):
-        return "forex"
+        return "unsupported"
     if sid.startswith("STOCK/"):
-        return "yfinance"
+        return "unsupported"
     try:
         from operations.symbol_registry import get_symbol_registry
 
         spec = get_symbol_registry().get(sid) or get_symbol_registry().get(symbol)
         if spec is not None and spec.data_source:
-            return spec.data_source
+            src = str(spec.data_source).strip().lower()
+            if src in {"forex", "yfinance", "mt5", "stock"}:
+                return "unsupported"
+            return src if src else "binance"
     except Exception:
         pass
     return "binance"
@@ -95,7 +98,3 @@ def format_price(symbol: str, price: float) -> str:
     if price >= 1:
         return f"{price:.4f}"
     return f"{price:.6f}"
-
-
-def needs_mt5_preferred(symbol: str) -> bool:
-    return infer_data_source(symbol) in {"forex", "mt5"}

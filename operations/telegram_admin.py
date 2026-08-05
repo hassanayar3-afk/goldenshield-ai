@@ -7,8 +7,8 @@ from operations.symbol_registry import get_symbol_registry
 
 def _binance_only(feature: str) -> str:
     return (
-        f"⛔ <b>{feature}</b> غير متاح — المشروع يعمل على <b>Binance Demo</b> فقط.\n"
-        "فوركس/أسهم/MetaTrader ملغاة."
+        f"⛔ <b>{feature}</b> غير متاح — المشروع يعمل على <b>Binance</b> فقط.\n"
+        "فوركس وأسهم غير مدعومة."
     )
 
 
@@ -24,11 +24,10 @@ def handle_admin_command(text: str) -> str | None:
         registry.add_crypto(pair, enabled=True)
         return f"✅ أُضيفت العملة <b>{pair}</b> للمراقبة والتداول."
 
-    if cmd in {"/add_stock", "/add_forex", "/sync_mt5", "/enable_stocks", "/enable_forex"}:
+    if cmd in {"/add_stock", "/add_forex", "/enable_stocks", "/enable_forex"}:
         labels = {
             "/add_stock": "إضافة الأسهم",
             "/add_forex": "إضافة الفوركس",
-            "/sync_mt5": "مزامنة MetaTrader",
             "/enable_stocks": "تفعيل الأسهم",
             "/enable_forex": "تفعيل الفوركس",
         }

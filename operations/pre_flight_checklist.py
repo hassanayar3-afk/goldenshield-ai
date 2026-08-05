@@ -10,7 +10,7 @@ from operations.api_watchdog import ApiWatchdog
 from operations.telegram_utils import validate_chat_id
 
 # فحوصات غير قاتلة — البوت يكمل الجلب/الإشارات حتى لو فشلت
-_SOFT_CHECK_NAMES = frozenset({"mt5_ping", "telegram_optional", "warning"})
+_SOFT_CHECK_NAMES = frozenset({"telegram_optional", "warning"})
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,4 @@
-"""يبني حزمة تثبيت Windows: GoldenShield Binance Demo فقط (بدون MetaTrader)."""
+"""يبني حزمة تثبيت Windows: GoldenShield Binance Demo فقط."""
 
 from __future__ import annotations
 
@@ -46,14 +46,8 @@ EXCLUDE_FILES = {
     "SESSION_STATE.md",
     "pytest.ini",
     "CHAT_HISTORY_FIX_AR.md",
-    "00_TEST_MT5.bat",
-    "00_فحص_MT5.bat",
-    "00_اختبار_MT5.bat",
 }
 EXCLUDE_NAME_SUBSTR = (
-    "test_mt5",
-    "mt5_connect",
-    "GOLDENSHIELD_MT5",
     "send_windows_zip",
     "send_simple_windows",
     "send_update_with_start",
@@ -65,7 +59,7 @@ EXCLUDE_NAME_SUBSTR = (
 README = """GoldenShield — Binance Demo ONLY (full package + Cognitive Hedge)
 ====================================================
 This package opens trades on Binance Spot Demo only.
-No MetaTrader / no XM / no forex / no real-money Live account.
+Binance Demo only — no forex broker terminal, no real-money Live account.
 
 INSTALL on Windows:
 1) Delete any old package folders
@@ -79,7 +73,6 @@ INSTALL on Windows:
 Package settings:
 - EXECUTION_BACKEND=binance
 - BINANCE_DEMO_TRADING=true
-- MetaTrader disabled (hard)
 - Telegram signals from 85/100
 - Auto entry from 90/100
 - Live positions board every ~1 second
@@ -183,13 +176,14 @@ def should_skip(rel: Path) -> bool:
     if rel.name == ".env.cognitive.example":
         return True  # يُضاف يدوياً لاحقاً مرة واحدة
     low = str(rel).lower().replace("\\", "/")
+    if "mt5" in low:
+        return True
     if any(s in low for s in EXCLUDE_NAME_SUBSTR):
         return True
-    # لا تضع سكربتات MT5/نشر قديمة في الحزمة
+    # لا تضع سكربتات نشر قديمة في الحزمة
     if rel.parts[:1] == ("scripts",) and any(
         x in rel.name.lower()
         for x in (
-            "mt5",
             "windows_boot",
             "send_contabo",
             "send_simple_windows",
@@ -206,12 +200,8 @@ def should_skip(rel: Path) -> bool:
         return True
     # بيانات/جسور غير مستخدمة في وضع Binance Demo
     if rel.as_posix().lower() in {
-        "data/mt5_market_data.py",
         "data/forex_market_data.py",
         "data/stock_market_data.py",
-        "config/mt5_symbol_map.yaml",
-        "execution/mt5_bridge.py",
-        "scripts/test_mt5_connect.py",
         "scripts/windows_boot.py",
     }:
         return True
@@ -388,7 +378,7 @@ def deploy_to_vps(zip_path: Path) -> int:
     run(
         "powershell -NoProfile -Command "
         f"\"Set-Location '{REMOTE_DIR}'; & '{py}' -c \\\"from config.settings import load_settings; s=load_settings(reload=True); "
-        "print('mt5',s.mt5_enabled); print('mode',s.execution_mode); print('backend',s.execution_backend); print('demo',s.binance_demo_trading)\\\"\""
+        "print('mode',s.execution_mode); print('backend',s.execution_backend); print('demo',s.binance_demo_trading)\\\"\""
     )
 
     # حدّث junction C:\GSBot ليشير للحزمة الجديدة

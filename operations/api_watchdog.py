@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from config.runtime_profile import resolve_runtime_profile
 from config.settings import CONFIG_DIR, get_settings
 from data.connection_monitor import ConnectionMonitor
 
@@ -20,7 +19,6 @@ class WatchdogResult:
 class ApiWatchdog:
     def run(self, connection_monitor: ConnectionMonitor | None = None) -> WatchdogResult:
         settings = get_settings()
-        profile = resolve_runtime_profile(settings)
         checks: dict[str, bool] = {}
         failures: list[str] = []
 
@@ -33,25 +31,14 @@ class ApiWatchdog:
             failures.append(f"وضع تنفيذ غير صالح: {settings.execution_mode}")
 
         if settings.execution_mode == "live":
-            if profile.uses_mt5:
-                mt5_ok = bool(
-                    settings.mt5_login and settings.mt5_password and settings.mt5_server
-                )
-                checks["mt5_credentials"] = mt5_ok
-                checks["binance_keys"] = True
-                if not mt5_ok:
-                    failures.append(
-                        "وضع live + MT5 يتطلب MT5_LOGIN و MT5_PASSWORD و MT5_SERVER"
-                    )
-            else:
-                has_keys = bool(settings.binance_api_key and settings.binance_api_secret)
-                checks["binance_keys"] = has_keys
-                if not has_keys:
-                    failures.append("وضع live يتطلب BINANCE_API_KEY و BINANCE_API_SECRET")
-                elif connection_monitor is not None:
-                    checks["binance_auth"] = self._verify_binance_auth(settings)
-                    if not checks["binance_auth"]:
-                        failures.append("فشل التحقق من مفاتيح Binance API")
+            has_keys = bool(settings.binance_api_key and settings.binance_api_secret)
+            checks["binance_keys"] = has_keys
+            if not has_keys:
+                failures.append("وضع live يتطلب BINANCE_API_KEY و BINANCE_API_SECRET")
+            elif connection_monitor is not None:
+                checks["binance_auth"] = self._verify_binance_auth(settings)
+                if not checks["binance_auth"]:
+                    failures.append("فشل التحقق من مفاتيح Binance API")
         else:
             checks["binance_keys"] = True
 
@@ -84,25 +71,13 @@ class ApiWatchdog:
                 import time
 
                 time.sleep(2)
-            if profile.uses_mt5:
-                checks["mt5_ping"] = ping_ok
-                checks["binance_ping"] = True
-                if not ping_ok:
-                    # تحذير وليس إيقاف — التحليل يعمل من Yahoo/Binance والإشارات تستمر
-                    failures.append(
-                        "تحذير نبض MT5: "
-                        f"{last_err or connection_monitor.last_error or 'غير معروف'} "
-                        "(متابعة الجلب الاحتياطي)"
-                    )
-            else:
-                checks["binance_ping"] = ping_ok
-                if not ping_ok:
-                    failures.append(
-                        f"فشل ping Binance: {last_err or connection_monitor.last_error or 'غير معروف'}"
-                    )
+            checks["binance_ping"] = ping_ok
+            if not ping_ok:
+                failures.append(
+                    f"فشل ping Binance: {last_err or connection_monitor.last_error or 'غير معروف'}"
+                )
         else:
             checks["binance_ping"] = True
-            checks["mt5_ping"] = True
 
         db_parent = Path(settings.db_path).parent
         try:

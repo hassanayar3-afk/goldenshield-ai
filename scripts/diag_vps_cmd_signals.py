@@ -42,7 +42,7 @@ Write-Host '=== ENV FLAGS ==='
 $envp = 'C:\GoldenShield_Binance\.env'
 if (Test-Path $envp) {
   Get-Content $envp | Where-Object {
-    $_ -match '^(EXECUTION_|BINANCE_DEMO|MT5_|TELEGRAM_SIGNALS|LOOP_|AUTO_ENTRY|MANUAL_|SHADOW_|RISK_COMMITTEE|MACRO_|ORDERBOOK_|TELEGRAM_LIVE)'
+    $_ -match '^(EXECUTION_|BINANCE_DEMO|TELEGRAM_SIGNALS|LOOP_|AUTO_ENTRY|MANUAL_|SHADOW_|RISK_COMMITTEE|MACRO_|ORDERBOOK_|TELEGRAM_LIVE)'
   } | ForEach-Object { Write-Host $_ }
 } else {
   Write-Host 'no .env at Binance path'

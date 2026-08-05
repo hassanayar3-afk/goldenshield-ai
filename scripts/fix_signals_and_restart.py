@@ -49,7 +49,6 @@ $map = @{
   'EXECUTION_MODE'='live'
   'EXECUTION_BACKEND'='binance'
   'BINANCE_DEMO_TRADING'='true'
-  'MT5_ENABLED'='false'
   'TELEGRAM_SIGNALS_ONLY'='false'
   'TELEGRAM_SEND_CYCLE_SIGNALS'='true'
   'MANUAL_ENTRY_REQUIRED'='false'
@@ -66,7 +65,7 @@ $out = foreach ($line in $lines) {
 }
 foreach ($k in $map.Keys) { if (-not $seen.ContainsKey($k)) { $out += "$k=$($map[$k])" } }
 Set-Content $p $out -Encoding UTF8
-Get-Content $p | Where-Object { $_ -match '^(EXECUTION_|BINANCE_DEMO|TELEGRAM_SEND|TELEGRAM_SIGNALS|AUTO_ENTRY|MANUAL_ENTRY|MT5_ENABLED)=' }
+Get-Content $p | Where-Object { $_ -match '^(EXECUTION_|BINANCE_DEMO|TELEGRAM_SEND|TELEGRAM_SIGNALS|AUTO_ENTRY|MANUAL_ENTRY)=' }
 """
     remote = KEEP + r"\_patch_signals.ps1"
     sftp = ssh.open_sftp()

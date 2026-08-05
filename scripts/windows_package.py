@@ -1,19 +1,16 @@
-"""حزمة تشغيل Windows — Binance Demo فقط (بدون MetaTrader)."""
+"""حزمة تشغيل Windows — Binance Demo فقط."""
 
 from __future__ import annotations
 
 
 def production_env(local: dict[str, str]) -> str:
-    """بيئة تشغيل ويندوز: Binance Demo فقط (ليس حقيقي، وليس MT5)."""
+    """بيئة تشغيل ويندوز: Binance Demo فقط (ليس حساب حقيقي)."""
     return "\n".join(
         [
             "ENV=production",
             "EXECUTION_MODE=live",
             "EXECUTION_BACKEND=binance",
             "BINANCE_DEMO_TRADING=true",
-            "MT5_ENABLED=false",
-            "BOT_AUTO_SYNC_MT5=false",
-            "MT5_ATTACH_SL_TP=false",
             f"BINANCE_API_KEY={local.get('BINANCE_API_KEY', '')}",
             f"BINANCE_API_SECRET={local.get('BINANCE_API_SECRET', '')}",
             "TELEGRAM_SEND_CYCLE_SIGNALS=true",

@@ -51,7 +51,7 @@ def prepare_boot_environment() -> int:
         return 2
 
     print("boot:network_ok")
-    print("boot:binance_only — MetaTrader غير مستخدم")
+    print("boot:binance_only")
     return 0
 
 

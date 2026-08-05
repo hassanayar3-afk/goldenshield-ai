@@ -87,11 +87,9 @@ def test_live_create_rejects_without_sl(monkeypatch):
     class _Settings:
         execution_mode = "live"
         execution_backend = "binance"
-        mt5_enabled = False
         binance_api_key = "k"
         binance_api_secret = "s"
         require_sl_on_all_chunks = True
-        mt5_attach_sl_tp = True
 
     monkeypatch.setattr("execution.order_manager.get_settings", lambda: _Settings())
     manager = OrderManager()

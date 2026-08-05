@@ -21,7 +21,7 @@ KEEP = r"C:\GoldenShield_Binance"
 # مجلدات قديمة للحذف (لن نلمس KEEP)
 DELETE_PATHS = [
     r"C:\Users\Administrator\Downloads\Telegram Desktop\GoldenShield_CONTABO_DEMO_20260728_2227",
-    r"C:\GoldenShield",  # الحزمة القديمة / MT5
+    r"C:\GoldenShield",  # الحزمة القديمة
 ]
 
 
@@ -64,13 +64,13 @@ def main() -> int:
         "\"$keep='C:\\GoldenShield_Binance'; "
         "$hits=@(); "
         "$hits += Get-ChildItem 'C:\\Users\\Administrator\\Downloads' -Recurse -Directory -EA SilentlyContinue | "
-        "Where-Object { $_.Name -match 'GoldenShield|CONTABO_DEMO|MT5' -and $_.FullName -notlike ($keep+'*') }; "
+        "Where-Object { $_.Name -match 'GoldenShield|CONTABO_DEMO' -and $_.FullName -notlike ($keep+'*') }; "
         "$hits += Get-ChildItem 'C:\\' -Directory -EA SilentlyContinue | "
         "Where-Object { $_.Name -match 'GoldenShield' -and $_.FullName -ne $keep }; "
         "$hits | Select-Object -ExpandProperty FullName -Unique\"",
     )
 
-    # 4) حذف صريح للمسارات المعروفة + أي CONTABO/MT5 تحت Downloads
+    # 4) حذف صريح للمسارات المعروفة + أي CONTABO تحت Downloads
     delete_ps = r"""
 $keep = 'C:\GoldenShield_Binance'
 $targets = @(
@@ -78,7 +78,7 @@ $targets = @(
   'C:\GoldenShield'
 )
 $extra = Get-ChildItem 'C:\Users\Administrator\Downloads' -Recurse -Directory -EA SilentlyContinue |
-  Where-Object { $_.Name -match 'GoldenShield|CONTABO_DEMO|GOLDENSHIELD_MT5' -and $_.FullName -notlike ($keep + '*') } |
+  Where-Object { $_.Name -match 'GoldenShield|CONTABO_DEMO' -and $_.FullName -notlike ($keep + '*') } |
   Select-Object -ExpandProperty FullName
 $targets += @($extra)
 $targets = $targets | Select-Object -Unique
@@ -96,9 +96,9 @@ foreach ($t in $targets) {
     Write-Output "MISSING $t"
   }
 }
-# احذف ZIP قديمة MT5 إن وُجدت
+# احذف ZIP قديمة إن وُجدت
 Get-ChildItem 'C:\Users\Administrator\Downloads' -Recurse -File -EA SilentlyContinue |
-  Where-Object { $_.Name -match 'GOLDENSHIELD_MT5|CONTABO_DEMO.*\.zip|GOLDENSHIELD_MT5_WINDOWS' } |
+  Where-Object { $_.Name -match 'CONTABO_DEMO.*\.zip' } |
   ForEach-Object { Write-Output "DELETE_ZIP $($_.FullName)"; Remove-Item -LiteralPath $_.FullName -Force -EA SilentlyContinue }
 Write-Output 'DELETE_PASS_DONE'
 """
@@ -147,7 +147,7 @@ Write-Output 'DELETE_PASS_DONE'
         ssh,
         "powershell -NoProfile -Command "
         f"\"Set-Location '{KEEP}'; & '{PY}' -c \\\"from config.settings import load_settings; s=load_settings(reload=True); "
-        "print('mt5',s.mt5_enabled); print('mode',s.execution_mode); print('backend',s.execution_backend); print('demo',s.binance_demo_trading)\\\"\"",
+        "print('mode',s.execution_mode); print('backend',s.execution_backend); print('demo',s.binance_demo_trading)\\\"\"",
     )
 
     # 7) تأكيد اختفاء القديم

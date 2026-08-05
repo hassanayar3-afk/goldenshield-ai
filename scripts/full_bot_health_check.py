@@ -99,7 +99,7 @@ def main() -> int:
     run(
         ssh,
         "powershell -NoProfile -Command "
-        f"\"Get-Content '{KEEP}\\.env' -EA SilentlyContinue | Where-Object {{ $_ -match '^(EXECUTION_MODE|EXECUTION_BACKEND|BINANCE_DEMO_TRADING|MT5_ENABLED|TELEGRAM_SIGNALS_ONLY|TELEGRAM_SEND_CYCLE_SIGNALS|AUTO_ENTRY_MIN_PERCENT|MANUAL_ENTRY_REQUIRED|NO_SLEEP_MODE|LOOP_INTERVAL_SECONDS|TELEGRAM_LIVE_SIGNALS_SECONDS)=' }}\"",
+        f"\"Get-Content '{KEEP}\\.env' -EA SilentlyContinue | Where-Object {{ $_ -match '^(EXECUTION_MODE|EXECUTION_BACKEND|BINANCE_DEMO_TRADING|TELEGRAM_SIGNALS_ONLY|TELEGRAM_SEND_CYCLE_SIGNALS|AUTO_ENTRY_MIN_PERCENT|MANUAL_ENTRY_REQUIRED|NO_SLEEP_MODE|LOOP_INTERVAL_SECONDS|TELEGRAM_LIVE_SIGNALS_SECONDS)=' }}\"",
     )
 
     # 7) Recent logs
@@ -132,7 +132,6 @@ s = load_settings(reload=True)
 print('mode', s.execution_mode)
 print('backend', s.execution_backend)
 print('demo', bool(getattr(s,'binance_demo_trading', False)))
-print('mt5', bool(s.mt5_enabled))
 print('has_key', bool(getattr(s,'binance_api_key',None)))
 print('has_secret', bool(getattr(s,'binance_api_secret',None)))
 print('has_tg', bool(getattr(s,'telegram_token',None)))

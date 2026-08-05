@@ -85,15 +85,10 @@ class OrderManager:
         take_profit: float | None = None,
     ) -> None:
         settings = get_settings()
-        from config.runtime_profile import resolve_runtime_profile
-
-        if resolve_runtime_profile(settings).uses_mt5:
-            self._submit_mt5_order(order, stop_loss=stop_loss, take_profit=take_profit)
-            return
 
         if not settings.binance_api_key or not settings.binance_api_secret:
             order.mark_rejected()
-            raise ExecutionError("مفاتيح Binance مطلوبة للتنفيذ الحي (أو فعّل MT5)")
+            raise ExecutionError("مفاتيح Binance مطلوبة للتنفيذ الحي")
 
         exchange = get_exchange()
         try:
@@ -295,93 +290,6 @@ class OrderManager:
         except Exception as exc:  # noqa: BLE001
             logger.warning("_attach_binance_protective_stops: %s", exc)
             return False
-
-    def _submit_mt5_order(
-        self,
-        order: Order,
-        *,
-        stop_loss: float | None = None,
-        take_profit: float | None = None,
-    ) -> None:
-        from execution.mt5_bridge import get_mt5_bridge
-
-        bridge = get_mt5_bridge()
-        # بروتوكول صارم: دائماً نمرّر SL/TP مع أمر الدخول — لا فتح عاري ثم تعديل
-        sl = float(stop_loss) if stop_loss and float(stop_loss) > 0 else None
-        tp = float(take_profit) if take_profit and float(take_profit) > 0 else None
-        try:
-            result = bridge.place_market(
-                order.symbol,
-                side=order.side.value,
-                amount=order.amount,
-                stop_loss=sl,
-                take_profit=tp,
-            )
-        except Exception as exc:
-            order.mark_rejected()
-            logger.exception("فشل تنفيذ أمر MT5")
-            raise ExecutionError(f"فشل أمر MT5: {exc}") from exc
-
-        order.id = f"mt5-{result.ticket}"
-        order.mark_filled(result.price)
-        order.protective_sl = sl
-        order.protective_tp = tp
-
-        # تأكيد فعلي على المنصة — ليس نية فقط
-        confirmed = True
-        if sl is not None or tp is not None:
-            live_sl = bridge.get_position_sl(order.symbol)
-            live_tp = bridge.get_position_tp(order.symbol)
-            if live_sl is None or live_sl <= 0 or live_tp is None or live_tp <= 0:
-                try:
-                    bridge.modify_position_sl_tp(
-                        order.symbol, stop_loss=sl, take_profit=tp
-                    )
-                    live_sl = bridge.get_position_sl(order.symbol)
-                    live_tp = bridge.get_position_tp(order.symbol)
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("تعديل SL/TP بعد الفتح فشل: %s", exc)
-            confirmed = (
-                live_sl is not None
-                and live_sl > 0
-                and live_tp is not None
-                and live_tp > 0
-            )
-            if not confirmed:
-                # إغلاق فوري — ممنوع ترك تذكرة عارية
-                try:
-                    close_side = (
-                        OrderSide.SELL
-                        if order.side == OrderSide.BUY
-                        else OrderSide.BUY
-                    )
-                    bridge.place_market(
-                        order.symbol,
-                        side=close_side.value,
-                        amount=order.amount,
-                    )
-                except Exception:
-                    logger.exception(
-                        "فشل إغلاق تذكرة عارية بعد MT5 %s", order.symbol
-                    )
-                order.stops_confirmed = False
-                order.mark_rejected()
-                raise ExecutionError(
-                    "Zero-SL/TP Denial: فُتح المركز بلا SL/TP مؤكدين — أُغلق فوراً"
-                )
-
-        order.stops_confirmed = confirmed
-        logger.info(
-            "MT5 filled %s %s vol=%s @ %s ticket=%s sl=%s tp=%s confirmed=%s",
-            order.side.value,
-            result.symbol,
-            result.volume,
-            result.price,
-            result.ticket,
-            sl,
-            tp,
-            confirmed,
-        )
 
     def cancel_order(self, order_id: str) -> bool:
         order = self._orders.get(order_id)

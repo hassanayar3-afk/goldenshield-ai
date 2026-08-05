@@ -59,32 +59,27 @@ def ensure_fill_has_sl_or_close(
             order.stops_confirmed = True
             return True
 
-        from config.runtime_profile import resolve_runtime_profile
+        confirmed = bool(getattr(order, "stops_confirmed", False))
+        if not confirmed:
+            # محاولة إرفاق أخيرة على Binance قبل الإغلاق الوقائي
+            try:
+                exchange = getattr(order_manager, "_last_exchange", None)
+                if exchange is None:
+                    from data.exchange_client import get_exchange
 
-        if resolve_runtime_profile(settings).uses_mt5:
-            confirmed = _confirm_mt5_sl_tp(symbol, sl, tp)
-        else:
-            confirmed = bool(getattr(order, "stops_confirmed", False))
-            if not confirmed:
-                # محاولة إرفاق أخيرة على Binance قبل الإغلاق الوقائي
-                try:
-                    exchange = getattr(order_manager, "_last_exchange", None)
-                    if exchange is None:
-                        from data.exchange_client import get_exchange
-
-                        exchange = get_exchange()
-                    confirmed = bool(
-                        order_manager._attach_binance_protective_stops(  # noqa: SLF001
-                            exchange,
-                            order,
-                            stop_loss=sl,
-                            take_profit=tp if tp > 0 else None,
-                        )
+                    exchange = get_exchange()
+                confirmed = bool(
+                    order_manager._attach_binance_protective_stops(  # noqa: SLF001
+                        exchange,
+                        order,
+                        stop_loss=sl,
+                        take_profit=tp if tp > 0 else None,
                     )
-                    order.stops_confirmed = confirmed
-                except Exception as retry_exc:  # noqa: BLE001
-                    logger.warning("إعادة إرفاق SL فشلت: %s", retry_exc)
-                    confirmed = _confirm_binance_stops_flag(order)
+                )
+                order.stops_confirmed = confirmed
+            except Exception as retry_exc:  # noqa: BLE001
+                logger.warning("إعادة إرفاق SL فشلت: %s", retry_exc)
+                confirmed = _confirm_binance_stops_flag(order)
 
         if confirmed:
             order.protective_sl = sl
@@ -128,37 +123,6 @@ def ensure_fill_has_sl_or_close(
             )
         except Exception:
             logger.exception("فشل الإغلاق الوقائي بعد خطأ الحارس")
-        return False
-
-
-def _confirm_mt5_sl_tp(symbol: str, stop_loss: float, take_profit: float) -> bool:
-    try:
-        from execution.mt5_bridge import get_mt5_bridge
-
-        bridge = get_mt5_bridge()
-        current_sl = bridge.get_position_sl(symbol)
-        current_tp = bridge.get_position_tp(symbol)
-        if (
-            current_sl is not None
-            and current_sl > 0
-            and current_tp is not None
-            and current_tp > 0
-        ):
-            return True
-        # محاولة أخيرة لتعديل SL/TP
-        bridge.modify_position_sl_tp(
-            symbol, stop_loss=stop_loss, take_profit=take_profit
-        )
-        current_sl = bridge.get_position_sl(symbol)
-        current_tp = bridge.get_position_tp(symbol)
-        return (
-            current_sl is not None
-            and current_sl > 0
-            and current_tp is not None
-            and current_tp > 0
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("تأكيد MT5 SL/TP فشل (%s): %s", symbol, exc)
         return False
 
 

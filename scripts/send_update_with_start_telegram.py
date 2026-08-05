@@ -20,7 +20,6 @@ FILES = [
     "execution/trade_executor.py",
     "execution/order_manager.py",
     "execution/emergency_flat.py",
-    "execution/mt5_bridge.py",
     "execution/models/order.py",
     "risk/halt_policy.py",
     "risk/emergency_protocols.py",
@@ -57,8 +56,6 @@ FILES = [
     "run.bat",
     "INSTALL_AUTOSTART.bat",
     "فحص_المجلد_CHECK.bat",
-    "00_فحص_MT5.bat",
-    "00_TEST_MT5.bat",
     "requirements.txt",
     "deployment/contabo_setup.sh",
     "deployment/run_infrastructure_watchdog.sh",
@@ -95,7 +92,7 @@ README = """GoldenShield — حزمة تحديث مع ملفات START
 البناء: 2026-07-18-halt-sl
 
 محتويات مهمة:
-- 00_START.bat / 00_STOP.bat / فحص_المجلد_CHECK.bat  (ويندوز MT5)
+- 00_START.bat / 00_STOP.bat / فحص_المجلد_CHECK.bat  (ويندوز Binance)
 - 00_APPLY_AND_RESTART.sh  (سيرفر Contabo Linux)
 - ملفات الإصلاحات الحرجة v1.1.2
 
@@ -106,7 +103,7 @@ README = """GoldenShield — حزمة تحديث مع ملفات START
 4) chmod +x 00_APPLY_AND_RESTART.sh
 5) bash 00_APPLY_AND_RESTART.sh
 
-======= Windows MT5 =======
+======= Windows (Binance Demo) =======
 1) Extract All إلى مجلد المشروع (أو C:\\GoldenShield_Binance)
 2) شغّل فحص_المجلد_CHECK.bat
 3) شغّل 00_START.bat

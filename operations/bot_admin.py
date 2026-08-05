@@ -39,5 +39,5 @@ def can_control_bot(chat_id: str | int | None) -> bool:
 
 
 def bot_may_auto_expand() -> bool:
-    """ملغى — لا توسعة MT5/فوركس؛ المشروع Binance فقط."""
+    """ملغى — لا توسعة تلقائية لرموز خارج أزواج Binance الكريبتو."""
     return False

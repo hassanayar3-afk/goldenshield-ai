@@ -117,17 +117,10 @@ class Settings:
     min_account_balance: float
     monte_carlo_simulations: int
     monte_carlo_min_win_rate: float
-    mt5_enabled: bool
-    mt5_login: str | None
-    mt5_password: str | None
-    mt5_server: str | None
-    mt5_broker: str | None
     execution_backend: str
     trial_mode: bool
     trial_journal_enabled: bool
-    mt5_attach_sl_tp: bool
     bot_admin_full_access: bool
-    bot_auto_sync_mt5: bool
     high_conviction_mode: bool
     standard_bonus_profile: bool
     high_conviction_config: dict
@@ -313,14 +306,8 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         min_account_balance=float(risk.get("min_account_balance", 100.0)),
         monte_carlo_simulations=int(risk.get("monte_carlo_simulations", 1000)),
         monte_carlo_min_win_rate=float(risk.get("monte_carlo_min_win_rate", 0.35)),
-        mt5_login=None,
-        mt5_password=None,
-        mt5_server=None,
-        mt5_broker=None,
         # Binance فقط — أي قيمة EXECUTION_BACKEND أخرى تُتجاهل
         execution_backend="binance",
-        # MetaTrader ملغى بالكامل — لا يُفعَّل حتى لو وُجد في .env
-        mt5_enabled=False,
         trial_mode=os.getenv("TRIAL_MODE", str(trial.get("trial_mode", "false")))
         .strip()
         .lower()
@@ -331,12 +318,10 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        mt5_attach_sl_tp=False,
         bot_admin_full_access=os.getenv("BOT_ADMIN_FULL_ACCESS", "true")
         .strip()
         .lower()
         in {"1", "true", "yes", "on"},
-        bot_auto_sync_mt5=False,
         high_conviction_mode=os.getenv("HIGH_CONVICTION_MODE", "false")
         .strip()
         .lower()
