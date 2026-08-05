@@ -1,4 +1,4 @@
-"""بعد النشر: يتحقق من بوت واحد + مراكز + رصيد + يرسل قائمة تيليجرام."""
+"""بعد النشر: يتحقق من بوت واحد + مراكز + رصيد + يرسل قائمة تيليجرام (UTF-8 آمن)."""
 
 from __future__ import annotations
 
@@ -11,71 +11,25 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env", override=True)
 
+PROBE_LOCAL = ROOT / "scripts" / "_remote_health_probe.py"
+REMOTE_PROBE = r"C:\GoldenShield_Binance\scripts\_remote_health_probe.py"
+REMOTE_PS = r"C:\Users\Public\gs_verify_health.ps1"
+
 PS = r"""
 $ErrorActionPreference = 'Continue'
 $bot = 'C:\GoldenShield_Binance'
 Set-Location $bot
 $env:PYTHONPATH = $bot
 $env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUTF8 = '1'
 
 $procs = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and ($_.CommandLine -match 'main\.py') })
 Write-Host ("BOT_PROCS=" + $procs.Count)
 foreach ($p in $procs) { Write-Host ("PID=" + $p.ProcessId) }
 
-$py = 'py'
-try { & $py -V | Out-Null } catch { $py = 'python' }
-
-& $py -c @"
-from config.settings import get_settings
-from data.exchange_client import get_exchange
-from execution.trade_executor import TradeExecutor
-from execution.binance_position_sync import sync_binance_spot_positions, format_holdings_report
-from operations.telegram_bot import TelegramBot
-from operations.telegram_keyboards import main_menu_keyboard, positions_list_keyboard
-from operations.dashboard_templates import format_market_overview
-
-s = get_settings()
-print('demo', s.binance_demo_trading, 'mode', s.execution_mode, 'backend', s.execution_backend)
-print('manual', s.manual_entry_required, 'auto_min', s.auto_entry_min_percent)
-
-ex = get_exchange()
-bal = ex.fetch_balance() or {}
-usdt = bal.get('USDT') or {}
-free = float(usdt.get('free') if isinstance(usdt, dict) else (usdt or 0))
-print(f'USDT_FREE={free:.4f}')
-
-executor = TradeExecutor()
-restored = executor.restore_open_positions()
-synced = sync_binance_spot_positions(executor)
-print('restored', restored, 'synced', synced)
-print('open_count', executor.position_manager.count())
-positions = executor.position_manager.all()
-for p in positions:
-    print(f'POS {p.symbol} {p.side.value} amt={p.amount:.8g} entry={p.entry_price:.6g}')
-
-tg = TelegramBot()
-menu = (
-    '🛡 <b>GoldenShield — فحص صحة</b>\n'
-    f'مراكز مفتوحة: <b>{len(positions)}</b>\n'
-    f'USDT حر: <b>{free:.2f}</b>\n'
-    f'عمليات البوت: راجع السيرفر\n'
-    'اضغط الأزرار للتأكد أنها تعمل.'
-)
-mid = tg.send_message(menu, reply_markup=main_menu_keyboard(paused=False))
-print('MAIN_MENU_MSG', mid)
-report = format_holdings_report(executor)
-prices = {p.symbol: p.entry_price for p in positions}
-pmid = tg.send_message(report, reply_markup=positions_list_keyboard(positions, prices, live=False))
-print('POSITIONS_MSG', pmid)
-
-entries = [
-    {'symbol': sym, 'score': 5, 'signal': 'WAIT', 'price': 1.0}
-    for sym in (s.trading_pairs or [])[:5]
-]
-market_text = format_market_overview(entries)
-print('MARKET_VIEW_OK', 'GoldenShield' in market_text)
-print('HEALTH_OK')
-"@
+$py = 'C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe'
+if (-not (Test-Path $py)) { $py = 'py' }
+& $py -X utf8 "C:\GoldenShield_Binance\scripts\_remote_health_probe.py"
 """
 
 
@@ -86,6 +40,10 @@ def main() -> int:
     if not (host and user and password):
         print("missing WIN_*")
         return 1
+    if not PROBE_LOCAL.is_file():
+        print("missing probe", PROBE_LOCAL)
+        return 1
+
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(
@@ -96,13 +54,21 @@ def main() -> int:
         allow_agent=False,
         look_for_keys=False,
     )
-    remote = r"C:\Users\Public\gs_verify_health.ps1"
     sftp = client.open_sftp()
-    with sftp.file(remote, "w") as fh:
-        fh.write(PS)
-    sftp.close()
+    try:
+        try:
+            sftp.stat(r"C:\GoldenShield_Binance\scripts")
+        except OSError:
+            sftp.mkdir(r"C:\GoldenShield_Binance\scripts")
+        # Binary upload keeps UTF-8 Arabic intact
+        sftp.put(str(PROBE_LOCAL), REMOTE_PROBE)
+        with sftp.file(REMOTE_PS, "wb") as fh:
+            fh.write(PS.encode("utf-8"))
+    finally:
+        sftp.close()
+
     _i, stdout, stderr = client.exec_command(
-        f'powershell -NoProfile -ExecutionPolicy Bypass -File "{remote}"',
+        f'powershell -NoProfile -ExecutionPolicy Bypass -File "{REMOTE_PS}"',
         timeout=180,
     )
     print(stdout.read().decode("utf-8", "replace"))

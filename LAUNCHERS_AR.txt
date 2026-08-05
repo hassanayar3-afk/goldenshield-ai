@@ -19,6 +19,14 @@
 #   - Live pulse 3–5s in BOT LIVE CMD
 #   - Telegram dashboard / SSoT / project rules via main.py
 #
+# Durable background (survives SSH / reboot):
+#   gs_daemon.ps1  — keeps main.py alive 24/7
+#   Task: GoldenShieldBotOfficial (AtStartup + Start-ScheduledTask)
+#
+# Visible CMD windows:
+#   From RDP desktop: double-click start_bot.bat
+#   (SSH Session 0 cannot keep interactive CMD windows)
+#
 # Path: C:\GoldenShield_Binance only
 #
 # NOTE (Windows): start_bot.bat and START_BOT.bat are the SAME file

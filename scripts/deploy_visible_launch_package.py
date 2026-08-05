@@ -103,7 +103,6 @@ foreach($n in @('run_official_bot.ps1','run_official_bot.bat','00_START_KEEP_OPE
   }
 }
 schtasks /Delete /TN GoldenShieldBotOfficial /F 2>$null | Out-Null
-schtasks /Create /TN GoldenShieldBotOfficial /TR "cmd.exe /c start \"GoldenShield BOT LIVE\" /D \"$bot\" cmd.exe /k call \"$bot\run_bot_visible.cmd\"" /SC ONSTART /RL HIGHEST /F | Out-Null
 $flag=Join-Path $bot 'storage\runtime\user_stopped.flag'
 if(Test-Path $flag){ Remove-Item $flag -Force }
 $lock=Join-Path $bot 'storage\runtime\bot_instance.lock'
@@ -111,10 +110,29 @@ if(Test-Path $lock){ Remove-Item $lock -Force }
 if(Test-Path 'C:\ProgramData\GoldenShield\bot_instance.lock'){ Remove-Item 'C:\ProgramData\GoldenShield\bot_instance.lock' -Force -EA SilentlyContinue }
 powercfg -change -standby-timeout-ac 0 | Out-Null
 powercfg -change -hibernate-timeout-ac 0 | Out-Null
-# Durable daemon (single instance, no-sleep). Visible CMDs: run start_bot.bat from RDP desktop.
-$daemon = Join-Path $bot 'gs_daemon.ps1'
-Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$daemon -WorkingDirectory $bot -WindowStyle Hidden
-Start-Sleep -Seconds 10
+
+# Start daemon OUTSIDE SSH job via Scheduled Task (survives SSH disconnect)
+try {
+  $actionDaemon = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$bot\gs_daemon.ps1`"" -WorkingDirectory $bot
+  $prin = New-ScheduledTaskPrincipal -UserId 'Administrator' -LogonType S4U -RunLevel Highest
+  $setOn = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Days 365)
+  Unregister-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -Confirm:$false -EA SilentlyContinue
+  Register-ScheduledTask -TaskName 'GoldenShieldBotOfficial' -Action $actionDaemon -Principal $prin -Settings $setOn -Trigger (New-ScheduledTaskTrigger -AtStartup) -Force | Out-Null
+  Start-ScheduledTask -TaskName 'GoldenShieldBotOfficial' | Out-Null
+  Write-Host 'TASK_DAEMON_STARTED'
+} catch {
+  Write-Host ('TASK_DAEMON_WARN ' + $_.Exception.Message)
+  # Fallback breakaway Start-Process
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = 'powershell.exe'
+  $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$bot\gs_daemon.ps1`""
+  $psi.WorkingDirectory = $bot
+  $psi.UseShellExecute = $true
+  $psi.WindowStyle = 'Hidden'
+  [System.Diagnostics.Process]::Start($psi) | Out-Null
+  Write-Host 'FALLBACK_PROCESS_START'
+}
+Start-Sleep -Seconds 15
 
 # Pulse board for RDP session if available
 try {
@@ -140,7 +158,15 @@ Write-Host ('RESTART_BAT=' + (Test-Path (Join-Path $bot 'restart_bot.bat')))
 Write-Host ('STOP_BAT=' + (Test-Path (Join-Path $bot 'stop_bot.bat')))
 Write-Host ('CORE_CMD=' + (Test-Path (Join-Path $bot 'run_bot_visible.cmd')))
 Write-Host ('PULSE_PS1=' + (Test-Path (Join-Path $bot 'live_console.ps1')))
-Write-Host ('DAEMON_PS1=' + (Test-Path $daemon))
+Write-Host ('DAEMON_PS1=' + (Test-Path (Join-Path $bot 'gs_daemon.ps1')))
+if(Test-Path (Join-Path $bot 'storage\logs\gs_daemon.log')){
+  Write-Host '--- DAEMON LOG ---'
+  Get-Content (Join-Path $bot 'storage\logs\gs_daemon.log') -Tail 15 -EA SilentlyContinue
+}
+if(Test-Path (Join-Path $bot 'storage\logs\bot_stderr.log')){
+  Write-Host '--- STDERR TAIL ---'
+  Get-Content (Join-Path $bot 'storage\logs\bot_stderr.log') -Tail 20 -EA SilentlyContinue
+}
 Write-Host 'PACKAGE_DEPLOY_OK'
 """
 

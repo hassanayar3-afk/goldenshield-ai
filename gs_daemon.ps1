@@ -24,13 +24,12 @@ if (-not (Test-Path $py)) { $py = "py" }
 $logDir = Join-Path $Root "storage\logs"
 $runtime = Join-Path $Root "storage\runtime"
 New-Item -ItemType Directory -Force -Path $logDir, $runtime | Out-Null
-$log = Join-Path $logDir "bot_stdout.log"
-$errLog = Join-Path $logDir "bot_stderr.log"
+$daemonLog = Join-Path $logDir "gs_daemon.log"
 $stop = Join-Path $runtime "user_stopped.flag"
 
 function Write-D([string]$m) {
     $line = "[{0}] [GS_VISIBLE_DAEMON] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $m
-    Add-Content -Path $log -Value $line -ErrorAction SilentlyContinue
+    Add-Content -Path $daemonLog -Value $line -ErrorAction SilentlyContinue
 }
 
 Write-D "DAEMON_START"
@@ -65,9 +64,10 @@ while ($true) {
     Remove-Item "C:\ProgramData\GoldenShield\bot_instance.lock" -Force -ErrorAction SilentlyContinue
 
     Write-D "MAIN_LAUNCH"
-    # Separate stdout/stderr files — same-file redirect breaks Start-Process on Windows
+    $outLog = Join-Path $logDir "bot_stdout.log"
+    $errLog = Join-Path $logDir "bot_stderr.log"
     $p = Start-Process -FilePath $py -ArgumentList "-u", "main.py" -WorkingDirectory $Root `
-        -RedirectStandardOutput $log -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
+        -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
     if ($null -eq $p) {
         Write-D "MAIN_SPAWN_FAILED"
         Start-Sleep -Seconds 3
