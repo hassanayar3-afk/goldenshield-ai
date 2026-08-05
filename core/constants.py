@@ -2,22 +2,29 @@ from __future__ import annotations
 
 import os
 
-# الأطر الزمنية الأساسية للتحليل (لا تُكسر — متوافقة مع المحلل الحالي)
+# الأطر الزمنية الهرمية (اتجاه/محاذاة) — 15m + 1h + 4h
 TIMEFRAMES: tuple[str, ...] = ("15m", "1h", "4h")
-# أطر المؤسسة الإضافية (انزلاق/دخول دقيق) — تُستخدم في خط الأنابيب دون فرضها على كل جلب
-ENTERPRISE_EXTRA_TIMEFRAMES: tuple[str, ...] = ("5m", "1m")
+# أطر مجهرية للدخول وتفادي الانزلاق — تُجلب فعلياً مع التحليل
+MICRO_TIMEFRAMES: tuple[str, ...] = ("5m", "1m")
+# كل الأطر المستخدمة في حلقة المحلل الهرمي
+ANALYSIS_TIMEFRAMES: tuple[str, ...] = ("4h", "1h", "15m", "5m", "1m")
+# توافق خلفي مع قواعد المؤسسة
+ENTERPRISE_EXTRA_TIMEFRAMES: tuple[str, ...] = MICRO_TIMEFRAMES
 
 TIMEFRAME_LABELS: dict[str, str] = {
+    "1m": "M1",
+    "5m": "M5",
     "15m": "M15",
     "1h": "H1",
     "4h": "H4",
 }
 
-# عتبات الجودة
-SIGNAL_MIN_SCORE: float = 7.0  # هجين: درجة 7+ مؤهلة للإشارة (يدوي أو تلقائي)
+# عتبات الجودة — مصدر الحقيقة الوحيد للهجين (لا تعارض تيليجرام/تنفيذ)
+# يدوي/بث: ≥70 (درجة 7–8) | تلقائي: ≥90 (درجة 9–10)
+SIGNAL_MIN_SCORE: float = 7.0
 SIGNAL_MAX_SCORE: int = 10
-SIGNAL_MIN_PERCENT: int = 70  # درجة 7 = 70 — بث يدوي
-SIGNAL_NOTIFY_MIN_PERCENT: int = 70  # إرسال تيليجرام من درجة 7 فما فوق
+SIGNAL_MIN_PERCENT: int = 70
+SIGNAL_NOTIFY_MIN_PERCENT: int = 70
 SIGNAL_MAX_PERCENT: int = 100
 
 # دخول تلقائي من 90/100 فما فوق (درجة 9–10 فقط في النظام الهجين)
@@ -59,7 +66,7 @@ def meets_telegram_notify_minimum(
     score: int | float,
     min_percent: int | None = None,
 ) -> bool:
-    """عتبة إرسال الإشارات إلى تيليجرام (افتراضي 85/100)."""
+    """عتبة إرسال الإشارات إلى تيليجرام — مطابقة للهجين (≥70/100)."""
     threshold = SIGNAL_NOTIFY_MIN_PERCENT if min_percent is None else int(min_percent)
     return score_to_percent(score) >= threshold
 

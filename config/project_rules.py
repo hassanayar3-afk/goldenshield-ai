@@ -37,8 +37,8 @@ HYBRID_MANUAL_MIN_SCORE: int = 7
 HYBRID_MANUAL_MIN_PERCENT: int = 70
 TELEGRAM_SIGNAL_MIN_PERCENT: int = 70
 HYBRID_MANUAL_MAX_SCORE_EXCLUSIVE: int = 9  # 7–8 يدوي
-# عتبة يدوي «قوية» مفضّلة في خط الأنابيب المؤسسي (لا تلغي بث 7)
-ENTERPRISE_MANUAL_PREFERRED_PERCENT: int = 80
+# عتبة يدوي موحّدة مع بث التيليجرام والتنفيذ اليدوي (لا تعارض مع ≥70)
+ENTERPRISE_MANUAL_PREFERRED_PERCENT: int = HYBRID_MANUAL_MIN_PERCENT  # 70
 MANUAL_ENTRY_REQUIRED: bool = False
 
 # —— أعلام تشغيل مؤسسية ——

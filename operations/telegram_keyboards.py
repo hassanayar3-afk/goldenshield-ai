@@ -99,7 +99,7 @@ def market_keyboard(symbols: list[str], *, entries: list[dict] | None = None) ->
         score = score_map.get(symbol, 0)
         percent = score_to_percent(score)
         signal = signal_map.get(symbol, "WAIT")
-        # أخضر فقط إذا BUY/SELL ضمن عتبة إرسال تيليجرام (≥85)
+        # أخضر فقط إذا BUY/SELL ضمن عتبة إرسال تيليجرام (≥70 هجين)
         if signal in {"BUY SIGNAL", "SELL SIGNAL"} and percent >= SIGNAL_NOTIFY_MIN_PERCENT:
             icon = "🟢"
         elif percent >= SIGNAL_NOTIFY_MIN_PERCENT:

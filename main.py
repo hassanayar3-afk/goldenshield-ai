@@ -638,7 +638,7 @@ async def check_symbol(symbol: str) -> dict | None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("halt check before open: %s", exc)
 
-        # —— خط أنابيب المؤسسة المتسلسل (طبقة مضافة قبل التنفيذ) ——
+        # —— خط أنابيب المؤسسة المتسلسل (Fail-Closed على المسار التلقائي) ——
         try:
             from config.project_rules import load_project_rules as _load_pr
             from core.enterprise_pipeline import run_pre_execution_pipeline
@@ -664,7 +664,14 @@ async def check_symbol(symbol: str) -> dict | None:
                     _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
                     return entry
         except Exception as exc:  # noqa: BLE001
-            logger.warning("enterprise pipeline gate: %s", exc)
+            # Fail-Closed: أي استثناء حرج يمنع التنفيذ التلقائي فوراً
+            logger.error("enterprise pipeline FAIL-CLOSED %s: %s", symbol, exc)
+            print(f"🏛 {symbol}: Pipeline FAIL-CLOSED — {exc}")
+            try:
+                _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+            except Exception:  # noqa: BLE001
+                pass
+            return entry
 
         exec_result = _executor.try_open(
             result,

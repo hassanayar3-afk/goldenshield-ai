@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from core.constants import DEFAULT_OHLCV_LIMIT, TIMEFRAMES
+from core.constants import DEFAULT_OHLCV_LIMIT, ANALYSIS_TIMEFRAMES, TIMEFRAMES
 from data.cache_manager import get_cache_manager
 from data.connection_utils import fetch_with_retry
 from data.exchange_client import get_exchange
 from data.models.candle import Candle
 from data.symbol_routing import infer_data_source
 
-SUPPORTED_TIMEFRAMES: tuple[str, ...] = (*TIMEFRAMES, "1d")
+SUPPORTED_TIMEFRAMES: tuple[str, ...] = (*ANALYSIS_TIMEFRAMES, "1d")
 
 
 class OHLCVFetcher:
@@ -78,7 +78,7 @@ class OHLCVFetcher:
     def fetch_multi(
         self,
         symbol: str,
-        timeframes: tuple[str, ...] = TIMEFRAMES,
+        timeframes: tuple[str, ...] = ANALYSIS_TIMEFRAMES,
         *,
         limit: int = DEFAULT_OHLCV_LIMIT,
         use_cache: bool = True,

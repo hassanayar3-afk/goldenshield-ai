@@ -17,6 +17,8 @@ from config.project_rules import (
     ARCHITECTURE_MODE,
     CIRCUIT_BREAKER_MAX_LOSSES,
     ENTERPRISE_TIMEFRAMES,
+    HYBRID_AUTO_MIN_PERCENT,
+    HYBRID_MANUAL_MIN_PERCENT,
     PROJECT_NAME,
     hybrid_entry_label,
     is_hybrid_auto_score,
@@ -61,6 +63,7 @@ def describe_architecture() -> str:
     return (
         f"{PROJECT_NAME} | {ARCHITECTURE_MODE}\n"
         f"Capital={rules.reference_capital:.0f}$ min_trade={rules.min_trade_notional:.0f}$ "
+        f"auto≥{HYBRID_AUTO_MIN_PERCENT} manual≥{HYBRID_MANUAL_MIN_PERCENT} "
         f"CB_max_losses={CIRCUIT_BREAKER_MAX_LOSSES} frames={','.join(ENTERPRISE_TIMEFRAMES)}"
     )
 

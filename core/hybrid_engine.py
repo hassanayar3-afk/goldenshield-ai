@@ -91,6 +91,51 @@ def _apply_v13_market_filters(
                     liquidity_ok=False,
                     reasons=tuple(reasons),
                 )
+            # —— Micro-Tick / Iceberg عبر analyze_orderbook_micro (موصول حياً) ——
+            try:
+                from core.micro_structure import analyze_orderbook_micro
+
+                micro = analyze_orderbook_micro({"bids": bids, "asks": asks})
+                reasons.append(
+                    f"microΔ={micro.delta_proxy:.4g} iceberg={micro.iceberg_suspect} spoof={micro.spoof_suspect}"
+                )
+                if micro.spoof_suspect:
+                    return HybridDecision(
+                        allowed=False,
+                        halted=False,
+                        final_signal="REJECTED",
+                        technical_passed=True,
+                        sentiment_ok=True,
+                        macro_ok=True,
+                        liquidity_ok=False,
+                        reasons=tuple(reasons) + ("رفض دفتر: اشتباه Spoof/Iceberg",),
+                    )
+                # جدار Iceberg معاكس لاتجاه الصفقة
+                if micro.iceberg_suspect:
+                    if side == "buy" and micro.ask_wall > micro.bid_wall * 1.5:
+                        return HybridDecision(
+                            allowed=False,
+                            halted=False,
+                            final_signal="WAIT",
+                            technical_passed=True,
+                            sentiment_ok=True,
+                            macro_ok=True,
+                            liquidity_ok=False,
+                            reasons=tuple(reasons) + ("جدار عرض Iceberg ضد الشراء",),
+                        )
+                    if side == "sell" and micro.bid_wall > micro.ask_wall * 1.5:
+                        return HybridDecision(
+                            allowed=False,
+                            halted=False,
+                            final_signal="WAIT",
+                            technical_passed=True,
+                            sentiment_ok=True,
+                            macro_ok=True,
+                            liquidity_ok=False,
+                            reasons=tuple(reasons) + ("جدار طلب Iceberg ضد البيع",),
+                        )
+            except Exception as micro_exc:  # noqa: BLE001
+                reasons.append(f"micro_structure تخطي: {micro_exc}")
         except Exception:
             pass
     except Exception:

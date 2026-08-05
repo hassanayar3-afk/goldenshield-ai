@@ -461,6 +461,33 @@ class TradeExecutor:
         if self.alerts is not None:
             self.alerts.trade_closed(symbol, pnl, reason)
 
+    def _record_post_mortem_safe(
+        self,
+        position: Position,
+        price: float,
+        pnl: float,
+        reason: str,
+    ) -> None:
+        """تشريح إجباري بعد أي إغلاق — لا يرفع استثناء للحلقة الرئيسية."""
+        try:
+            from operations.post_mortem import record_close_post_mortem
+
+            side_txt = "buy" if position.side == OrderSide.BUY else "sell"
+            record_close_post_mortem(
+                symbol=str(position.symbol),
+                side=side_txt,
+                entry=float(position.entry_price or 0.0),
+                exit_price=float(price or 0.0),
+                pnl=float(pnl or 0.0),
+                reason=str(reason or "close"),
+                score=int(getattr(position, "signal_score", 0) or 0),
+                amount=float(getattr(position, "amount", 0.0) or 0.0),
+                position_id=str(getattr(position, "id", "") or ""),
+                ssot_matched=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("post_mortem on close: %s", exc)
+
     def _sync_mt5_sl_tp(
         self,
         symbol: str,
@@ -1448,6 +1475,7 @@ class TradeExecutor:
                     pnl,
                     f"{reason} (غبار Spot — أقل من حد المنصة)",
                 )
+                self._record_post_mortem_safe(position, price, pnl, reason)
                 return
 
         order_ok = False
@@ -1559,6 +1587,7 @@ class TradeExecutor:
         )
         self._persist_close_trade(position.id, price, pnl)
         self._notify_close(position.symbol, pnl, reason)
+        self._record_post_mortem_safe(position, price, pnl, reason)
 
         # —— صندوق أسود للخسائر (طبقة مضافة) ——
         try:
@@ -1659,6 +1688,21 @@ class TradeExecutor:
             exit_price = price_map.get(item.symbol, 0.0)
             self._persist_close_trade(item.position_id, exit_price, item.pnl)
             self._notify_close(item.symbol, item.pnl, "Emergency Flat")
+            try:
+                from operations.post_mortem import record_close_post_mortem
+
+                record_close_post_mortem(
+                    symbol=str(item.symbol),
+                    side="unknown",
+                    entry=0.0,
+                    exit_price=float(exit_price or 0.0),
+                    pnl=float(item.pnl or 0.0),
+                    reason="Emergency Flat",
+                    position_id=str(getattr(item, "position_id", "") or ""),
+                    ssot_matched=True,
+                )
+            except Exception as pm_exc:  # noqa: BLE001
+                logger.warning("post_mortem emergency: %s", pm_exc)
             if self.audit is not None:
                 self.audit.log_exit(
                     item.symbol,

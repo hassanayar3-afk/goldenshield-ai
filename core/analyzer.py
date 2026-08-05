@@ -4,11 +4,12 @@ import logging
 
 from dataclasses import dataclass
 
-from core.constants import OHLCV_ANALYSIS_LIMIT
+from core.constants import ANALYSIS_TIMEFRAMES, OHLCV_ANALYSIS_LIMIT
 from core.hybrid_engine import HybridDecision, evaluate_hybrid
 from core.technical.fvg_detector import detect_fvg
 from core.technical.manipulation_guard import detect_manipulation
 from core.technical.mean_reversion import analyze_mean_reversion
+from core.technical.micro_entry import evaluate_micro_entry
 from core.technical.quality_gates import run_quality_gates
 from core.technical.signal_scorer import ScoreBreakdown, is_trade_allowed, score_signal
 from core.technical.smc_analyzer import analyze_smc
@@ -16,8 +17,10 @@ from core.technical.spread_filter import check_spread
 from core.technical.timeframe_aligner import TimeframeAlignment, TrendDirection, align_timeframes
 from core.technical.volume_analyzer import analyze_volume
 from data.ohlcv_fetcher import OHLCVFetcher
+from data.orderbook_fetcher import OrderBookFetcher
 from data.ticker_fetcher import TickerFetcher
 from config.settings import get_settings
+from core.micro_structure import analyze_orderbook_micro
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +110,38 @@ class MarketAnalyzer:
             if not quality.passed:
                 allowed = False
 
+        # —— دخول مجهري 5m/1m (طبقة مضافة فوق الهرم 4H/1H/15m) ——
+        if allowed and alignment.direction != TrendDirection.NEUTRAL:
+            try:
+                micro = evaluate_micro_entry(
+                    candles_5m=candles_by_tf.get("5m", []),
+                    candles_1m=candles_by_tf.get("1m", []),
+                    direction=alignment.direction,
+                )
+                quality_reasons.append(f"مجهري: {micro.reason}")
+                if not micro.ok:
+                    allowed = False
+            except Exception as micro_exc:  # noqa: BLE001
+                logger.warning("micro entry %s: %s", self.symbol, micro_exc)
+
+        # —— نبض دفتر الأوامر (Micro-Tick / Iceberg / Spoof) ——
+        if allowed:
+            try:
+                book = OrderBookFetcher().fetch(self.symbol)
+                ob = {
+                    "bids": [(lvl.price, lvl.amount) for lvl in book.bids],
+                    "asks": [(lvl.price, lvl.amount) for lvl in book.asks],
+                }
+                micro_ob = analyze_orderbook_micro(ob)
+                quality_reasons.append(
+                    f"دفتر: Δ={micro_ob.delta_proxy:.4g} iceberg={micro_ob.iceberg_suspect} spoof={micro_ob.spoof_suspect}"
+                )
+                if micro_ob.spoof_suspect:
+                    allowed = False
+                    quality_reasons.append("رفض: اشتباه Spoofing/جدار وهمي في الدفتر")
+            except Exception as ob_exc:  # noqa: BLE001
+                logger.debug("orderbook micro in analyzer: %s", ob_exc)
+
         if allowed and alignment.direction == TrendDirection.BULLISH:
             signal = "BUY SIGNAL"
         elif allowed and alignment.direction == TrendDirection.BEARISH:
@@ -130,6 +165,7 @@ class MarketAnalyzer:
         try:
             candles_by_tf = self._ohlcv_fetcher.fetch_multi(
                 self.symbol,
+                timeframes=ANALYSIS_TIMEFRAMES,
                 limit=OHLCV_ANALYSIS_LIMIT,
                 use_cache=True,
             )

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Post-Mortem Engine — تشريح صفقة بعد الإغلاق (طبقة مضافة، لا تمس DB بخلاف التسجيل)."""
+"""Post-Mortem Engine — تشريح صفقة بعد الإغلاق (ملف + فهرس JSONL للتكيّف)."""
 
 from __future__ import annotations
 
@@ -18,12 +18,16 @@ def _active() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _reports_root() -> Path:
+    return Path(os.getcwd()) / "storage" / "reports" / "post_mortem"
+
+
 def record_post_mortem(trade: dict[str, Any]) -> str | None:
-    """يحفظ ملخص تشريح في storage/reports/post_mortem/ دون حذف سجلات أخرى."""
+    """يحفظ تشريحاً فردياً + يُلحق بسجل تكيّفي index.jsonl دون مسح DB."""
     if not _active():
         return None
     try:
-        root = Path(os.getcwd()) / "storage" / "reports" / "post_mortem"
+        root = _reports_root()
         root.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         symbol = str(trade.get("symbol") or "UNK").replace("/", "")
@@ -36,12 +40,57 @@ def record_post_mortem(trade: dict[str, Any]) -> str | None:
             "score": trade.get("score"),
             "entry": trade.get("entry"),
             "exit": trade.get("exit"),
+            "amount": trade.get("amount"),
             "reason": trade.get("reason") or trade.get("close_reason"),
-            "pipeline": trade.get("pipeline"),
+            "pipeline": trade.get("pipeline") or "enterprise",
             "ssot_matched": trade.get("ssot_matched"),
+            "position_id": trade.get("position_id"),
+            "outcome": (
+                "win"
+                if float(trade.get("pnl") or 0) > 0
+                else ("loss" if float(trade.get("pnl") or 0) < 0 else "flat")
+            ),
         }
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        index = root / "index.jsonl"
+        with index.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return str(path)
     except Exception as exc:  # noqa: BLE001
         logger.warning("record_post_mortem: %s", exc)
+        return None
+
+
+def record_close_post_mortem(
+    *,
+    symbol: str,
+    side: str,
+    entry: float,
+    exit_price: float,
+    pnl: float,
+    reason: str,
+    score: int = 0,
+    amount: float = 0.0,
+    position_id: str = "",
+    ssot_matched: bool | None = None,
+) -> str | None:
+    """واجهة مريحة تُستدعى من منفّذ الإغلاق."""
+    try:
+        return record_post_mortem(
+            {
+                "symbol": symbol,
+                "side": side,
+                "entry": float(entry or 0.0),
+                "exit": float(exit_price or 0.0),
+                "pnl": float(pnl or 0.0),
+                "reason": reason,
+                "score": int(score or 0),
+                "amount": float(amount or 0.0),
+                "position_id": position_id,
+                "ssot_matched": ssot_matched,
+                "pipeline": "enterprise",
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("record_close_post_mortem: %s", exc)
         return None
