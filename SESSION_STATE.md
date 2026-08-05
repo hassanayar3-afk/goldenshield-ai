@@ -4,8 +4,9 @@
 ## الحالة العامة
 - ✅ **v1 + إضافات مؤسسية v1.3 مكتملة برمجياً**
 - دخول تلقائي **≥95** · عرض إشارات **≥75** · مخاطرة افتراضية **1%** · R:R **1:3**
-- التشغيل الحالي المضبوط: **paper / Binance Spot**
-- الأسرار (تيليجرام / Binance / MT5): تُترك كما هي أو تُرسل لاحقاً عند الحاجة
+- التشغيل الحالي المضبوط: **Binance Demo Trading** (`BINANCE_DEMO_TRADING=true` + `EXECUTION_MODE=live` + backend=binance)
+- الأوامر تذهب إلى `demo-api.binance.com` (أموال وهمية) — **ليس** الحساب الحقيقي
+- الأسرار (تيليجرام / Binance Demo / MT5): تُترك كما هي أو تُرسل لاحقاً عند الحاجة
 
 ## ما يعمل الآن (مفعّل)
 - Failover API · عزل تحليل/تنفيذ · Health ساعتي · Outage 10s
@@ -21,9 +22,9 @@
 - High Conviction / Bonus / ADX / Profit Cap
 
 ## بانتظار منك (عند الجاهزية)
-1. `BINANCE_API_KEY` / `SECRET` (+ اختياري `_2` للـ Failover)
+1. تأكيد مفاتيح **Demo** من `demo.binance.com` في `BINANCE_API_KEY` / `SECRET` (+ اختياري `_2`)
 2. تأكيد `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID` إن لزم تحديث
-3. لـ Live MT5: `MT5_*` + `EXECUTION_BACKEND=mt5` + `EXECUTION_MODE=live`
+3. لـ Live MT5 (منفصل): `MT5_*` + `EXECUTION_BACKEND=mt5` + `BINANCE_DEMO_TRADING=false`
 
 ## أوامر
 ```powershell

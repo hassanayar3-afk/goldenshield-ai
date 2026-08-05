@@ -41,3 +41,13 @@ def test_trading_pairs_match_defaults():
     assert settings.max_concurrent_positions == 12
     assert settings.min_account_balance == 100.0
     assert settings.monte_carlo_simulations == 1000
+    # افتراضي Demo Trading مفعّل (أموال وهمية) ما لم يُلغَ صراحة
+    assert settings.binance_demo_trading is True
+
+
+def test_binance_demo_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("BINANCE_DEMO_TRADING", "false")
+    from config.settings import load_settings
+
+    settings = load_settings("dev", reload=True)
+    assert settings.binance_demo_trading is False

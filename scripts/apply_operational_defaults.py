@@ -10,8 +10,11 @@ ENV_PATH = ROOT / ".env"
 # قيم تشغيل مؤسسية — لا تتضمن أسراراً
 PATCHES: dict[str, str] = {
     "ENV": "dev",
-    "EXECUTION_MODE": "paper",
+    # live + BINANCE_DEMO_TRADING = أوامر على حساب الديمو (أموال وهمية)
+    "EXECUTION_MODE": "live",
     "EXECUTION_BACKEND": "binance",
+    "BINANCE_DEMO_TRADING": "true",
+    "MT5_ENABLED": "false",
     "AUTO_ENTRY_MIN_PERCENT": "95",
     "MANUAL_ENTRY_REQUIRED": "false",
     "IRON_PROTOCOL_ENABLED": "true",

@@ -7,7 +7,10 @@ services:
       - .env
     environment:
       ENV: production
-      EXECUTION_MODE: paper
+      # لا نفرض paper هنا — يُؤخذ من .env (Demo: live + BINANCE_DEMO_TRADING=true)
+      EXECUTION_MODE: ${EXECUTION_MODE:-live}
+      BINANCE_DEMO_TRADING: ${BINANCE_DEMO_TRADING:-true}
+      EXECUTION_BACKEND: ${EXECUTION_BACKEND:-binance}
       PYTHONIOENCODING: utf-8
     volumes:
       - ./storage:/app/storage
