@@ -1,6 +1,8 @@
-"""محرك قواعد المشروع المركزي — رأس مال 5000 + النظام الهجين (دائم).
+# -*- coding: utf-8 -*-
+"""GoldenShield AI — Autonomous Enterprise Trading Architecture
+Project Rules & Global Constants (v2026.08_ENTERPRISE_HYBRID)
 
-هجين:
+هجين دائم:
   - تلقائي: درجة 9–10 فقط (90–100) + حد أدنى صفقة ~25$
   - يدوي/بث: درجة 7–8 (70–75) → تيليجرام للاختيار اليدوي
   - الفتح اليدوي: غير مقيّد بحد 25$ الصارم (حرية Demo)
@@ -16,28 +18,59 @@ from core.constants import score_to_percent
 from risk.compound_growth import risk_amount
 from execution.sl_tp_calculator import calculate_sl_tp
 
+# —— هوية المؤسسة ——
+PROJECT_NAME: str = "GoldenShield AI"
+ARCHITECTURE_MODE: str = "Autonomous Enterprise Trading Architecture"
+PROJECT_RULES_VERSION: str = "v2026.08_ENTERPRISE_HYBRID"
+
+# —— رأس المال والحدود ——
+PROJECT_REFERENCE_CAPITAL: float = 5000.0
+PROJECT_MIN_TRADE_NOTIONAL: float = 25.0
+PROJECT_MIN_EXCHANGE_NOTIONAL: float = 5.0
+
 # —— النظام الهجين (مرجع دائم للمشروع) ——
+HYBRID_SIGNAL_MODE: bool = True
 HYBRID_AUTO_MIN_SCORE: int = 9
 HYBRID_AUTO_MIN_PERCENT: int = 90
+AUTO_ENTRY_MIN_PERCENT: int = 90
 HYBRID_MANUAL_MIN_SCORE: int = 7
 HYBRID_MANUAL_MIN_PERCENT: int = 70
+TELEGRAM_SIGNAL_MIN_PERCENT: int = 70
 HYBRID_MANUAL_MAX_SCORE_EXCLUSIVE: int = 9  # 7–8 يدوي
+# عتبة يدوي «قوية» مفضّلة في خط الأنابيب المؤسسي (لا تلغي بث 7)
+ENTERPRISE_MANUAL_PREFERRED_PERCENT: int = 80
+MANUAL_ENTRY_REQUIRED: bool = False
+
+# —— أعلام تشغيل مؤسسية ——
+BOT_FORCE_ACTIVE: bool = True
+SSOT_SYNC_ENABLED: bool = True
+POST_MORTEM_ENGINE_ACTIVE: bool = True
+CIRCUIT_BREAKER_MAX_LOSSES: int = 3
+ENTERPRISE_PIPELINE_ENABLED: bool = True
+
+# أطر المؤسسة: اتجاه 4H / نطاق 1H / دخول 15m·5m / انزلاق 1m
+ENTERPRISE_TIMEFRAMES: tuple[str, ...] = ("4h", "1h", "15m", "5m", "1m")
 
 
 @dataclass(frozen=True)
 class ProjectRules:
-    reference_capital: float = 5000.0
+    reference_capital: float = PROJECT_REFERENCE_CAPITAL
     risk_per_trade_pct: float = 1.0
     default_sl_pct: float = 0.03
     default_rr_ratio: float = 3.0
-    min_exchange_notional: float = 5.0
-    min_trade_notional: float = 25.0
+    min_exchange_notional: float = PROJECT_MIN_EXCHANGE_NOTIONAL
+    min_trade_notional: float = PROJECT_MIN_TRADE_NOTIONAL
     notify_min_percent: int = HYBRID_MANUAL_MIN_PERCENT
     auto_soft_min_percent: int = HYBRID_AUTO_MIN_PERCENT
     signal_min_percent: int = HYBRID_MANUAL_MIN_PERCENT
     hybrid_mode: bool = True
     hybrid_auto_min_score: int = HYBRID_AUTO_MIN_SCORE
     hybrid_manual_min_score: int = HYBRID_MANUAL_MIN_SCORE
+    circuit_breaker_max_losses: int = CIRCUIT_BREAKER_MAX_LOSSES
+    ssot_sync_enabled: bool = True
+    post_mortem_active: bool = True
+    enterprise_pipeline: bool = True
+    architecture_mode: str = ARCHITECTURE_MODE
 
 
 def load_project_rules() -> ProjectRules:
@@ -76,6 +109,15 @@ def load_project_rules() -> ProjectRules:
     )
     if hybrid:
         auto_min = max(auto_min, HYBRID_AUTO_MIN_PERCENT)
+    def _flag(key: str, default: bool = True) -> bool:
+        raw = (os.getenv(key, "true" if default else "false") or ("true" if default else "false")).strip().lower()
+        return raw in {"1", "true", "yes", "on"}
+
+    try:
+        cb_max = int(os.getenv("CIRCUIT_BREAKER_MAX_LOSSES", str(CIRCUIT_BREAKER_MAX_LOSSES)) or CIRCUIT_BREAKER_MAX_LOSSES)
+    except (TypeError, ValueError):
+        cb_max = CIRCUIT_BREAKER_MAX_LOSSES
+
     return ProjectRules(
         reference_capital=max(ref, 100.0),
         risk_per_trade_pct=float(getattr(settings, "risk_per_trade_pct", 1.0) or 1.0),
@@ -92,6 +134,11 @@ def load_project_rules() -> ProjectRules:
         hybrid_mode=hybrid,
         hybrid_auto_min_score=HYBRID_AUTO_MIN_SCORE,
         hybrid_manual_min_score=HYBRID_MANUAL_MIN_SCORE,
+        circuit_breaker_max_losses=max(1, cb_max),
+        ssot_sync_enabled=_flag("SSOT_SYNC_ENABLED", True),
+        post_mortem_active=_flag("POST_MORTEM_ENGINE_ACTIVE", True),
+        enterprise_pipeline=_flag("ENTERPRISE_PIPELINE_ENABLED", True),
+        architecture_mode=ARCHITECTURE_MODE,
     )
 
 

@@ -636,6 +636,34 @@ async def check_symbol(symbol: str) -> dict | None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("halt check before open: %s", exc)
 
+        # —— خط أنابيب المؤسسة المتسلسل (طبقة مضافة قبل التنفيذ) ——
+        try:
+            from config.project_rules import load_project_rules as _load_pr
+            from core.enterprise_pipeline import run_pre_execution_pipeline
+
+            if bool(_load_pr().enterprise_pipeline):
+                losses = int(
+                    getattr(getattr(_risk, "state", None), "consecutive_losses", 0) or 0
+                )
+                pipe = run_pre_execution_pipeline(
+                    symbol=symbol,
+                    signal=str(result.signal),
+                    score=result.score,
+                    price=float(result.price),
+                    reasons=tuple(result.reasons or ()),
+                    consecutive_losses=losses,
+                    consensus_approved=bool(consensus.approved),
+                    risk_approved=bool(risk_approval.approved),
+                    halted=bool(result.halted),
+                    for_auto_open=True,
+                )
+                if not pipe.approved:
+                    print(f"🏛 {symbol}: Pipeline/{pipe.stage} — {pipe.reason}")
+                    _audit.log_analysis_outcome(snapshot, result, consensus=consensus)
+                    return entry
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("enterprise pipeline gate: %s", exc)
+
         exec_result = _executor.try_open(
             result,
             snapshot=snapshot,
