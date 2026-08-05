@@ -114,10 +114,12 @@ schtasks /End /TN "GoldenShieldStatusWindow" /F >nul 2>&1
 schtasks /Delete /TN "GoldenShieldStatusWindow" /F >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)|00_LIVE_CONSOLE\.bat|BOT STATUS|LIVE SIGNALS' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
 timeout /t 1 /nobreak >nul
-if exist "%GS_ROOT%\BOT_WINDOW.bat" (
-  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" cmd /k call "%GS_ROOT%\BOT_WINDOW.bat"
+if exist "%GS_ROOT%\BOT_WINDOW.ps1" (
+  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%GS_ROOT%\BOT_WINDOW.ps1"
+) else if exist "%GS_ROOT%\BOT_WINDOW.bat" (
+  start "GoldenShield LIVE SIGNALS" /D "%GS_ROOT%" cmd.exe /k call "%GS_ROOT%\BOT_WINDOW.bat"
 ) else if exist "%GS_ROOT%\00_LIVE_CONSOLE.bat" (
-  start "GoldenShield LIVE CONSOLE" /D "%GS_ROOT%" cmd /k call "%GS_ROOT%\00_LIVE_CONSOLE.bat"
+  start "GoldenShield LIVE CONSOLE" /D "%GS_ROOT%" cmd.exe /k call "%GS_ROOT%\00_LIVE_CONSOLE.bat"
 ) else (
   echo  [WARN] BOT_WINDOW.bat غير موجود
 )
