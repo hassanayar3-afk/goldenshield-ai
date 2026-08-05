@@ -21,9 +21,13 @@ UPLOADS = [
     "config/settings.py",
     "config/environments/production.yaml",
     "run_official_bot.ps1",
+    "run_official_bot.bat",
     "START_BOT.bat",
     "REST_BOT.bat",
+    "STOP_BOT.bat",
+    "BOT_WINDOW.bat",
     "BOT_WINDOW.ps1",
+    "00_LIVE_CONSOLE.bat",
 ]
 
 ENV_MAP = {
