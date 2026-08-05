@@ -22,6 +22,7 @@ class TelegramBot:
         self._api_base = f"https://api.telegram.org/bot{self.token}" if self.token else None
         # حماية من 429: إيقاف التعديلات العدوانية حتى ينتهي الانتظار
         self._flood_until_mono: float = 0.0
+        self.last_edit_reason: str = ""
 
     @property
     def configured(self) -> bool:
@@ -123,6 +124,18 @@ class TelegramBot:
             return result.get("message_id")
         return None
 
+    def _classify_edit_error(self, description: str) -> str:
+        desc = (description or "").lower()
+        if "message is not modified" in desc:
+            return "unchanged"
+        if "message to edit not found" in desc or "message_id_invalid" in desc:
+            return "not_found"
+        if "message can't be edited" in desc or "too old" in desc:
+            return "too_old"
+        if "too many requests" in desc or "retry after" in desc:
+            return "flood"
+        return "error"
+
     def edit_message_text(
         self,
         message_id: int,
@@ -134,8 +147,10 @@ class TelegramBot:
     ) -> bool:
         target = chat_id or self.chat_id
         if not self._api_base or not target:
+            self.last_edit_reason = "not_configured"
             return False
         if self.flood_active():
+            self.last_edit_reason = "flood"
             return False
 
         if len(text) > 4000:
@@ -150,10 +165,53 @@ class TelegramBot:
         }
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
-        result = self._call("editMessageText", payload)
-        if result is not None:
-            return True
-        return False
+        try:
+            response = requests.post(
+                f"{self._api_base}/editMessageText",
+                json=payload,
+                timeout=15,
+            )
+            if response.status_code == 429:
+                retry_after = 30.0
+                try:
+                    body = response.json()
+                    retry_after = float(
+                        (body.get("parameters") or {}).get("retry_after") or 30
+                    )
+                except Exception:
+                    pass
+                self._mark_flood(retry_after)
+                self.last_edit_reason = "flood"
+                return False
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("ok"):
+                    self.last_edit_reason = "ok"
+                    return True
+                desc = str(data.get("description", ""))
+                self.last_edit_reason = self._classify_edit_error(desc)
+                if self.last_edit_reason == "unchanged":
+                    return True
+                logger.warning("Telegram editMessageText error: %s", data)
+                return False
+            desc = ""
+            try:
+                desc = str((response.json() or {}).get("description", ""))
+            except Exception:
+                desc = response.text[:300]
+            self.last_edit_reason = self._classify_edit_error(desc)
+            if self.last_edit_reason == "unchanged":
+                return True
+            logger.warning(
+                "Telegram editMessageText failed (%s): %s",
+                response.status_code,
+                desc or response.text[:300],
+            )
+            return False
+        except Exception as exc:
+            self.last_edit_reason = "error"
+            logger.warning("Telegram editMessageText exception: %s", exc)
+            return False
 
     def answer_callback_query(
         self,

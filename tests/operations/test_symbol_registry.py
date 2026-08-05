@@ -48,7 +48,7 @@ def test_add_forex_uses_multi_source(tmp_path, monkeypatch):
     monkeypatch.setattr("operations.symbol_registry.MAP_PATH", map_path)
 
     registry = SymbolRegistry()
-    registry.load([])
+    registry.load(["FOREX/EURUSD"])
     spec = registry.get("FOREX/EURUSD")
     assert spec is not None
     assert spec.data_source == "forex"

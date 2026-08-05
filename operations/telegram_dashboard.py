@@ -24,6 +24,7 @@ from operations.dashboard_templates import (
     format_entry_block_reason,
     format_live_signals_board,
     format_main_dashboard,
+    format_market_overview,
     format_position_card,
     format_positions_list,
     format_qualified_signals_digest,
@@ -108,6 +109,8 @@ class TelegramDashboard:
         self._live_signals_last_text: str = ""
         self._live_signals_last_body: str = ""
         self._live_signals_interval_seconds: float = 4.0
+        self._live_positions_edit_failures: int = 0
+        self._live_signals_edit_failures: int = 0
 
     def update_market(
         self,
@@ -288,12 +291,14 @@ class TelegramDashboard:
         self._live_positions_msg_id = message_id
         self._live_positions_chat_id = chat_id
         self._live_positions_last_ts = 0.0
+        self._live_positions_edit_failures = 0
         self._live_interval_seconds = self._live_positions_interval()
 
     def disable_live_positions(self) -> None:
         self._live_positions_enabled = False
         self._live_positions_msg_id = None
         self._live_positions_chat_id = None
+        self._live_positions_edit_failures = 0
 
     @property
     def live_positions_active(self) -> bool:
@@ -319,9 +324,26 @@ class TelegramDashboard:
                 reply_markup=view.keyboard,
                 chat_id=self._live_positions_chat_id,
             )
-            return bool(ok)
+            if ok:
+                self._live_positions_edit_failures = 0
+                return True
+            reason = str(getattr(self.telegram, "last_edit_reason", "") or "")
+            if reason == "unchanged":
+                return True
+            self._live_positions_edit_failures += 1
+            if reason in {"not_found", "too_old"} or self._live_positions_edit_failures >= 3:
+                logger.info(
+                    "live positions board reset (reason=%s failures=%s)",
+                    reason or "edit_failed",
+                    self._live_positions_edit_failures,
+                )
+                self.disable_live_positions()
+            return False
         except Exception as exc:  # noqa: BLE001
             logger.debug("tick_live_positions: %s", exc)
+            self._live_positions_edit_failures += 1
+            if self._live_positions_edit_failures >= 3:
+                self.disable_live_positions()
             return False
 
     def _live_signals_wanted(self) -> bool:
@@ -427,6 +449,7 @@ class TelegramDashboard:
             self._live_signals_last_ts = time.monotonic()
             self._live_signals_last_text = view.text
             self._live_signals_last_body = self._board_body_key(view.text)
+            self._live_signals_edit_failures = 0
             self._live_signals_interval_seconds = self._live_signals_interval()
             return True
         except Exception as exc:  # noqa: BLE001
@@ -465,10 +488,26 @@ class TelegramDashboard:
                 chat_id=self._live_signals_chat_id,
             )
             self._live_signals_last_ts = now
-            if ok:
-                self._live_signals_last_text = view.text
-                self._live_signals_last_body = body_key
-            return bool(ok)
+            reason = str(getattr(self.telegram, "last_edit_reason", "") or "")
+            if ok or reason == "unchanged":
+                self._live_signals_edit_failures = 0
+                if ok:
+                    self._live_signals_last_text = view.text
+                    self._live_signals_last_body = body_key
+                return True
+            self._live_signals_edit_failures += 1
+            if reason in {"not_found", "too_old"} or self._live_signals_edit_failures >= 3:
+                logger.info(
+                    "live signals board reset (reason=%s failures=%s)",
+                    reason or "edit_failed",
+                    self._live_signals_edit_failures,
+                )
+                self._live_signals_enabled = False
+                self._live_signals_msg_id = None
+                self._live_signals_chat_id = None
+                self._live_signals_edit_failures = 0
+                return self.ensure_live_signals()
+            return False
         except Exception as exc:  # noqa: BLE001
             logger.debug("publish_live_signals: %s", exc)
             return False

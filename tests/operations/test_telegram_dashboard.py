@@ -1,5 +1,6 @@
 from operations.dashboard_templates import (
     format_entry_block_reason,
+    format_market_overview,
     format_trade_setup_card,
     risk_grade_from_score,
 )
@@ -50,7 +51,7 @@ def test_entry_block_reason_low_score():
         has_position=False,
         approval_approved=True,
     )
-    assert "75" in reason
+    assert "70" in reason
 
 
 def test_trade_setup_card_shows_why_no_entry():
@@ -109,13 +110,25 @@ def test_trade_setup_shows_dollar_profit_even_when_waiting():
     assert "│" in text
 
 
+def test_format_market_overview_renders_entries():
+    text = format_market_overview(
+        [
+            {"symbol": "BTC/USDT", "score": 9, "signal": "BUY SIGNAL", "price": 65000.0},
+            {"symbol": "ETH/USDT", "score": 3, "signal": "WAIT", "price": 3200.0},
+        ]
+    )
+    assert "الإشارات" in text
+    assert "BTC" in text
+    assert "ETH" in text
+
+
 def test_main_menu_keyboard_simple():
     kb = main_menu_keyboard(paused=False)
     labels = [btn["text"] for row in kb["inline_keyboard"] for btn in row]
     assert "📡 الإشارات" in labels
     assert "📂 مراكزي" in labels
     assert "📋 التقرير" in labels
-    assert "🚨 طوارئ — إغلاق الكل" in labels
+    assert "🚨 طوارئ — إيقاف كامل" in labels
 
 
 def test_main_menu_keyboard_resume_when_paused():

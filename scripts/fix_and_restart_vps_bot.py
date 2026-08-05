@@ -31,6 +31,8 @@ SYNC_PATHS = [
     "operations/telegram_dashboard.py",
     "operations/telegram_commands.py",
     "operations/telegram_keyboards.py",
+    "operations/telegram_bot.py",
+    "operations/dashboard_templates.py",
     "operations/message_templates.py",
     "operations/bot_admin.py",
     "operations/symbol_registry.py",
@@ -176,7 +178,11 @@ $utf8 = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllLines($envp, $out, $utf8)
 Write-Host 'ENV_PATCHED'
 """
-    print(run_ps(client, patch, timeout=60))
+    patched = run_ps(client, patch, timeout=60)
+    try:
+        print(patched)
+    except UnicodeEncodeError:
+        print(patched.encode("ascii", errors="replace").decode("ascii"))
 
     start = r"""
 $ErrorActionPreference='Continue'
@@ -219,7 +225,11 @@ if ($p.HasExited) {
   Write-Host 'LEFT_RUNNING_HIDDEN_OK'
 }
 """
-    print(run_ps(client, start, timeout=240))
+    started = run_ps(client, start, timeout=240)
+    try:
+        print(started)
+    except UnicodeEncodeError:
+        print(started.encode("ascii", errors="replace").decode("ascii"))
     client.close()
     return 0
 

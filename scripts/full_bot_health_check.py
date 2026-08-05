@@ -92,24 +92,14 @@ def main() -> int:
     run(
         ssh,
         "powershell -NoProfile -Command "
-        "\"schtasks /Query /TN GoldenShieldBotVisible /V /FO LIST 2>&1 | Select-String -Pattern 'Task Name|Status|Last Run|Next Run|Task To Run|Last Result'\"",
+        "\"schtasks /Query /TN GoldenShieldBotOfficial /V /FO LIST 2>&1 | Select-String -Pattern 'Task Name|Status|Last Run|Next Run|Task To Run|Last Result'\"",
     )
 
     # 6) Env flags (no secrets)
     run(
         ssh,
         "powershell -NoProfile -Command "
-        f"\"if (Test-Path '{KEEP}\\.env') {{ "
-        f"(Get-Content '{KEEP}\\.env') | ForEach-Object {{ if ($_ -match '^(EXECUTION_|BINANCE_DEMO|MT5_ENABLED|TELEGRAM_SIGNALS|TELEGRAM_SEND|AUTO_ENTRY|MANUAL_ENTRY|BOT_AUTO)=') {{ ($_ -replace '=.*$','=***') -replace '(\\*{{3}})$', (($_ -split '=',2)[1] -replace '.','') ; $_ -replace '([^=]+)=(.*)','$1='+ (if($Matches){{'SET'}}else{{''}}) }} }}; "
-        f"Get-Content '{KEEP}\\.env' | Where-Object {{ $_ -match '^(EXECUTION_|BINANCE_DEMO|MT5_|TELEGRAM_SIGNALS|TELEGRAM_SEND|AUTO_ENTRY|MANUAL_ENTRY|BOT_AUTO)=' }} | ForEach-Object {{ if ($_ -match '^(BINANCE_API|TELEGRAM_TOKEN|TELEGRAM_CHAT)') {{ $k=($_ -split '=')[0]; $k+'=***' }} else {{ $_ }} }} "
-        "} else { 'NO_ENV' }\"",
-    )
-
-    # simpler env print
-    run(
-        ssh,
-        "powershell -NoProfile -Command "
-        f"\"Get-Content '{KEEP}\\.env' -EA SilentlyContinue | Where-Object {{ $_ -match '^(EXECUTION_MODE|EXECUTION_BACKEND|BINANCE_DEMO_TRADING|MT5_ENABLED|TELEGRAM_SIGNALS_ONLY|TELEGRAM_SEND_CYCLE_SIGNALS|AUTO_ENTRY_MIN_PERCENT|MANUAL_ENTRY_REQUIRED)=' }}\"",
+        f"\"Get-Content '{KEEP}\\.env' -EA SilentlyContinue | Where-Object {{ $_ -match '^(EXECUTION_MODE|EXECUTION_BACKEND|BINANCE_DEMO_TRADING|MT5_ENABLED|TELEGRAM_SIGNALS_ONLY|TELEGRAM_SEND_CYCLE_SIGNALS|AUTO_ENTRY_MIN_PERCENT|MANUAL_ENTRY_REQUIRED|NO_SLEEP_MODE|LOOP_INTERVAL_SECONDS|TELEGRAM_LIVE_SIGNALS_SECONDS)=' }}\"",
     )
 
     # 7) Recent logs
@@ -127,10 +117,10 @@ def main() -> int:
         "powershell -NoProfile -Command "
         "\"Write-Output '--- SYSTEM EVENTS ---'; "
         "Get-WinEvent -FilterHashtable @{LogName='System'; Id=1074,6006,6008,41,7001,7002; StartTime=(Get-Date).AddDays(-3)} -MaxEvents 15 -EA SilentlyContinue | "
-        "Select-Object TimeCreated,Id,ProviderName,Message | Format-List; "
+        "Select-Object TimeCreated,Id,ProviderName | Format-Table -AutoSize; "
         "Write-Output '--- RDP/LOGON ---'; "
         "Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4634,4647; StartTime=(Get-Date).AddDays(-2)} -MaxEvents 10 -EA SilentlyContinue | "
-        "Select-Object TimeCreated,Id,Message | ForEach-Object { $_.TimeCreated.ToString()+' ID='+$_.Id+' '+(($_.Message -split \"`n\")[0]) }\"",
+        "Select-Object TimeCreated,Id | Format-Table -AutoSize\"",
         timeout=180,
     )
 

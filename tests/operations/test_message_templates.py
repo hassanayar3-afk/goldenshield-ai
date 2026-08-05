@@ -1,5 +1,6 @@
 from operations.alert_dispatcher import AlertLevel
 from operations.message_templates import (
+    DIVIDER,
     escape,
     format_alert_message,
     format_cycle_signals_message,
@@ -27,7 +28,7 @@ def test_startup_message_has_brand_and_mode():
     assert "GoldenShield AI" in text
     assert "PAPER" in text
     assert "BTC/USDT" in text
-    assert "━━━━━━━━━━━━━━━" in text
+    assert DIVIDER in text
 
 
 def test_alert_message_removes_technical_prefix():

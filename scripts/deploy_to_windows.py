@@ -108,28 +108,28 @@ def main() -> int:
 
     run(
         ssh,
-        r'powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path C:\GoldenShield, C:\GoldenShield\storage\db\backups, C:\GoldenShield\storage\logs, C:\GoldenShield\storage\runtime | Out-Null"',
+        rf'powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path {REMOTE_DIR}, {REMOTE_DIR}\storage\db\backups, {REMOTE_DIR}\storage\logs, {REMOTE_DIR}\storage\runtime | Out-Null"',
     )
 
     sftp = ssh.open_sftp()
-    remote_tar_win = r"C:\GoldenShield\_deploy.tgz"
+    remote_tar_win = rf"{REMOTE_DIR}\_deploy.tgz"
     with sftp.file(remote_tar_win.replace("\\", "/"), "wb") as rf:
         rf.write(archive)
     sftp.close()
 
     code, _ = run(
         ssh,
-        r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; tar -xzf _deploy.tgz; Remove-Item _deploy.tgz -Force -ErrorAction SilentlyContinue"',
+        rf'powershell -NoProfile -Command "Set-Location {REMOTE_DIR}; tar -xzf _deploy.tgz; Remove-Item _deploy.tgz -Force -ErrorAction SilentlyContinue"',
         timeout=300,
     )
     if code != 0:
         ssh.close()
         return 1
 
-    run(ssh, r'powershell -NoProfile -Command "Get-ChildItem C:\GoldenShield | Select-Object Name,Length | Format-Table -AutoSize"')
-    run(ssh, r'powershell -NoProfile -Command "Test-Path C:\GoldenShield\requirements.txt; Test-Path C:\GoldenShield\main.py; Test-Path C:\GoldenShield\00_START.bat"')
-    run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py -m pip install -r requirements.txt"', timeout=900)
-    run(ssh, r'powershell -NoProfile -Command "Set-Location C:\GoldenShield; py scripts\bootstrap_storage.py"', timeout=120)
+    run(ssh, rf'powershell -NoProfile -Command "Get-ChildItem {REMOTE_DIR} | Select-Object Name,Length | Format-Table -AutoSize"')
+    run(ssh, rf'powershell -NoProfile -Command "Test-Path {REMOTE_DIR}\requirements.txt; Test-Path {REMOTE_DIR}\main.py; Test-Path {REMOTE_DIR}\00_START.bat"')
+    run(ssh, rf'powershell -NoProfile -Command "Set-Location {REMOTE_DIR}; py -m pip install -r requirements.txt"', timeout=900)
+    run(ssh, rf'powershell -NoProfile -Command "Set-Location {REMOTE_DIR}; py scripts\bootstrap_storage.py"', timeout=120)
 
     ssh.close()
     print("WINDOWS_DEPLOY_DONE C:\\GoldenShield_Binance")

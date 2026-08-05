@@ -32,6 +32,7 @@ from execution.trade_executor import TradeExecutor
 from execution.binance_position_sync import sync_binance_spot_positions, format_holdings_report
 from operations.telegram_bot import TelegramBot
 from operations.telegram_keyboards import main_menu_keyboard, positions_list_keyboard
+from operations.dashboard_templates import format_market_overview
 
 s = get_settings()
 print('demo', s.binance_demo_trading, 'mode', s.execution_mode, 'backend', s.execution_backend)
@@ -66,6 +67,13 @@ report = format_holdings_report(executor)
 prices = {p.symbol: p.entry_price for p in positions}
 pmid = tg.send_message(report, reply_markup=positions_list_keyboard(positions, prices, live=False))
 print('POSITIONS_MSG', pmid)
+
+entries = [
+    {'symbol': sym, 'score': 5, 'signal': 'WAIT', 'price': 1.0}
+    for sym in (s.trading_pairs or [])[:5]
+]
+market_text = format_market_overview(entries)
+print('MARKET_VIEW_OK', 'GoldenShield' in market_text)
 print('HEALTH_OK')
 "@
 """
