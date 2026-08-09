@@ -1,0 +1,80 @@
+=== C_ROOT_DIRS ===
+GoldenShield_Binance
+inetpub
+Packages
+PerfLogs
+Program Files
+Program Files (x86)
+saqr
+Users
+Windows
+?????
+=== MATCH_DIRS ===
+DIR=C:\saqr
+.venv
+app
+caddy
+config
+docs
+scripts
+storage
+tools
+web
+web_public
+.env
+.env.example
+.gitignore
+BOOT_DEBUG.ps1
+ENSURE_BOT.ps1
+ENSURE_CADDY.ps1
+fix_HTTPS.ps1
+FORCE_BOT.ps1
+HEAL_HTTPS.ps1
+README.md
+README_SERVER.txt
+requirements.txt
+RESTART_BOT_ONLY.ps1
+RESTART_CADDY2.ps1
+setup_fixed_https.ps1
+START_BOT.bat
+START_TUNNEL.bat
+STATUS_CHECK.ps1
+_explore_folders.ps1
+_upload.tar.gz
+---
+=== ALL_NONEMPTY_HINT ===
+BOTISH=C:\saqr app=True venv=True
+BOTISH=C:\????? app=True venv=True
+=== LISTEN_8090 ===
+  TCP    0.0.0.0:8090           0.0.0.0:0              LISTENING       7408
+=== UVICORN_PROCS ===
+PID=7048
+CMD="C:\saqr\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 
+---
+PID=7408
+CMD="C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 
+---
+PID=5968
+CMD=C:\saqr\caddy\caddy.exe run --pingback 127.0.0.1:51998 --config C:\saqr\caddy\Caddyfile
+---
+PID=7980
+CMD="c:\windows\system32\cmd.exe" /c "powershell -NoProfile -ExecutionPolicy Bypass -File C:\saqr\_explore_folders.ps1"
+---
+PID=5288
+CMD=powershell  -NoProfile -ExecutionPolicy Bypass -File C:\saqr\_explore_folders.ps1
+---
+=== SCHTASKS ===
+"\GoldenShieldBotOfficial","N/A","Running"
+"\SaqrBotEnsure","N/A","Ready"
+"\SaqrBotEnsure5","8/9/2026 7:41:00 AM","Ready"
+"\SaqrCaddyEnsure","N/A","Ready"
+"\SaqrCaddyEnsure5","8/9/2026 7:41:00 AM","Ready"
+"\SaqrEnsureBot","N/A","Ready"
+"\SaqrEnsureBot5","8/9/2026 7:41:00 AM","Ready"
+=== DESKTOP_BATS ===
+Microsoft Edge.lnk
+REST_BOT - Shortcut.lnk
+start_bot - Shortcut.lnk
+stop_bot - Shortcut.lnk
+Telegram - Copy.lnk
+=== DONE ===

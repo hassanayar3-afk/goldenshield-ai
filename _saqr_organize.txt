@@ -1,0 +1,30 @@
+=== STOP_ALL_BOT_PROCS ===
+=== ARCHIVE_DUPLICATE_FOLDER ===
+RENAME C:\الصقر -> C:\saqr_OLD_BACKUP_DO_NOT_USE
+RENAME_OK
+=== WRITE_START_STOP ===
+=== DEDUPE_SCHTASKS ===
+SUCCESS: The scheduled task "SaqrEnsureBot" was successfully deleted.
+DELETED_TASK=SaqrEnsureBot
+SUCCESS: The scheduled task "SaqrEnsureBot5" was successfully deleted.
+DELETED_TASK=SaqrEnsureBot5
+TASKS_OK
+=== START_OFFICIAL ===
+CADDY_ALREADY
+LISTEN
+  TCP    0.0.0.0:443            0.0.0.0:0              LISTENING       5968
+  TCP    0.0.0.0:8090           0.0.0.0:0              LISTENING       4948
+  TCP    [::]:443               [::]:0                 LISTENING       5968
+PROCS
+PID=6616 CMD="C:\saqr\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 
+PID=4948 CMD="C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 
+HEALTH
+{"status":"ok","bot":"الصقر","version":"2.6.0","stats":{"bookings":0,"waitlist_open":0,"pending_leads":5,"paused":0,"missing_demand":0},"account_linked":true,"only_account_linking_left":false,"missing_required_for_instagram":[]}
+FOLDERS_NOW
+C:\saqr
+C:\saqr_OLD_BACKUP_DO_NOT_USE
+DESKTOP
+START_SAQR.bat
+STOP_SAQR.bat
+STOP_SAQR_FULL.bat
+DONE
