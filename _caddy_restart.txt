@@ -1,0 +1,35 @@
+Successfully started Caddy (pid=4376) - Caddy is running in the background
+CADDY
+
+  Id
+  --
+4376
+
+
+
+  TCP    0.0.0.0:443            0.0.0.0:0              LISTENING       4376
+  TCP    [::]:443               [::]:0                 LISTENING       4376
+PROXY
+
+
+{"level":"info","ts":1786253062.5032914,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+{"level":"info","ts":1786253062.504643,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":7725348864,"previous":9223372036854775807}
+{"level":"info","ts":1786253062.504643,"msg":"using config from file","file":"C:\\saqr\\caddy\\Caddyfile"}
+{"level":"info","ts":1786253062.5109396,"msg":"adapted config to JSON","adapter":"caddyfile"}
+{"level":"info","ts":1786253062.5256395,"logger":"admin","msg":"admin endpoint started","address":"localhost:2019","enforce_origin":false,"origins":["//localhost:2019","//[::1]:2019","//127.0.0.1:2019"]}
+{"level":"info","ts":1786253062.5266328,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0xc000511280"}
+{"level":"info","ts":1786253062.5269547,"logger":"http.auto_https","msg":"server is listening only on the HTTPS port but has no TLS connection policies; adding one to enable TLS","server_name":"srv0","https_port":443}
+{"level":"info","ts":1786253062.5269547,"logger":"http.auto_https","msg":"enabling automatic HTTP->HTTPS redirects","server_name":"srv0"}
+{"level":"info","ts":1786253062.5282738,"logger":"http","msg":"enabling HTTP/3 listener","addr":":443"}
+{"level":"info","ts":1786253062.5295794,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+{"level":"warn","ts":1786253062.5295794,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+{"level":"warn","ts":1786253062.5295794,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+{"level":"info","ts":1786253062.5295794,"logger":"http.log","msg":"server running","name":"remaining_auto_https_redirects","protocols":["h1","h2","h3"]}
+{"level":"info","ts":1786253062.5295794,"logger":"http","msg":"enabling automatic TLS certificate management","domains":["169.58.15.36.sslip.io"]}
+{"level":"info","ts":1786253062.5842676,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:C:\\Users\\Administrator\\AppData\\Roaming\\Caddy","instance":"1599e300-a873-4703-ab95-8cce8bee7f90","try_again":1786339462.5842676,"try_again_in":86400}
+{"level":"info","ts":1786253062.5847764,"logger":"tls","msg":"finished cleaning storage units"}
+{"level":"warn","ts":1786253062.6070943,"logger":"tls","msg":"stapling OCSP","error":"no OCSP stapling for [169.58.15.36.sslip.io]: no OCSP server specified in certificate","identifiers":["169.58.15.36.sslip.io"]}
+{"level":"info","ts":1786253062.6091049,"msg":"autosaved config (load with --resume flag)","file":"C:\\Users\\Administrator\\AppData\\Roaming\\Caddy\\autosave.json"}
+{"level":"info","ts":1786253062.6091049,"msg":"serving initial configuration"}
+{"level":"info","ts":1786253063.2082472,"msg":"got renewal info","names":["169.58.15.36.sslip.io"],"window_start":1791302527,"window_end":1791457977,"selected_time":1791361040,"recheck_after":1786278285.2082472,"explanation_url":""}
+{"level":"info","ts":1786253063.2260308,"logger":"tls","msg":"updated and stored ACME renewal information","identifiers":["169.58.15.36.sslip.io"],"cert_hash":"e5aaca9234856236e7c9f8f3538142deaa393444a2bc6e9aa1fed576c4cb98ed","ari_unique_id":"uVnyjs8i8IbTN0j_dhQYuoLYVYc.BnRGdmGxeCyKDEXxC38umm_e","cert_expiry":1793971082,"selected_time":1791339103,"next_update":1786278285.2082472,"explanation_url":""}

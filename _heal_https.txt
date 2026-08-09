@@ -1,0 +1,29 @@
+Successfully started Caddy (pid=4772) - Caddy is running in the background
+LISTEN
+  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       4772
+  TCP    0.0.0.0:443            0.0.0.0:0              LISTENING       4772
+  TCP    0.0.0.0:8090           0.0.0.0:0              LISTENING       7408
+  TCP    [::]:80                [::]:0                 LISTENING       4772
+  TCP    [::]:443               [::]:0                 LISTENING       4772
+LOCAL
+{"status":"ok","bot":"الصقر","version":"2.6.0","stats":{"bookings":0,"waitlist_open":0,"pending_leads":5,"paused":0,"missing_demand":0},"account_linked":true,"only_account_linking_left":false,"missing_required_for_instagram":[]}
+{"status":"ok","bot":"الصقر","version":"2.6.0","stats":{"bookings":0,"waitlist_open":0,"pending_leads":5,"paused":0,"missing_demand":0},"account_linked":true,"only_account_linking_left":false,"missing_required_for_instagram":[]}
+{"level":"info","ts":1786253168.7057307,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+{"level":"info","ts":1786253168.7062452,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":7725348864,"previous":9223372036854775807}
+{"level":"info","ts":1786253168.7070794,"msg":"using config from file","file":"C:\\saqr\\caddy\\Caddyfile"}
+{"level":"info","ts":1786253168.7100782,"msg":"adapted config to JSON","adapter":"caddyfile"}
+{"level":"info","ts":1786253168.7323833,"logger":"admin","msg":"admin endpoint started","address":"localhost:2019","enforce_origin":false,"origins":["//localhost:2019","//[::1]:2019","//127.0.0.1:2019"]}
+{"level":"info","ts":1786253168.7332225,"logger":"http.auto_https","msg":"server is listening only on the HTTPS port but has no TLS connection policies; adding one to enable TLS","server_name":"srv0","https_port":443}
+{"level":"info","ts":1786253168.7332225,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0xc0005df180"}
+{"level":"info","ts":1786253168.7332225,"logger":"http.auto_https","msg":"enabling automatic HTTP->HTTPS redirects","server_name":"srv0"}
+{"level":"info","ts":1786253168.736495,"logger":"http","msg":"enabling HTTP/3 listener","addr":":443"}
+{"level":"info","ts":1786253168.7392812,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+{"level":"warn","ts":1786253168.7392812,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+{"level":"warn","ts":1786253168.7406626,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+{"level":"info","ts":1786253168.7406626,"logger":"http.log","msg":"server running","name":"remaining_auto_https_redirects","protocols":["h1","h2","h3"]}
+{"level":"info","ts":1786253168.7406626,"logger":"http","msg":"enabling automatic TLS certificate management","domains":["169.58.15.36.sslip.io"]}
+{"level":"warn","ts":1786253168.7461524,"logger":"tls","msg":"stapling OCSP","error":"no OCSP stapling for [169.58.15.36.sslip.io]: no OCSP server specified in certificate","identifiers":["169.58.15.36.sslip.io"]}
+{"level":"info","ts":1786253168.7533417,"msg":"autosaved config (load with --resume flag)","file":"C:\\Users\\Administrator\\AppData\\Roaming\\Caddy\\autosave.json"}
+{"level":"info","ts":1786253168.7533417,"msg":"serving initial configuration"}
+{"level":"info","ts":1786253168.7670915,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:C:\\Users\\Administrator\\AppData\\Roaming\\Caddy","instance":"1599e300-a873-4703-ab95-8cce8bee7f90","try_again":1786339568.7670915,"try_again_in":86400}
+{"level":"info","ts":1786253168.7670915,"logger":"tls","msg":"finished cleaning storage units"}
