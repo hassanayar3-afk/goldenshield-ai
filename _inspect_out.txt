@@ -1,0 +1,48 @@
+
+At C:\saqr\storage\_inspect_cleanup.ps1:20 char:48
+
++   Where-Object { $_.Name -match 'SAQR|saqr|O∩┐╜U,O∩┐╜|START|STOP|tunnel'  ...
+
++                                                ~~
+
+Unexpected token 'O∩┐╜' in expression or statement.
+
+At C:\saqr\storage\_inspect_cleanup.ps1:24 char:20
+
++ Write-Output 'WROTE'
+
++                    ~
+
+The string is missing the terminator: '.
+
+At C:\saqr\storage\_inspect_cleanup.ps1:20 char:16
+
++   Where-Object { $_.Name -match 'SAQR|saqr|O∩┐╜U,O∩┐╜|START|STOP|tunnel'  ...
+
++                ~
+
+Missing closing '}' in statement block or type definition.
+
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+
+    + FullyQualifiedErrorId : UnexpectedToken
+
+ 
+
+
+Traceback (most recent call last):
+  File "C:\Users\acer\goldenshield\GoldenShield_AI\_inspect_cleanup.py", line 51, in <module>
+    with sftp.open(r"C:\saqr\storage\_cleanup_inspect.txt", "r") as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\acer\goldenshield\GoldenShield_AI\.venv\Lib\site-packages\paramiko\sftp_client.py", line 372, in open
+    t, msg = self._request(CMD_OPEN, filename, imode, attrblock)
+             ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\acer\goldenshield\GoldenShield_AI\.venv\Lib\site-packages\paramiko\sftp_client.py", line 857, in _request
+    return self._read_response(num)
+           ~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Users\acer\goldenshield\GoldenShield_AI\.venv\Lib\site-packages\paramiko\sftp_client.py", line 909, in _read_response
+    self._convert_status(msg)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Users\acer\goldenshield\GoldenShield_AI\.venv\Lib\site-packages\paramiko\sftp_client.py", line 938, in _convert_status
+    raise IOError(errno.ENOENT, text)
+FileNotFoundError: [Errno 2] No such file

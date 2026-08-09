@@ -1,0 +1,1 @@
+{"status":"ok","bot":"الصقر","version":"2.6.1","stats":{"bookings":0,"waitlist_open":0,"pending_leads":5,"paused":0,"missing_demand":0},"account_linked":true,"only_account_linking_left":false,"missing_required_for_instagram":[]}
