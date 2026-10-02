@@ -147,17 +147,14 @@ try:
 except Exception as e:
     print("BINANCE_FAIL", type(e).__name__)
 
-async def tg():
-    from operations.telegram_bot import TelegramBot
-    bot = TelegramBot()
-    ok = await bot.send_message(
-        "🛡 <b>GoldenShield</b>\n✅ نظام التشغيل 24/7 مثبت\n"
-        "⚡ NO_SLEEP=ON | Binance متصل\nالبوت يعمل على السيرفر.",
-        parse_mode="HTML",
-    )
-    print("TELEGRAM_OK", bool(ok))
-
-asyncio.run(tg())
+from operations.telegram_bot import TelegramBot
+bot = TelegramBot()
+mid = bot.send_message(
+    "🛡 <b>GoldenShield</b>\n✅ نظام التشغيل 24/7 مثبت\n"
+    "⚡ NO_SLEEP=ON | Binance متصل\nالبوت يعمل على السيرفر.",
+    parse_mode="HTML",
+)
+print("TELEGRAM_OK", bool(mid))
 '@
 $vf = Join-Path $env:TEMP 'gs_verify_os.py'
 Set-Content -Path $vf -Value $verify -Encoding UTF8
