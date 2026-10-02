@@ -25,8 +25,13 @@ foreach ($name in @('bot_stderr.log','bot_stdout.log','gs_daemon.log')) {
   Write-Host ('--- ' + $name + ' ---')
   if (Test-Path $p) { Get-Content $p -Tail 25 -EA SilentlyContinue } else { Write-Host 'MISSING' }
 }
+Write-Host '--- DIR SAMPLE ---'
+Get-ChildItem $bot -ErrorAction SilentlyContinue | Select-Object -First 25 Name, Length
+Write-Host ('HAS_MAIN=' + (Test-Path (Join-Path $bot 'main.py')))
+Write-Host ('HAS_GIT=' + (Test-Path (Join-Path $bot '.git')))
 Write-Host '--- IMPORT TEST ---'
 $env:PYTHONPATH = $bot
+Set-Location $bot
 & $py -c "import sys; sys.path.insert(0, r'$bot'); import main" 2>&1 | Select-Object -First 30
 """
 
