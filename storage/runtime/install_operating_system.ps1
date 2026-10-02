@@ -125,7 +125,6 @@ Write-Host ('BOT_PROCS=' + $procs.Count)
 Set-Location $bot
 $env:PYTHONPATH = $bot
 $verify = @'
-import asyncio
 from config.settings import load_settings
 from data.exchange_client import get_exchange, reset_exchange
 
