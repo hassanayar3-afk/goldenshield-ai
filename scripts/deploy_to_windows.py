@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import io
-import os
 import sys
 import tarfile
-import time
 from pathlib import Path
 
 import paramiko
@@ -18,9 +16,12 @@ if str(ROOT) not in sys.path:
 
 load_dotenv(ROOT / ".env", override=True)
 
-HOST = os.environ.get("WIN_HOST", "169.58.15.36")
-USER = os.environ.get("WIN_USER", "Administrator")
-PASSWORD = os.environ.get("WIN_PASSWORD", "")
+from scripts._win_ssh import (  # noqa: E402
+    WindowsSSHError,
+    connect_windows_ssh,
+    load_local_env_for_deploy,
+)
+
 REMOTE_DIR = r"C:\GoldenShield_Binance"
 
 EXCLUDE_DIRS = {".venv", "__pycache__", ".git", ".pytest_cache", ".mypy_cache", ".cursor", "htmlcov", "tests", ".github", "docs", "saas"}
@@ -50,13 +51,7 @@ def should_skip(rel: Path) -> bool:
 def build_archive() -> bytes:
     from scripts.windows_package import CHECK_BAT, START_BAT, STOP_BAT, production_env
 
-    local: dict[str, str] = {}
-    for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        local[k.strip()] = v.strip()
+    local = load_local_env_for_deploy()
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -95,16 +90,18 @@ def run(ssh: paramiko.SSHClient, cmd: str, timeout: int = 600) -> tuple[int, str
 
 
 def main() -> int:
-    if not PASSWORD:
-        print("Set WIN_PASSWORD")
+    try:
+        archive = build_archive()
+    except OSError as exc:
+        print(f"build_archive failed: {exc}")
         return 1
-
-    archive = build_archive()
     print(f"archive={len(archive)/1024:.1f} KB")
 
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(HOST, username=USER, password=PASSWORD, timeout=45, allow_agent=False, look_for_keys=False)
+    try:
+        ssh = connect_windows_ssh(timeout=45)
+    except WindowsSSHError as exc:
+        print(exc, file=sys.stderr)
+        return 3
 
     run(
         ssh,
