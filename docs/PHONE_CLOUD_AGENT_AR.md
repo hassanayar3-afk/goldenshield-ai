@@ -48,6 +48,12 @@
 **فحص من الوكيل بعد ضبط الأسرار:**
 
 ```bash
+python3 scripts/auto_windows_deploy.py
+```
+
+(يفحص SSH ثم WinRM ثم يرسل تيليجرام إن احتاج خطوة واحدة على VPS.)
+
+```bash
 python3 scripts/probe_windows_remote.py
 python3 scripts/deploy_to_windows.py
 ```
