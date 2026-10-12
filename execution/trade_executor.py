@@ -205,6 +205,7 @@ class TradeExecutor:
         prefs: TradePrefs | None = None,
         protocol: ProtocolApproval | None = None,
         manual_force: bool = False,
+        commander: str = "",
     ) -> ExecutionResult:
         symbol = result.symbol
         settings = get_settings()
@@ -794,6 +795,7 @@ class TradeExecutor:
             scaling_add_pending=scaling_add_pending,
             scaling_add_amount=scaling_add_amount,
             entry_filters=str(getattr(result, "reasons", "") or risk_mode),
+            commander=str(commander or ""),
         )
         self.position_manager.add(position)
         self._persist_open_trade(position)

@@ -33,6 +33,7 @@ class Position:
     scaling_add_pending: bool = False
     scaling_add_amount: float = 0.0
     entry_filters: str = ""
+    commander: str = ""  # smc_macro | gold_flash | micro_momentum
 
     @property
     def risk_per_unit(self) -> float:
