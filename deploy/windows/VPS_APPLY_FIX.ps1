@@ -1,7 +1,8 @@
 # Apply latest GoldenShield fixes on-box + restart full stack (run on VPS as Admin)
 param(
     [string]$Root = "C:\GoldenShield_Binance",
-    [string]$Branch = "cursor/win-remote-deploy-fix-2e26"
+    [string]$Branch = "cursor/win-remote-deploy-fix-2e26",
+    [string]$DiscordWebhookUrl = ""
 )
 $ErrorActionPreference = "Continue"
 Set-Location $Root
