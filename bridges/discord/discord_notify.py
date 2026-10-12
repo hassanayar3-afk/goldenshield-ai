@@ -12,7 +12,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(r"C:\GoldenShield_Binance")
+ROOT = Path(os.getenv("GOLDENSHIELD_OFFICIAL_ROOT", r"C:\GoldenShield_Binance"))
 RUNTIME = ROOT / "storage" / "runtime"
 CFG_FILE = RUNTIME / "discord_bridge.json"
 ENV_FILE = ROOT / ".env"

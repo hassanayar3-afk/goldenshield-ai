@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import ccxt
 
 from config.settings import get_settings
@@ -43,6 +45,16 @@ def _build_exchange(cred: ApiCredential | None) -> ccxt.binance:
         config["apiKey"] = cred.api_key
         config["secret"] = cred.secret
 
+    proxy = (
+        (os.getenv("BINANCE_HTTPS_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or "")
+        .strip()
+    )
+    if proxy:
+        config["proxies"] = {"http": proxy, "https": proxy}
+
+    demo_public = (os.getenv("BINANCE_DEMO_API_PUBLIC") or "").strip()
+    demo_private = (os.getenv("BINANCE_DEMO_API_PRIVATE") or demo_public).strip()
+
     exchange = ccxt.binance(config)
     try:
         exchange.has["fetchCurrencies"] = False
@@ -56,9 +68,11 @@ def _build_exchange(cred: ApiCredential | None) -> ccxt.binance:
             # إصدارات أقدم: توجيه يدوي إن وُجدت الواجهة
             try:
                 exchange.urls["api"] = dict(exchange.urls.get("api") or {})
-                exchange.urls["api"]["public"] = "https://demo-api.binance.com/api/v3"
-                exchange.urls["api"]["private"] = "https://demo-api.binance.com/api/v3"
-                exchange.urls["api"]["v1"] = "https://demo-api.binance.com/api/v1"
+                pub = demo_public or "https://demo-api.binance.com/api/v3"
+                priv = demo_private or pub
+                exchange.urls["api"]["public"] = pub
+                exchange.urls["api"]["private"] = priv
+                exchange.urls["api"]["v1"] = pub.replace("/v3", "/v1")
             except Exception:
                 pass
     return exchange

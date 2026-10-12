@@ -60,6 +60,73 @@ except Exception:
     pass
 
 
+def _is_geo_or_restricted_error(msg: str) -> bool:
+    low = (msg or "").lower()
+    return "451" in msg or "restricted location" in low or "service unavailable from a restricted" in low
+
+
+def snapshot_from_risk_sources() -> dict | None:
+    """DB / runtime mirror when Binance REST is blocked (451) or down."""
+    try:
+        from terminal_app.services import bot_bridge as bb
+
+        risk = bb.risk_state()
+        equity = float(risk.get("current_balance") or 0)
+        session_start = float(risk.get("session_start_balance") or equity)
+        if equity <= 0:
+            mirror_path = RUNTIME / "balance_mirror.json"
+            if mirror_path.exists():
+                data = json.loads(mirror_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    equity = float(data.get("equity") or data.get("balance") or 0)
+                    session_start = float(
+                        data.get("session_start_equity") or data.get("session_start_balance") or equity
+                    )
+        if equity <= 0:
+            disk = load_snap_disk()
+            if disk and disk.get("ok") and disk.get("equity") is not None:
+                return dict(disk)
+            return None
+
+        daily_profit = float(risk.get("daily_profit") or 0)
+        daily_loss = float(risk.get("daily_loss") or 0)
+        demo = str(os.getenv("BINANCE_DEMO_TRADING", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        payload = {
+            "ok": True,
+            "degraded": True,
+            "equity": round(equity, 8),
+            "free_cash": round(float(risk.get("current_balance") or equity), 8),
+            "session_start_equity": round(session_start, 8),
+            "session_pnl": round(equity - session_start, 8),
+            "unrealized_pnl": 0.0,
+            "assets": [],
+            "holdings": [],
+            "open_positions": int(risk.get("open_positions") or 0),
+            "dust_positions": 0,
+            "demo": demo,
+            "source": "risk_state_db",
+            "error": "binance unavailable — using DB/runtime mirror",
+            "ts": aq.utc(),
+        }
+        _snap_cache["ts"] = time.time()
+        _snap_cache["data"] = payload
+        try:
+            (RUNTIME / "binance_snapshot.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+        return payload
+    except Exception:
+        return None
+
+
 def account_from_status(st: dict | None = None) -> dict:
     """Fallback account mirror when live Binance fetch is banned/unavailable."""
     st = st if isinstance(st, dict) else {}
@@ -445,6 +512,13 @@ def binance_snapshot(force: bool = False) -> dict:
             if ban_until:
                 out["ban_until"] = ban_until
             return out
+
+        if _is_geo_or_restricted_error(msg):
+            _snap_cache["ban_until"] = time.time() + max(_SNAP_BAN_TTL_SEC, 300.0)
+        risk_snap = snapshot_from_risk_sources()
+        if risk_snap and risk_snap.get("ok"):
+            risk_snap["error"] = msg[:240]
+            return risk_snap
 
         fail = {
             "ok": False,

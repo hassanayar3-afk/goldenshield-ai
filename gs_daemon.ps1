@@ -1,6 +1,11 @@
 # Durable No-Sleep single-instance daemon for GoldenShield (Binance)
+param(
+    [string]$Root = ""
+)
 $ErrorActionPreference = "Continue"
-$Root = "C:\GoldenShield_Binance"
+if (-not $Root) {
+    $Root = if ($env:GOLDENSHIELD_OFFICIAL_ROOT) { $env:GOLDENSHIELD_OFFICIAL_ROOT } else { "C:\GoldenShield_Binance" }
+}
 Set-Location $Root
 
 $env:PYTHONPATH = $Root
@@ -19,8 +24,13 @@ $env:SSOT_SYNC_ENABLED = "true"
 $env:ENTERPRISE_PIPELINE_ENABLED = "true"
 $env:EXECUTION_BACKEND = "binance"
 
-$py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
-if (-not (Test-Path $py)) { $py = "py" }
+$resolvePy = Join-Path $Root "deploy\windows\Resolve-GsPython.ps1"
+if (Test-Path $resolvePy) {
+    $py = & $resolvePy -Root $Root
+} else {
+    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $py) { $py = "py" }
+}
 $logDir = Join-Path $Root "storage\logs"
 $runtime = Join-Path $Root "storage\runtime"
 New-Item -ItemType Directory -Force -Path $logDir, $runtime | Out-Null
@@ -33,6 +43,7 @@ function Write-D([string]$m) {
 }
 
 Write-D "DAEMON_START"
+Write-D ("PYTHON=" + $py)
 
 while ($true) {
     if (Test-Path $stop) {

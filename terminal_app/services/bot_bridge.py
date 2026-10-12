@@ -129,6 +129,10 @@ def status() -> dict:
     bot_running = _probe_bot_running()
 
     snap = bm.binance_snapshot()
+    if not snap.get("ok"):
+        risk_snap = bm.snapshot_from_risk_sources()
+        if risk_snap and risk_snap.get("ok"):
+            snap = risk_snap
     open_rows = [p for p in positions() if p and "error" not in p]
     if snap.get("ok") and snap.get("equity") is not None:
         bal = float(snap["equity"])

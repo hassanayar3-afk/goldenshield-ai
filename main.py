@@ -1143,6 +1143,12 @@ async def run_bot() -> None:
             print_cycle_pulse_footer(loop_sec, open_count=open_count)
         except Exception:
             pass
+        try:
+            from operations.mobile_runtime_mirror import push_runtime_mirror
+
+            push_runtime_mirror(getattr(_risk, "state", None))
+        except Exception as mirror_exc:  # noqa: BLE001
+            logger.debug("mobile_runtime_mirror: %s", mirror_exc)
         await asyncio.sleep(loop_sec)
 
 
