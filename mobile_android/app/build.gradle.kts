@@ -27,8 +27,8 @@ android {
         applicationId = "com.goldenshield.control"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "2.0.0-instant"
+        versionCode = 6
+        versionName = "2.1.0-vps"
         buildConfigField("String", "PANEL_URL", "\"${panelUrlFromConfig()}\"")
     }
 

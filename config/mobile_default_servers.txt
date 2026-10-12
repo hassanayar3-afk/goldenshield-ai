@@ -1,4 +1,3 @@
-# سطر واحد فعّال فقط — يُنسخ إلى assets عند بناء APK
-# 1) نفق السحaba (يعمل الآن)  2) VPS (بعد GS_START_FULL_STACK + فتح 8790)
-https://due-broke-cds-bracket.trycloudflare.com
+# الرابط الأول يُحقن في APK v2.1 — يُحدَّث عند كل build
 http://13.140.149.172:8790
+https://due-broke-cds-bracket.trycloudflare.com
