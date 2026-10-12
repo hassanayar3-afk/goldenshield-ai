@@ -32,6 +32,7 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                 "mobile_pair_code": PAIR_CODE,
                 "pair_code_hint": PAIR_CODE[:3] + "***",
                 "api_base_hint": tun.rstrip("/") if tun.startswith("https://") else "",
+                "tunnel_url": tun.rstrip("/") + "/" if tun.startswith("http") else "",
                 "rules": bb.rules_payload(),
                 "ws_port": int(__import__("os").getenv("TERMINAL_WS_PORT", "8791") or 8791),
                 "auth_model": {
@@ -39,6 +40,32 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                     "mobile_pair_code": "device pairing secret",
                     "device_token": "session auth via X-GS-Token after /api/pair",
                 },
+            },
+        )
+        return True
+    if path == "/api/mobile/config":
+        import os as _os
+
+        tun = bb.tunnel_url().lstrip("\ufeff").strip().rstrip("/")
+        port = int(_os.getenv("MOBILE_API_PORT", "8790") or 8790)
+        base = tun if tun.startswith("http") else f"http://127.0.0.1:{port}"
+        send_json(
+            handler,
+            200,
+            {
+                "ok": True,
+                "ts": aq.utc(),
+                "tunnel_url": (tun + "/") if tun else "",
+                "local_api_base": f"http://127.0.0.1:{port}/",
+                "ws_port": int(_os.getenv("TERMINAL_WS_PORT", "8791") or 8791),
+                "paths": {
+                    "bootstrap": "/api/bootstrap",
+                    "live_base": "/download/live-base",
+                    "apk": "/download/apk",
+                    "stack": "/api/stack",
+                },
+                "apk_download": (base.rstrip("/") + "/download/apk") if base else "",
+                "tri_commander_mode": (_os.getenv("TRI_COMMANDER_MODE", "true").lower() not in {"0", "false", "no"}),
             },
         )
         return True

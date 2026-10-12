@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(r"C:\GoldenShield_Binance")
+ROOT = Path(os.getenv("GOLDENSHIELD_OFFICIAL_ROOT", r"C:\GoldenShield_Binance"))
 RUNTIME = ROOT / "storage" / "runtime"
 LOGS = ROOT / "storage" / "logs"
 STATE_FILE = RUNTIME / "discord_bridge_state.json"

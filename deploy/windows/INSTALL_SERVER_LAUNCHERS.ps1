@@ -8,7 +8,12 @@ $launchers = @(
     @{ Src = "deploy\windows\START_BOT_24_7.bat"; Dst = "START_BOT_24_7.bat" },
     @{ Src = "deploy\windows\STOP_BOT_FULL.bat"; Dst = "STOP_BOT_FULL.bat" },
     @{ Src = "deploy\windows\ENFORCE_NO_SLEEP.ps1"; Dst = "deploy\windows\ENFORCE_NO_SLEEP.ps1" },
-    @{ Src = "gs_daemon.ps1"; Dst = "gs_daemon.ps1" }
+    @{ Src = "gs_daemon.ps1"; Dst = "gs_daemon.ps1" },
+    @{ Src = "GS_START_FULL_STACK.bat"; Dst = "GS_START_FULL_STACK.bat" },
+    @{ Src = "deploy\windows\GS_START_FULL_STACK.ps1"; Dst = "deploy\windows\GS_START_FULL_STACK.ps1" },
+    @{ Src = "deploy\windows\START_CLOUDFLARE_TUNNEL.ps1"; Dst = "deploy\windows\START_CLOUDFLARE_TUNNEL.ps1" },
+    @{ Src = "deploy\windows\START_DISCORD_BRIDGE.ps1"; Dst = "deploy\windows\START_DISCORD_BRIDGE.ps1" },
+    @{ Src = "deploy\windows\Import-GsDotEnv.ps1"; Dst = "deploy\windows\Import-GsDotEnv.ps1" }
 )
 
 foreach ($item in $launchers) {

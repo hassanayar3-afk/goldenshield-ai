@@ -65,24 +65,11 @@ def _should_include(path: Path) -> bool:
 
 
 def _env_template() -> str:
+    prod = ROOT / "config" / "env.production.template"
+    if prod.is_file():
+        return prod.read_text(encoding="utf-8")
     example = ROOT / ".env.example"
-    base = example.read_text(encoding="utf-8") if example.is_file() else ""
-    block = """
-# --- GoldenShield Terminal P1 (Tri-Commander) ---
-TRI_COMMANDER_MODE=true
-MAX_ELITE_CONCURRENT_POSITIONS=20
-SMC_MAX_CONCURRENT=4
-GOLD_FLASH_MAX_CONCURRENT=12
-MICRO_MOMENTUM_MAX_CONCURRENT=5
-PORTFOLIO_HEAT_CAP_PCT=0.07
-MOBILE_API_PORT=8790
-TERMINAL_WS_PORT=8791
-GOLDENSHIELD_OFFICIAL_ROOT=C:\\GoldenShield_Binance
-EXECUTION_MODE=paper
-EXECUTION_BACKEND=binance
-BINANCE_DEMO_TRADING=true
-"""
-    return base.rstrip() + "\n" + block.strip() + "\n"
+    return example.read_text(encoding="utf-8") if example.is_file() else ""
 
 
 def build_zip(output: Path | None = None) -> Path:

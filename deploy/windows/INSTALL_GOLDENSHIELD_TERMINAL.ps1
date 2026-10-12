@@ -48,7 +48,8 @@ if (Test-Path $launcherInstaller) {
 
 Write-Host "=== DONE ==="
 Write-Host "1) Edit $envFile (Binance Demo keys, TELEGRAM optional)"
-Write-Host "2) Start 24/7 (bot + API + no-sleep): $Target\START_BOT_24_7.bat"
+Write-Host "2) Start FULL production stack: $Target\GS_START_FULL_STACK.bat"
+Write-Host "   (or START_BOT_24_7.bat — same stack)"
 Write-Host "   Stop: $Target\STOP_BOT_FULL.bat"
 Write-Host "3) Or stack only: .\deploy\windows\START_TERMINAL_STACK.ps1"
 Write-Host "4) Smoke: python scripts\smoke_terminal_api.py"

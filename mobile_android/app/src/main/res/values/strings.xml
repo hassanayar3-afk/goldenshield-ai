@@ -3,4 +3,6 @@
     <string name="app_name">GoldenShield Control</string>
     <string name="hint_url">عنوان السيرفر (مثال: https://xxx.trycloudflare.com أو http://IP:8790)</string>
     <string name="open_panel">فتح لوحة التحكم</string>
+    <string name="discover_tunnel">اكتشاف النفق / الرابط العام</string>
+    <string name="discover_ok">تم ضبط الرابط من السيرفر</string>
 </resources>

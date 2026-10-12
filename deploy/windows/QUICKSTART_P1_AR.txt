@@ -1,38 +1,14 @@
-GoldenShield Terminal — نشر P1 (بدون SSH)
+GoldenShield Terminal — تشغيل إنتاجي فوري
 ==========================================
 
-1) على جهازك (Linux/Mac/Windows):
-   python3 scripts/build_deployment_package.py
-   → ينشئ dist/GoldenShield-Terminal-P1-*.zip
+1) ZIP: python3 scripts/build_deployment_package.py
+2) VPS: فك → C:\GoldenShield_Binance → INSTALL_GOLDENSHIELD_TERMINAL.ps1
+3) .env من config\env.production.template (Binance Demo + Discord + Tunnel)
+4) تشغيل: GS_START_FULL_STACK.bat
+5) تحقق: python scripts\smoke_terminal_api.py && python scripts\smoke_tri_commander.py
 
-2) انقل ZIP إلى Windows VPS (RDP → سحب/إفلات، OneDrive، USB).
+APK (مسجّل GitHub):
+  deploy\windows\DOWNLOAD_APK_TO_DESKTOP.ps1
+  https://github.com/hassanayar3-afk/goldenshield-ai/releases/tag/control-apk-p1
 
-3) على VPS: فك إلى C:\GoldenShield_Binance
-   Expand-Archive -Path .\GoldenShield-Terminal-P1-*.zip -DestinationPath C:\GoldenShield_Binance -Force
-
-4) PowerShell (مسؤول):
-   cd C:\GoldenShield_Binance
-   Set-ExecutionPolicy -Scope Process Bypass
-   .\deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1
-   (ينسخ START_BOT_24_7 / STOP_BOT_FULL + منع السكون + اختصارات سطح المكتب)
-
-5) عدّل .env (مفاتيح Binance Demo، MOBILE_API_PORT، TERMINAL_WS_PORT).
-
-6) افتح الجدار الناري: TCP 8790 و 8791 (إن احتجت الوصول الخارجي).
-
-7) تشغيل 24/7 (بوت + API + لا سكون):
-   C:\GoldenShield_Binance\START_BOT_24_7.bat
-   أو اختصار سطح المكتب: GoldenShield START 24-7
-
-8) إيقاف:
-   C:\GoldenShield_Binance\STOP_BOT_FULL.bat
-
-9) تحقق:
-   python scripts\smoke_terminal_api.py
-   python scripts\smoke_tri_commander.py
-
---- تطبيق Android (اللابتوب) ---
-10) ثبّت Android Studio أو Android SDK، ثم:
-    .\deploy\windows\BUILD_ANDROID_APK.ps1
-    → ينسخ GoldenShield-Control.apk إلى سطح المكتب + downloads\
-    انقل الملف إلى الهاتف وثبّته (Demo / side-load).
+دليل كامل: docs\GOLDENSHIELD_TERMINAL_PRODUCTION_AR.md

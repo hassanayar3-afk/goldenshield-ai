@@ -21,11 +21,11 @@ echo [1/4] Scheduled bot tasks...
 schtasks /End /TN "GoldenShieldBotOfficial" /F >nul 2>&1
 schtasks /End /TN "GoldenShieldLiveConsole" /F >nul 2>&1
 
-echo [2/4] Kill Python workers...
+echo [2/4] Kill workers (bot, API, Discord, tunnel)...
 if exist "%GS_ROOT%\scripts\gs_kill_all.ps1" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%GS_ROOT%\scripts\gs_kill_all.ps1"
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|terminal_app\.server|gs_daemon|mobile_api' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'main\.py|terminal_app\.server|gs_daemon|discord_bridge|cloudflared|mobile_api' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
 )
 timeout /t 2 /nobreak >nul
 
