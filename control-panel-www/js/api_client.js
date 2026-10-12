@@ -61,6 +61,12 @@
     stack: function () {
       return api("/api/stack");
     },
+    positions: function () {
+      return api("/api/positions");
+    },
+    history: function () {
+      return api("/api/history");
+    },
     wsSnapshot: function () {
       return api("/api/ws/snapshot");
     },
