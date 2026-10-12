@@ -46,10 +46,16 @@
                 android:textColorHint="#888888" />
 
             <Button
-                android:id="@+id/btn_test"
+                android:id="@+id/btn_cloud_auto"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:text="@string/cloud_auto" />
+
+            <Button
+                android:id="@+id/btn_test"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="@string/test_connection" />
 
             <Button

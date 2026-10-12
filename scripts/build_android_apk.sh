@@ -16,6 +16,7 @@ if [[ ! -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]] && [[ ! -x "$SDK_R
   exit 1
 fi
 
+bash "$ROOT/scripts/sync_apk_default_url.sh" 2>/dev/null || true
 cd "$ANDROID_DIR"
 if [[ ! -f ./gradlew ]]; then
   echo "gradlew missing — run install script or: gradle wrapper"

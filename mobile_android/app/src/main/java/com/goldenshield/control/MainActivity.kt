@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlField: EditText
     private lateinit var webView: WebView
     private lateinit var bar: LinearLayout
+    private var cloudDefaults: List<String> = emptyList()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,11 +36,19 @@ class MainActivity : AppCompatActivity() {
         val openBtn: Button = findViewById(R.id.btn_open)
         val discoverBtn: Button = findViewById(R.id.btn_discover)
         val testBtn: Button = findViewById(R.id.btn_test)
+        val cloudBtn: Button = findViewById(R.id.btn_cloud_auto)
 
+        cloudDefaults = loadDefaultServers()
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_URL, "") ?: ""
+        var saved = prefs.getString(KEY_URL, "") ?: ""
+        if (isLocalhostOnly(saved)) {
+            saved = ""
+            prefs.edit().remove(KEY_URL).apply()
+        }
         if (saved.isNotBlank()) {
             urlField.setText(saved.trim())
+        } else if (cloudDefaults.isNotEmpty()) {
+            urlField.setText(cloudDefaults.first())
         }
 
         webView.settings.javaScriptEnabled = true
@@ -61,6 +70,59 @@ class MainActivity : AppCompatActivity() {
         openBtn.setOnClickListener { openPanel() }
         discoverBtn.setOnClickListener { discoverTunnel() }
         testBtn.setOnClickListener { testConnection(false) }
+        cloudBtn.setOnClickListener { connectCloudAuto() }
+    }
+
+    private fun loadDefaultServers(): List<String> {
+        return try {
+            assets.open("default_servers.txt").bufferedReader().useLines { lines ->
+                lines.map { it.trim() }.filter { it.startsWith("http") }.toList()
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** يجرّب النفق ثم VPS حتى ينجح health */
+    private fun connectCloudAuto() {
+        val candidates = buildList {
+            addAll(cloudDefaults)
+            val typed = urlField.text?.toString()?.trim().orEmpty()
+            if (typed.isNotBlank()) add(normalizeBase(typed))
+        }.distinct()
+        if (candidates.isEmpty()) {
+            Toast.makeText(this, R.string.test_fail, Toast.LENGTH_LONG).show()
+            return
+        }
+        Thread {
+            var winner: String? = null
+            for (c in candidates) {
+                val base = normalizeBase(c)
+                if (healthOk(base)) {
+                    winner = base
+                    break
+                }
+            }
+            runOnUiThread {
+                if (winner != null) {
+                    urlField.setText(winner)
+                    saveUrl(winner!!)
+                    Toast.makeText(this, R.string.cloud_auto_ok, Toast.LENGTH_SHORT).show()
+                    openPanel(skipLocalCheck = true)
+                } else {
+                    Toast.makeText(this, R.string.cloud_auto_fail, Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun healthOk(base: String): Boolean {
+        return try {
+            val body = httpGet("${base}api/health")
+            body.contains("\"ok\"") && body.contains("true")
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun testConnection(thenOpen: Boolean) {
@@ -69,18 +131,13 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.hint_url, Toast.LENGTH_SHORT).show()
             return
         }
-        if (isLocalhostOnly(raw) && !isTermuxLikely()) {
+        if (isLocalhostOnly(raw)) {
             Toast.makeText(this, R.string.err_localhost, Toast.LENGTH_LONG).show()
             return
         }
         val base = normalizeBase(raw)
         Thread {
-            val ok = try {
-                val body = httpGet("${base}api/health")
-                body.contains("\"ok\"") && body.contains("true")
-            } catch (_: Exception) {
-                false
-            }
+            val ok = healthOk(base)
             runOnUiThread {
                 if (ok) {
                     saveUrl(base)
@@ -93,15 +150,6 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun isTermuxLikely(): Boolean {
-        return try {
-            Class.forName("com.termux.app.TermuxActivity")
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
-
     private fun isLocalhostOnly(raw: String): Boolean {
         val s = raw.lowercase()
         return s.contains("127.0.0.1") || s.contains("localhost")
@@ -110,7 +158,12 @@ class MainActivity : AppCompatActivity() {
     private fun discoverTunnel() {
         val seed = urlField.text?.toString()?.trim().orEmpty()
         if (seed.isEmpty()) {
-            Toast.makeText(this, R.string.hint_url, Toast.LENGTH_SHORT).show()
+            connectCloudAuto()
+            return
+        }
+        if (isLocalhostOnly(seed)) {
+            Toast.makeText(this, R.string.err_localhost, Toast.LENGTH_LONG).show()
+            connectCloudAuto()
             return
         }
         val seedBase = normalizeBase(seed)
@@ -171,11 +224,12 @@ class MainActivity : AppCompatActivity() {
     private fun openPanel(skipLocalCheck: Boolean = false) {
         val raw = urlField.text?.toString()?.trim().orEmpty()
         if (raw.isEmpty()) {
-            Toast.makeText(this, R.string.hint_url, Toast.LENGTH_SHORT).show()
+            connectCloudAuto()
             return
         }
-        if (!skipLocalCheck && isLocalhostOnly(raw) && !isTermuxLikely()) {
+        if (!skipLocalCheck && isLocalhostOnly(raw)) {
             Toast.makeText(this, R.string.err_localhost, Toast.LENGTH_LONG).show()
+            connectCloudAuto()
             return
         }
         val base = normalizeBase(raw)
