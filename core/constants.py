@@ -26,6 +26,8 @@ SIGNAL_MAX_SCORE: int = 10
 SIGNAL_MIN_PERCENT: int = 70
 SIGNAL_NOTIFY_MIN_PERCENT: int = 70
 SIGNAL_MAX_PERCENT: int = 100
+# سلم العرض في لوحة التحكم / تيليجرام (0–100)
+STRENGTH_LADDER: tuple[int, ...] = (70, 75, 80, 85, 90, 95, 100)
 
 # دخول تلقائي من 90/100 فما فوق (درجة 9–10 فقط في النظام الهجين)
 # 70–89 (درجة 7–8): يدوي فقط عبر تيليجرام | 90–100: تلقائي

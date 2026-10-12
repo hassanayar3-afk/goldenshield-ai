@@ -52,6 +52,10 @@ def handle_authenticated_get(handler: BaseHTTPRequestHandler, path: str) -> bool
         return True
 
     if path == "/api/signals":
+        try:
+            bb.parse_signals_from_log()
+        except Exception:
+            pass
         send_json(handler, 200, {"ok": True, "signals": bb.signals_live()})
         return True
 

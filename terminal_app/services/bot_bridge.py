@@ -28,8 +28,12 @@ from terminal_app.services import alerts_queue as aq
 from terminal_app.services import binance_mirror as bm
 
 _SIGNAL_LINE_RE = re.compile(
-    r"(?:✅|\*)\s*([A-Z0-9]+/[A-Z0-9]+)\s*\|\s*(?:price|السعر):\s*([0-9.]+)\s*\|\s*"
-    r"(?:score|الدرجة):\s*(\d+(?:\.\d+)?)/10\s*\|\s*(?:الحالة:\s*)?([A-Z_ ]+|WAIT|REJECTED)",
+    r"\s*(?:✅|\*)\s*([A-Z0-9]+/[A-Z0-9]+)\s*\|\s*(?:price|السعر):\s*([0-9.]+)\s*\|\s*"
+    r"(?:score|الدرجة):\s*(\d+(?:\.\d+)?)/10\s*\|\s*(?:الحالة:\s*)?([A-Z_0-9 ]+|WAIT|REJECTED|BUY|SELL|REJECT)",
+    re.IGNORECASE,
+)
+_SIGNAL_ALT_RE = re.compile(
+    r"([A-Z0-9]+/[A-Z0-9]+)\s*:\s*([A-Z_ ]+)\s*\(\s*(\d+(?:\.\d+)?)/10\s*@\s*([0-9.]+)\s*\)",
     re.IGNORECASE,
 )
 _last_score_bucket: dict[str, int] = {}
@@ -87,22 +91,42 @@ def positions() -> list:
 
     # إن فشلت المنصة: رجوع لقاعدة البوت فقط
     return db_rows
+
+
+def _probe_bot_running(max_age_sec: float = 45.0) -> bool:
+    """هل حلقة البوت حية؟ (نبض، سجل، لوحة إشارات، أو daemon)."""
+    now = time.time()
+    probes: list[float] = []
+    try:
+        for rel in (
+            RUNTIME / "heartbeat.json",
+            RUNTIME / "last_cycle_signals.json",
+            RUNTIME / "signals_board.txt",
+            ROOT / "storage" / "logs" / "bot_stdout.log",
+            ROOT / "storage" / "logs" / "gs_daemon.log",
+        ):
+            if rel.exists():
+                probes.append(now - rel.stat().st_mtime)
+    except Exception:
+        pass
+    if probes and min(probes) < max_age_sec:
+        return True
+    try:
+        stack = aq.load_json(RUNTIME / "gs_stack_status.json", {})
+        if isinstance(stack, dict):
+            for key in ("bot_main_pids", "daemon_pids"):
+                pids = stack.get(key)
+                if isinstance(pids, list) and pids:
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def status() -> dict:
     risk = risk_state()
     paused = (RUNTIME / "user_stopped.flag").exists()
-    bot_running = False
-    try:
-        # ملف نبض حديث؟
-        heartbeat = RUNTIME / "heartbeat.json"
-        if heartbeat.exists():
-            age = time.time() - heartbeat.stat().st_mtime
-            bot_running = age < 30
-        else:
-            log = ROOT / "storage" / "logs" / "bot_stdout.log"
-            if log.exists():
-                bot_running = (time.time() - log.stat().st_mtime) < 20
-    except Exception:
-        pass
+    bot_running = _probe_bot_running()
 
     snap = bm.binance_snapshot()
     open_rows = [p for p in positions() if p and "error" not in p]
@@ -507,11 +531,47 @@ def signal_as_percent(row: dict) -> dict:
     out["score"] = pct
     out["strength"] = pct
     return out
+def _parse_signals_board_text(text: str) -> list[dict]:
+    found: dict[str, dict] = {}
+    for ln in text.splitlines():
+        row = parse_signal_line(ln)
+        if row:
+            found[row["sym"]] = row
+    return sorted(found.values(), key=lambda r: (-int(r["score"]), r["sym"]))
+
+
+def _load_signals_pulse_file() -> list:
+    pulse = RUNTIME / "last_cycle_signals.json"
+    if not pulse.exists():
+        return []
+    try:
+        data = json.loads(pulse.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict) and isinstance(data.get("signals"), list):
+            rows = data["signals"]
+        else:
+            return []
+        return [r for r in rows if isinstance(r, dict)]
+    except Exception:
+        return []
+
+
 def parse_signals_from_log() -> list:
     """استخرج آخر دورة إشارات من سجل البوت (صيغة score N/10)."""
+    board = RUNTIME / "signals_board.txt"
+    if board.exists():
+        try:
+            rows = _parse_signals_board_text(
+                board.read_text(encoding="utf-8", errors="replace")
+            )
+            if rows:
+                return rows
+        except Exception:
+            pass
     log = ROOT / "storage" / "logs" / "bot_stdout.log"
     if not log.exists():
-        return []
+        return _load_signals_pulse_file()
     try:
         text = log.read_text(encoding="utf-8", errors="replace")
     except Exception:
@@ -537,6 +597,20 @@ def parse_signals_from_log() -> list:
             row = parse_signal_line(ln)
             if row:
                 found[row["sym"]] = row
+            else:
+                alt = _SIGNAL_ALT_RE.search(ln)
+                if alt:
+                    sym = alt.group(1).upper()
+                    status = (alt.group(2) or "WAIT").strip().upper()
+                    score = int(float(alt.group(3)))
+                    price = float(alt.group(4))
+                    found[sym] = {
+                        "sym": sym,
+                        "score": score,
+                        "signal": status,
+                        "price": price,
+                        "liquidity": 50 + min(40, score * 5),
+                    }
     rows = sorted(found.values(), key=lambda r: (-int(r["score"]), r["sym"]))
     if rows:
         try:
@@ -547,8 +621,29 @@ def parse_signals_from_log() -> list:
         except Exception:
             pass
         write_heartbeat({"signals": len(rows)})
-    return rows
+    return rows if rows else _load_signals_pulse_file()
+
+
 def parse_signal_line(ln: str) -> dict | None:
+    alt = _SIGNAL_ALT_RE.search(ln)
+    if alt:
+        sym = alt.group(1).upper()
+        status = (alt.group(2) or "WAIT").strip().upper()
+        score = int(float(alt.group(3)))
+        price = float(alt.group(4))
+        if status in {"BUY", "BUY SIGNAL", "شراء"}:
+            status = "BUY SIGNAL"
+        elif status in {"SELL", "SELL SIGNAL", "بيع"}:
+            status = "SELL SIGNAL"
+        elif "REJECT" in status:
+            status = "REJECTED"
+        return {
+            "sym": sym,
+            "score": score,
+            "signal": status,
+            "price": price,
+            "liquidity": 50 + min(40, score * 5),
+        }
     m = _SIGNAL_LINE_RE.search(ln)
     if not m:
         return None
@@ -575,16 +670,7 @@ def signals_live() -> list:
     """اقرأ آخر إشارات من ملف النبض أو من سجل البوت مباشرة."""
     rows = parse_signals_from_log()
     if not rows:
-        pulse = RUNTIME / "last_cycle_signals.json"
-        if pulse.exists():
-            try:
-                data = json.loads(pulse.read_text(encoding="utf-8"))
-                if isinstance(data, list):
-                    rows = data
-                elif isinstance(data, dict) and "signals" in data:
-                    rows = data["signals"]
-            except Exception:
-                rows = []
+        rows = _load_signals_pulse_file()
     if rows:
         return [signal_as_percent(r) for r in rows if isinstance(r, dict)]
     try:
