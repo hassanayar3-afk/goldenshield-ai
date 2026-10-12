@@ -34,7 +34,7 @@ ENGINE_ORDER: tuple[str, ...] = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass
 class OrchestratorCycleStats:
     symbols_total: int
     proposals: int

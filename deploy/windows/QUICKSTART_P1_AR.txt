@@ -1,0 +1,27 @@
+GoldenShield Terminal — نشر P1 (بدون SSH)
+==========================================
+
+1) على جهازك (Linux/Mac/Windows):
+   python3 scripts/build_deployment_package.py
+   → ينشئ dist/GoldenShield-Terminal-P1-*.zip
+
+2) انقل ZIP إلى Windows VPS (RDP → سحب/إفلات، OneDrive، USB).
+
+3) على VPS: فك إلى C:\GoldenShield_Binance
+   Expand-Archive -Path .\GoldenShield-Terminal-P1-*.zip -DestinationPath C:\GoldenShield_Binance -Force
+
+4) PowerShell (مسؤول):
+   cd C:\GoldenShield_Binance
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1
+
+5) عدّل .env (مفاتيح Binance Demo، MOBILE_API_PORT، TERMINAL_WS_PORT).
+
+6) افتح الجدار الناري: TCP 8790 و 8791 (إن احتجت الوصول الخارجي).
+
+7) تشغيل:
+   .\deploy\windows\START_TERMINAL_STACK.ps1
+
+8) تحقق:
+   python scripts\smoke_terminal_api.py
+   python scripts\smoke_tri_commander.py

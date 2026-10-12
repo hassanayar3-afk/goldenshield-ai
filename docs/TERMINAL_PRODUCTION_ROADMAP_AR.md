@@ -6,11 +6,22 @@
 2. **Smoke test** → `python3 scripts/smoke_terminal_api.py`
 3. **لوحة control-panel-www** → ربط، stack، orderbook WS + snapshot
 
-## P1 — تشغيل VPS
+## P1 — تشغيل VPS (بدون SSH)
 
-4. نشر الفرع على Windows VPS + `MOBILE_API_PORT` / `TERMINAL_WS_PORT` في الجدار الناري
-5. `python3 scripts/auto_windows_deploy.py` بعد ضبط `WIN_*` secrets
-6. Cloudflare tunnel → `storage/runtime/mobile_tunnel_url.txt`
+4. **حزمة ZIP:** `python3 scripts/build_deployment_package.py` → `dist/GoldenShield-Terminal-P1-*.zip`
+5. RDP → فك إلى `C:\GoldenShield_Binance` → `deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1`
+6. `deploy\windows\START_TERMINAL_STACK.ps1` + فتح منافذ `8790`/`8791`
+7. (اختياري لاحقاً) `WIN_SSH_PRIVATE_KEY` + `scripts/auto_windows_deploy.py`
+8. Cloudflare tunnel → `storage/runtime/mobile_tunnel_url.txt`
+
+## P1b — E2E Tri-Commander محلي
+
+```bash
+python3 scripts/smoke_tri_commander.py   # TRI_SMOKE_OK
+python3 scripts/smoke_terminal_api.py    # SMOKE_OK
+```
+
+إعدادات: `config/tri_commander_smoke.env`
 
 ## P2 — تداول حي (Demo)
 
