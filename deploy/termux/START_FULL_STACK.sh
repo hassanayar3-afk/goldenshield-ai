@@ -6,6 +6,8 @@ GS_ROOT="${GOLDENSHIELD_OFFICIAL_ROOT:-$HOME/goldenshield-ai}"
 cd "$GS_ROOT"
 export GOLDENSHIELD_OFFICIAL_ROOT="$GS_ROOT"
 export PYTHONUNBUFFERED=1
+PY="${GS_PYTHON:-python3}"
+command -v "$PY" >/dev/null 2>&1 || PY=python
 
 # منع نوم الهاتف أثناء التشغيل (يتطلب: pkg install termux-api)
 if command -v termux-wake-lock >/dev/null 2>&1; then
@@ -28,7 +30,7 @@ bash "$GS_ROOT/deploy/termux/STOP_STACK.sh" 2>/dev/null || true
 sleep 1
 
 PORT="${MOBILE_API_PORT:-8790}"
-nohup python -m terminal_app.server >>storage/logs/mobile_api.log 2>&1 &
+nohup "$PY" -m terminal_app.server >>storage/logs/mobile_api.log 2>&1 &
 echo $! >storage/runtime/mobile_api.pid
 sleep 2
 
@@ -37,12 +39,12 @@ if ! curl -fsS "http://127.0.0.1:${PORT}/api/health" >/dev/null; then
   exit 1
 fi
 
-nohup python main.py >>storage/logs/bot_stdout.log 2>&1 &
+nohup "$PY" main.py >>storage/logs/bot_stdout.log 2>&1 &
 echo $! >storage/runtime/bot_main.pid
 
 if [[ "${DISCORD_NOTIFY_ENABLED:-false}" != "false" && "${DISCORD_NOTIFY_ENABLED:-0}" != "0" ]]; then
   if [[ -f bridges/discord/discord_bridge.py ]]; then
-    nohup python bridges/discord/discord_bridge.py >>storage/logs/discord_bridge.log 2>&1 &
+    nohup "$PY" bridges/discord/discord_bridge.py >>storage/logs/discord_bridge.log 2>&1 &
     echo $! >storage/runtime/discord_bridge.pid
   fi
 fi
