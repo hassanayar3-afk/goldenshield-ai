@@ -18,6 +18,7 @@ from terminal.dispatcher import (
     DispatchStage,
     evaluate_dispatch,
 )
+from terminal.daily_reset import maybe_run_daily_reset
 from terminal.flash_crash_switch import evaluate_btc_flash_crash
 from terminal.module_breaker import is_module_halted
 from terminal.scoring import confidence_percent
@@ -149,6 +150,11 @@ class TriCommanderOrchestrator:
             executed_entries=0,
             flash_crash_blocked=False,
         )
+
+        try:
+            maybe_run_daily_reset()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("daily_reset: %s", exc)
 
         crash = evaluate_btc_flash_crash()
         if crash.block_entries:

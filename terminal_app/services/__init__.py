@@ -1,0 +1,1 @@
+"""خدمات GoldenShield Terminal."""

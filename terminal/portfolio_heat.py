@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from execution.models.order import OrderSide
 from execution.models.trade import Position
-from platform.limits import portfolio_heat_cap_pct
+from terminal.limits import portfolio_heat_cap_pct
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,15 @@ class HeatDecision:
     allowed: bool
     reason: str
     heat_pct: float
+    cap_pct: float
+
+
+@dataclass(frozen=True)
+class HeatSummary:
+    open_positions: int
+    heat_pct: float
+    cap_pct: float
+    headroom_pct: float
 
 
 def _position_risk_pct(position: Position, balance: float) -> float:
@@ -24,6 +33,17 @@ def _position_risk_pct(position: Position, balance: float) -> float:
         return 0.0
     notional_risk = risk_per_unit * float(position.amount)
     return notional_risk / balance
+
+
+def compute_heat_summary(positions: list[Position], balance: float) -> HeatSummary:
+    cap = portfolio_heat_cap_pct()
+    heat = sum(_position_risk_pct(p, balance) for p in positions)
+    return HeatSummary(
+        open_positions=len(positions),
+        heat_pct=heat,
+        cap_pct=cap,
+        headroom_pct=max(0.0, cap - heat),
+    )
 
 
 def evaluate_portfolio_heat(
@@ -41,8 +61,14 @@ def evaluate_portfolio_heat(
             False,
             f"Portfolio Heat {total*100:.2f}% > cap {cap*100:.1f}%",
             total,
+            cap,
         )
-    return HeatDecision(True, f"Heat {total*100:.2f}% / {cap*100:.1f}%", total)
+    return HeatDecision(
+        True,
+        f"Heat {total*100:.2f}% / {cap*100:.1f}%",
+        total,
+        cap,
+    )
 
 
 def side_label(side: OrderSide) -> str:

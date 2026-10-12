@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GoldenShield Terminal</title>
+  <link rel="stylesheet" href="/js/ui_components.css" />
+</head>
+<body>
+  <header class="gs-header">
+    <h1>GoldenShield Terminal</h1>
+    <p id="status-line">جاري التحميل…</p>
+  </header>
+  <main class="gs-grid">
+    <section class="gs-card" id="account-card">
+      <h2>المحفظة</h2>
+      <div id="account-body">—</div>
+    </section>
+    <section class="gs-card" id="signals-card">
+      <h2>الإشارات</h2>
+      <ul id="signals-list"></ul>
+    </section>
+    <section class="gs-card" id="controls-card">
+      <h2>التحكم</h2>
+      <div id="pocket-lock-panel"></div>
+      <button type="button" class="gs-btn" id="btn-refresh">تحديث</button>
+      <button type="button" class="gs-btn gs-warn" id="btn-pause">إيقاف الدخول</button>
+      <button type="button" class="gs-btn gs-danger" id="btn-panic">طوارئ</button>
+    </section>
+  </main>
+  <script src="/js/api_client.js"></script>
+  <script src="/js/pocket_lock_ui.js"></script>
+  <script src="/js/ui_components.js"></script>
+</body>
+</html>

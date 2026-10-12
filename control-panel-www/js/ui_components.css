@@ -1,0 +1,43 @@
+:root {
+  --bg: #0b1020;
+  --card: #141b2f;
+  --text: #e8eefc;
+  --accent: #f0b429;
+  --danger: #e74c3c;
+  --warn: #e67e22;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.gs-header { padding: 1rem 1.25rem; border-bottom: 1px solid #243055; }
+.gs-grid {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.gs-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #243055;
+}
+.gs-btn {
+  display: inline-block;
+  margin: 0.25rem;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #2d5bff;
+  color: #fff;
+  cursor: pointer;
+}
+.gs-btn.gs-warn { background: var(--warn); }
+.gs-btn.gs-danger { background: var(--danger); }
+.gs-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+#signals-list { list-style: none; padding: 0; margin: 0; }
+#signals-list li { padding: 0.35rem 0; border-bottom: 1px solid #243055; }

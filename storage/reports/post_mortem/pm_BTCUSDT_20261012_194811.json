@@ -1,0 +1,15 @@
+{
+  "ts": "20261012_194811",
+  "symbol": "BTC/USDT",
+  "side": "buy",
+  "pnl": 5.0,
+  "score": 0,
+  "entry": 100.0,
+  "exit": 105.0,
+  "amount": 1.0,
+  "reason": "Take Profit",
+  "pipeline": "enterprise",
+  "ssot_matched": true,
+  "position_id": "pos-test-1",
+  "outcome": "win"
+}
