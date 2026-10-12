@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 $Desktop = [Environment]::GetFolderPath("Desktop")
 $OutFile = Join-Path $Desktop "GoldenShield-Control.apk"
-$tag = "control-apk-p1"
+$tag = "control-apk-v1.2"
 $repo = "hassanayar3-afk/goldenshield-ai"
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {

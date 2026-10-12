@@ -1,40 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/url_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/server_url"
+        <LinearLayout
+            android:id="@+id/url_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_url"
-            android:inputType="textUri"
-            android:importantForAutofill="no" />
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="#1A1A1A">
 
-        <Button
-            android:id="@+id/btn_discover"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/discover_tunnel" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/connect_title"
+                android:textColor="#C9A227"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:paddingBottom="8dp" />
 
-        <Button
-            android:id="@+id/btn_open"
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/connect_help"
+                android:textColor="#CCCCCC"
+                android:textSize="13sp"
+                android:lineSpacingExtra="4dp"
+                android:paddingBottom="12dp" />
+
+            <EditText
+                android:id="@+id/server_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_url"
+                android:inputType="textUri"
+                android:importantForAutofill="no"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888" />
+
+            <Button
+                android:id="@+id/btn_test"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/test_connection" />
+
+            <Button
+                android:id="@+id/btn_discover"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/discover_tunnel" />
+
+            <Button
+                android:id="@+id/btn_open"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/open_panel" />
+        </LinearLayout>
+
+        <WebView
+            android:id="@+id/webview"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/open_panel" />
+            android:layout_height="600dp" />
     </LinearLayout>
-
-    <WebView
-        android:id="@+id/webview"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-</LinearLayout>
+</ScrollView>

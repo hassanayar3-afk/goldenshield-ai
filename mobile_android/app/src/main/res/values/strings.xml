@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GoldenShield Control</string>
-    <string name="hint_url">عنوان السيرفر (مثال: https://xxx.trycloudflare.com أو http://IP:8790)</string>
+    <string name="connect_title">ربط GoldenShield Terminal</string>
+    <string name="connect_help">① سحابة/نفق: https://….trycloudflare.com\n② VPS: http://IP-SERVER:8790 (بعد تشغيل GS_START_FULL_STACK)\n③ 127.0.0.1 فقط إذا البوت يعمل على الهاتف (Termux)\n\nلا تستخدم 127.0.0.1 إن لم تشغّل الباك‑إند على نفس الهاتف.</string>
+    <string name="hint_url">https://your-tunnel.trycloudflare.com</string>
+    <string name="test_connection">اختبار الاتصال (/api/health)</string>
     <string name="open_panel">فتح لوحة التحكم</string>
-    <string name="discover_tunnel">اكتشاف النفق / الرابط العام</string>
+    <string name="discover_tunnel">اكتشاف النفق (من عنوان VPS أو محلي)</string>
     <string name="discover_ok">تم ضبط الرابط من السيرفر</string>
+    <string name="test_ok">الاتصال ناجح — افتح اللوحة</string>
+    <string name="test_fail">فشل الاتصال — تحقق من العنوان والمنفذ 8790</string>
+    <string name="err_localhost">127.0.0.1 لا يعمل إلا مع Termux على هذا الهاتف</string>
+    <string name="web_error">تعذر فتح الصفحة — جرّب رابط النفق أو IP السيرفر</string>
 </resources>

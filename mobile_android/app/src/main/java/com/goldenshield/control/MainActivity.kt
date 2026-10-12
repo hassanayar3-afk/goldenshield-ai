@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -32,22 +34,77 @@ class MainActivity : AppCompatActivity() {
         bar = findViewById(R.id.url_bar)
         val openBtn: Button = findViewById(R.id.btn_open)
         val discoverBtn: Button = findViewById(R.id.btn_discover)
+        val testBtn: Button = findViewById(R.id.btn_test)
 
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL
-        urlField.setText(saved)
+        val saved = prefs.getString(KEY_URL, "") ?: ""
+        if (saved.isNotBlank()) {
+            urlField.setText(saved.trim())
+        }
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = WebViewClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                if (request.isForMainFrame) {
+                    bar.visibility = View.VISIBLE
+                    Toast.makeText(this@MainActivity, R.string.web_error, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
 
         openBtn.setOnClickListener { openPanel() }
         discoverBtn.setOnClickListener { discoverTunnel() }
+        testBtn.setOnClickListener { testConnection(false) }
+    }
 
-        if (intent.getBooleanExtra(EXTRA_AUTO_OPEN, false)) {
-            openPanel()
+    private fun testConnection(thenOpen: Boolean) {
+        val raw = urlField.text?.toString()?.trim().orEmpty()
+        if (raw.isEmpty()) {
+            Toast.makeText(this, R.string.hint_url, Toast.LENGTH_SHORT).show()
+            return
         }
+        if (isLocalhostOnly(raw) && !isTermuxLikely()) {
+            Toast.makeText(this, R.string.err_localhost, Toast.LENGTH_LONG).show()
+            return
+        }
+        val base = normalizeBase(raw)
+        Thread {
+            val ok = try {
+                val body = httpGet("${base}api/health")
+                body.contains("\"ok\"") && body.contains("true")
+            } catch (_: Exception) {
+                false
+            }
+            runOnUiThread {
+                if (ok) {
+                    saveUrl(base)
+                    Toast.makeText(this, R.string.test_ok, Toast.LENGTH_SHORT).show()
+                    if (thenOpen) openPanel(skipLocalCheck = true)
+                } else {
+                    Toast.makeText(this, R.string.test_fail, Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun isTermuxLikely(): Boolean {
+        return try {
+            Class.forName("com.termux.app.TermuxActivity")
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isLocalhostOnly(raw: String): Boolean {
+        val s = raw.lowercase()
+        return s.contains("127.0.0.1") || s.contains("localhost")
     }
 
     private fun discoverTunnel() {
@@ -62,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 urlField.setText(picked)
                 Toast.makeText(this, R.string.discover_ok, Toast.LENGTH_SHORT).show()
-                openPanel()
+                testConnection(thenOpen = true)
             }
         }.start()
     }
@@ -70,19 +127,18 @@ class MainActivity : AppCompatActivity() {
     private fun resolvePublicBase(seedBase: String): String {
         val hints = mutableListOf<String>()
         try {
-            val cfg = httpGet("$seedBase/api/mobile/config")
+            val cfg = httpGet("${seedBase}api/mobile/config")
             extractJsonString(cfg, "tunnel_url")?.let { hints.add(it) }
-            extractJsonString(cfg, "apk_download")
         } catch (_: Exception) {
         }
         try {
-            val boot = httpGet("$seedBase/api/bootstrap")
+            val boot = httpGet("${seedBase}api/bootstrap")
             extractJsonString(boot, "api_base_hint")?.let { hints.add(it) }
             extractJsonString(boot, "tunnel_url")?.let { hints.add(it) }
         } catch (_: Exception) {
         }
         try {
-            val live = httpGet("$seedBase/download/live-base").trim()
+            val live = httpGet("${seedBase}download/live-base").trim()
             if (live.startsWith("http")) hints.add(live)
         } catch (_: Exception) {
         }
@@ -93,8 +149,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun httpGet(url: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 12000
-        conn.readTimeout = 12000
+        conn.connectTimeout = 15000
+        conn.readTimeout = 15000
         conn.requestMethod = "GET"
         conn.inputStream.bufferedReader().use { return it.readText() }
     }
@@ -105,17 +161,25 @@ class MainActivity : AppCompatActivity() {
         return if (m.find()) m.group(1)?.takeIf { it.isNotBlank() } else null
     }
 
-    private fun openPanel() {
+    private fun saveUrl(base: String) {
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_URL, base)
+            .apply()
+    }
+
+    private fun openPanel(skipLocalCheck: Boolean = false) {
         val raw = urlField.text?.toString()?.trim().orEmpty()
         if (raw.isEmpty()) {
             Toast.makeText(this, R.string.hint_url, Toast.LENGTH_SHORT).show()
             return
         }
+        if (!skipLocalCheck && isLocalhostOnly(raw) && !isTermuxLikely()) {
+            Toast.makeText(this, R.string.err_localhost, Toast.LENGTH_LONG).show()
+            return
+        }
         val base = normalizeBase(raw)
-        getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_URL, base)
-            .apply()
+        saveUrl(base)
         bar.visibility = View.GONE
         webView.loadUrl(base)
     }
@@ -134,8 +198,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PREFS = "gs_control"
         private const val KEY_URL = "server_base_url"
-        private const val EXTRA_AUTO_OPEN = "auto_open"
-        private const val DEFAULT_URL = "http://127.0.0.1:8790/"
 
         private fun normalizeBase(raw: String): String {
             var s = raw.trim()

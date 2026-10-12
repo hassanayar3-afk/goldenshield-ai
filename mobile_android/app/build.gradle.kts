@@ -11,8 +11,8 @@ android {
         applicationId = "com.goldenshield.control"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0-terminal"
+        versionCode = 3
+        versionName = "1.2.0-connect"
     }
 
     buildTypes {
