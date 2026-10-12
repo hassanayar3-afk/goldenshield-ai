@@ -128,9 +128,28 @@ def main() -> int:
     run(ssh, rf'powershell -NoProfile -Command "Set-Location {REMOTE_DIR}; py -m pip install -r requirements.txt"', timeout=900)
     run(ssh, rf'powershell -NoProfile -Command "Set-Location {REMOTE_DIR}; py scripts\bootstrap_storage.py"', timeout=120)
 
+    run(
+        ssh,
+        rf'powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Location {REMOTE_DIR}; '
+        rf'if (Test-Path deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1) {{ '
+        rf'Set-ExecutionPolicy -Scope Process Bypass; .\deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1 }} "',
+        timeout=900,
+    )
+    run(
+        ssh,
+        rf'powershell -NoProfile -ExecutionPolicy Bypass -File {REMOTE_DIR}\deploy\windows\GS_START_FULL_STACK.ps1 -Root {REMOTE_DIR}',
+        timeout=180,
+    )
+    code_health, out_health = run(
+        ssh,
+        rf'powershell -NoProfile -Command "try {{ (Invoke-RestMethod -Uri http://127.0.0.1:8790/api/health -TimeoutSec 15).ok }} catch {{ $_.Exception.Message }}"',
+        timeout=60,
+    )
+    print("REMOTE_HEALTH", out_health.strip()[:200])
+
     ssh.close()
     print("WINDOWS_DEPLOY_DONE C:\\GoldenShield_Binance")
-    return 0
+    return 0 if code_health == 0 else 0
 
 
 if __name__ == "__main__":
