@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GoldenShield Control</string>
+    <string name="hint_url">عنوان السيرفر (مثال: https://xxx.trycloudflare.com أو http://IP:8790)</string>
+    <string name="open_panel">فتح لوحة التحكم</string>
+</resources>

@@ -14,14 +14,25 @@ GoldenShield Terminal — نشر P1 (بدون SSH)
    cd C:\GoldenShield_Binance
    Set-ExecutionPolicy -Scope Process Bypass
    .\deploy\windows\INSTALL_GOLDENSHIELD_TERMINAL.ps1
+   (ينسخ START_BOT_24_7 / STOP_BOT_FULL + منع السكون + اختصارات سطح المكتب)
 
 5) عدّل .env (مفاتيح Binance Demo، MOBILE_API_PORT، TERMINAL_WS_PORT).
 
 6) افتح الجدار الناري: TCP 8790 و 8791 (إن احتجت الوصول الخارجي).
 
-7) تشغيل:
-   .\deploy\windows\START_TERMINAL_STACK.ps1
+7) تشغيل 24/7 (بوت + API + لا سكون):
+   C:\GoldenShield_Binance\START_BOT_24_7.bat
+   أو اختصار سطح المكتب: GoldenShield START 24-7
 
-8) تحقق:
+8) إيقاف:
+   C:\GoldenShield_Binance\STOP_BOT_FULL.bat
+
+9) تحقق:
    python scripts\smoke_terminal_api.py
    python scripts\smoke_tri_commander.py
+
+--- تطبيق Android (اللابتوب) ---
+10) ثبّت Android Studio أو Android SDK، ثم:
+    .\deploy\windows\BUILD_ANDROID_APK.ps1
+    → ينسخ GoldenShield-Control.apk إلى سطح المكتب + downloads\
+    انقل الملف إلى الهاتف وثبّته (Demo / side-load).
