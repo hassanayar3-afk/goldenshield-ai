@@ -35,6 +35,10 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                 "tunnel_url": tun.rstrip("/") + "/" if tun.startswith("http") else "",
                 "rules": bb.rules_payload(),
                 "ws_port": int(__import__("os").getenv("TERMINAL_WS_PORT", "8791") or 8791),
+                "web_direct_access": (
+                    __import__("os").getenv("MOBILE_WEB_DIRECT_ACCESS", "true").lower()
+                    not in {"0", "false", "no", "off"}
+                ),
                 "auth_model": {
                     "strategy_code": "macro/scalp identity only (e.g. GS-GOLD80)",
                     "mobile_pair_code": "device pairing secret",

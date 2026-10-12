@@ -34,6 +34,9 @@ def handle_post(handler: BaseHTTPRequestHandler) -> None:
     path = urlparse(handler.path).path
     try:
         body = read_json_body(handler)
+        if path in ("/api/pair/web-auto", "/api/web-auto-pair"):
+            if api_pair.handle_web_auto_pair_post(handler, body):
+                return
         if path == "/api/pair":
             if api_pair.handle_pair_post(handler, body):
                 return

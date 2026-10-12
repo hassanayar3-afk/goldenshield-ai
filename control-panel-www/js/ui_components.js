@@ -158,16 +158,37 @@
     window.GSApi.act(body).then(refresh);
   });
 
+  function startPanel() {
+    pairCard.style.display = "none";
+    connectWs();
+    refresh();
+  }
+
+  function tryWebAutoPair(boot) {
+    if (!boot || !boot.web_direct_access) return Promise.resolve(false);
+    return window.GSApi.webAutoPair("WebPanel").then(function (res) {
+      if (res.device_token) {
+        window.GSApi.setToken(res.device_token);
+        return true;
+      }
+      return false;
+    });
+  }
+
   window.GSApi.bootstrap()
     .then(function (boot) {
       if (boot.ws_port) wsPort = boot.ws_port;
       if (window.GSApi.getToken()) {
-        pairCard.style.display = "none";
-        connectWs();
-        refresh();
-      } else {
-        statusLine.textContent = "أدخل رمز الربط من mobile_api_credentials";
+        startPanel();
+        return;
       }
+      return tryWebAutoPair(boot).then(function (ok) {
+        if (ok) {
+          startPanel();
+        } else {
+          statusLine.textContent = "أدخل رمز الربط من mobile_api_credentials";
+        }
+      });
     })
     .catch(function () {
       refresh();

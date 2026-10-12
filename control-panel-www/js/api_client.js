@@ -36,6 +36,19 @@
         body: JSON.stringify({ pair_code: pairCode, device_name: deviceName }),
       });
     },
+    webAutoPair: function (deviceName) {
+      return fetch("/api/pair/web-auto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_name: deviceName || "WebPanel" }),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error(data.error || res.statusText);
+            return data;
+          });
+        });
+    },
     status: function () {
       return api("/api/status");
     },
