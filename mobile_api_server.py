@@ -1354,17 +1354,45 @@ def _status() -> dict:
     }
 
 
-def _auth_ok(handler: BaseHTTPRequestHandler) -> bool:
-    token = handler.headers.get("X-GS-Token") or handler.headers.get("Authorization", "").replace(
-        "Bearer ", ""
+class _HandlerAuthAdapter:
+    def __init__(self, handler: BaseHTTPRequestHandler) -> None:
+        self._handler = handler
+
+    @property
+    def path(self) -> str:
+        return self._handler.path
+
+    def headers_get(self, name: str, default: str = "") -> str:
+        return self._handler.headers.get(name, default)
+
+
+def _token_guard() -> "TokenGuard":
+    from terminal_app.auth.token_guard import TokenGuard
+
+    return TokenGuard(
+        master_token=MASTER_TOKEN,
+        devices_loader=lambda: _devices(),
+        allow_query_token=False,
     )
-    if not token:
-        q = parse_qs(urlparse(handler.path).query)
-        token = (q.get("token") or [""])[0]
-    if token == MASTER_TOKEN:
-        return True
-    devices = _devices().get("devices", {})
-    return token in devices
+
+
+def _pocket_lock() -> "PocketTouchLock":
+    from terminal_app.auth.pocket_touch_lock import PocketTouchLock
+
+    return PocketTouchLock(token_guard=_token_guard())
+
+
+def _auth_ok(handler: BaseHTTPRequestHandler) -> bool:
+    try:
+        return _token_guard().verify(_HandlerAuthAdapter(handler)).ok
+    except Exception:
+        token = handler.headers.get("X-GS-Token") or handler.headers.get(
+            "Authorization", ""
+        ).replace("Bearer ", "")
+        if token == MASTER_TOKEN:
+            return True
+        devices = _devices().get("devices", {})
+        return token in devices
 
 
 def _tunnel_url() -> str:
@@ -1904,6 +1932,33 @@ class Handler(BaseHTTPRequestHandler):
 
             if path == "/api/act":
                 act = str(body.get("act") or "")
+                try:
+                    pocket = _pocket_lock().evaluate_critical_action(
+                        act,
+                        body if isinstance(body, dict) else {},
+                        _HandlerAuthAdapter(self),
+                    )
+                    if not pocket.allowed and act in {
+                        "panic",
+                        "close_all",
+                        "close_winners",
+                        "close_losers",
+                        "close_symbol",
+                        "resume",
+                    }:
+                        return self._json(
+                            403,
+                            {
+                                "ok": False,
+                                "error": pocket.code,
+                                "reason": pocket.reason,
+                            },
+                        )
+                except Exception as pocket_exc:
+                    return self._json(
+                        500,
+                        {"ok": False, "error": f"pocket_lock: {pocket_exc}"},
+                    )
                 if act == "pause":
                     (RUNTIME / "user_stopped.flag").write_text("mobile-pause", encoding="utf-8")
                     _push_alert("control", "إيقاف من التطبيق", "تم طلب إيقاف الدخول", level="warn")
@@ -1937,17 +1992,6 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     return self._json(200 if result.get("ok") else 500, result)
                 if act == "panic":
-                    confirm = str(body.get("confirm") or body.get("touch_lock_token") or "")
-                    expected = (os.getenv("MOBILE_PANIC_CONFIRM") or "CONFIRM-PANIC").strip()
-                    if confirm != expected:
-                        return self._json(
-                            403,
-                            {
-                                "ok": False,
-                                "error": "touch_lock_required",
-                                "hint": "أرسل confirm=MOBILE_PANIC_CONFIRM من .env",
-                            },
-                        )
                     result = _close_positions("all")
                     (RUNTIME / "user_stopped.flag").write_text("mobile-panic", encoding="utf-8")
                     (RUNTIME / "panic_touch_lock.flag").write_text("latched", encoding="utf-8")
