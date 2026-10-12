@@ -1,5 +1,0 @@
-{"ts": "2026-10-12T19:47:59.959693+00:00", "event": "error", "message": "Panic Button: 🚨 اختبار\nتم إغلاق: BTC/USDT"}
-{"ts": "2026-10-12T19:48:06.681534+00:00", "event": "trade_open", "symbol": "BTC/USDT", "position_id": "pos-1", "entry_price": 100.0, "amount": 0.5, "stop_loss": 97.0, "take_profit": 106.0, "score": 8, "mode": "LIVE"}
-{"ts": "2026-10-12T19:48:06.683289+00:00", "event": "trade_close", "symbol": "ETH/USDT", "position_id": "pos-2", "exit_price": 200.0, "pnl": -1.0, "reason": "Stop"}
-{"ts": "2026-10-12T19:48:11.806393+00:00", "event": "trade_closed_archived", "position_id": "pos-test-1", "exit_price": 105.0, "pnl": 5.0}
-{"ts": "2026-10-12T19:48:11.915337+00:00", "event": "daily_report_saved", "report_date": "2026-10-12", "chars": 11}
