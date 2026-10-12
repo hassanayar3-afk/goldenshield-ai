@@ -16,9 +16,29 @@ $keepOnDesktop = @(
     "GoldenShield Panel.lnk"
 )
 
+$deskFolder = Join-Path $Desktop "GoldenShield"
+if (Test-Path $deskFolder -PathType Container) {
+    $hasBot = Test-Path (Join-Path $deskFolder "main.py")
+    if (-not (Test-Path $Project)) {
+        Move-Item $deskFolder $Project -Force
+        Write-Host "MOVED_DESKTOP_PROJECT -> $Project (was Desktop\GoldenShield)"
+    } elseif ($hasBot) {
+        $dest = Join-Path $ImportDir "GoldenShield_desktop_copy"
+        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+        Move-Item $deskFolder $dest -Force
+        Write-Host "MOVED_DESKTOP_COPY -> $dest (active project stays $Project)"
+    } else {
+        $dest = Join-Path $ImportDir "GoldenShield"
+        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+        Move-Item $deskFolder $dest -Force
+        Write-Host "MOVED_MISC_FOLDER -> $dest"
+    }
+}
+
 Get-ChildItem $Desktop -Force | ForEach-Object {
     $name = $_.Name
     if ($keepOnDesktop -contains $name) { return }
+    if ($name -eq "GoldenShield") { return }
 
     $isGs = $name -match "(?i)goldenshield"
     $isOldLauncher = $name -match "^(START_BOT|STOP_BOT|REST_BOT|BOT_WINDOW|START_BOT_24_7|STOP_BOT_FULL)\.(bat|cmd|ps1)$"
