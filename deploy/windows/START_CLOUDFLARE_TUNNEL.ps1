@@ -36,7 +36,7 @@ if (-not $cf) {
     if (Test-Path $bundled) { $cf = Get-Command $bundled }
 }
 if (-not $cf) {
-    Write-Warning "cloudflared not found — set MOBILE_PUBLIC_BASE_URL in .env or install cloudflared"
+    Write-Warning "cloudflared not found - set MOBILE_PUBLIC_BASE_URL in .env or install cloudflared"
     exit 0
 }
 
