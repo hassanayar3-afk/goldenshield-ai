@@ -35,12 +35,10 @@ def main() -> None:
         print(f"DEVICE_PRUNE_FAIL:{exc}", file=sys.stderr)
 
     start_watch_log_thread()
-    manager = get_stream_manager()
-    for symbol in ("BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"):
-        try:
-            manager.ensure_binance_stream(symbol)
-        except Exception:
-            pass
+    try:
+        get_stream_manager().bootstrap_default_streams()
+    except Exception as exc:
+        print(f"WS_BOOTSTRAP_FAIL:{exc}", file=sys.stderr)
 
     ThreadingHTTPServer.allow_reuse_address = True
     try:

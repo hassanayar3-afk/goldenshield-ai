@@ -322,6 +322,7 @@ class TradeExecutor:
                 prefs=prefs,
                 protocol=protocol,
                 force_open=manual_force,
+                commander=commander,
             )
         finally:
             self.mutex.release(symbol)
@@ -483,6 +484,7 @@ class TradeExecutor:
         prefs: TradePrefs | None = None,
         protocol: ProtocolApproval | None = None,
         force_open: bool = False,
+        commander: str = "",
     ) -> ExecutionResult:
         settings = get_settings()
         balance = self.get_account_balance()
@@ -1289,6 +1291,10 @@ class TradeExecutor:
                 if prec <= 0:
                     return True, "الكمية تصبح صفراً بعد دقة المنصة"
             except Exception as prec_exc:  # noqa: BLE001
+                if settings.execution_mode != "live" and not bool(
+                    getattr(settings, "binance_demo_trading", False)
+                ):
+                    return False, ""
                 return True, f"دقة الكمية غير صالحة: {prec_exc}"
             return False, ""
         except Exception as exc:  # noqa: BLE001
@@ -1419,6 +1425,13 @@ class TradeExecutor:
                     f"{reason} (غبار Spot — أقل من حد المنصة)",
                 )
                 self._record_post_mortem_safe(position, price, pnl, reason)
+                if self.audit is not None:
+                    self.audit.log_exit(
+                        position.symbol,
+                        reason=reason,
+                        pnl=pnl,
+                        position_id=position.id,
+                    )
                 return
 
         order_ok = False

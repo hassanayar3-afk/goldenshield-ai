@@ -6,7 +6,7 @@ default_rr_ratio: 3.0
 dark_pool_max_chunk_usdt: 500.0
 max_concurrent_positions: 12
 # احتياطي للمسار الكلاسيكي؛ Multi-Tier v1.3 يستخدم 40/40/20 عند التفعيل
-partial_exit_pct: 0.40
+partial_exit_pct: 0.50
 breakeven_enabled: true
 
 # مجموعات الارتباط — مركز واحد فقط لكل مجموعة

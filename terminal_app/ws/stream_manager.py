@@ -1,4 +1,4 @@
-"""WebSocket stream manager — Binance depth/trade + بث للتطبيق."""
+"""WebSocket stream manager — خادم عميل + مرآة دفتر أوامر حية."""
 
 from __future__ import annotations
 
@@ -7,11 +7,12 @@ import json
 import logging
 import threading
 import time
-from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_SYMBOLS = ("BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT")
 
 
 @dataclass
@@ -26,12 +27,17 @@ class StreamManager:
     def __init__(self) -> None:
         self._clients: set[asyncio.Queue] = set()
         self._lock = threading.Lock()
-        self._recent: deque[StreamEvent] = deque(maxlen=500)
-        self._started: set[str] = set()
+        self._recent: list[StreamEvent] = []
+        self._recent_max = 500
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._server_thread: threading.Thread | None = None
+        self._ws_port = int(__import__("os").getenv("TERMINAL_WS_PORT", "8791") or 8791)
 
     def record(self, event: StreamEvent) -> None:
         with self._lock:
             self._recent.append(event)
+            if len(self._recent) > self._recent_max:
+                self._recent = self._recent[-self._recent_max :]
         for queue in list(self._clients):
             try:
                 queue.put_nowait(event)
@@ -46,46 +52,9 @@ class StreamManager:
     def unsubscribe_queue(self, queue: asyncio.Queue) -> None:
         self._clients.discard(queue)
 
-    def ensure_binance_stream(self, symbol: str) -> None:
-        key = symbol.replace("/", "").lower()
-        with self._lock:
-            if key in self._started:
-                return
-            self._started.add(key)
-        threading.Thread(
-            target=lambda: asyncio.run(self._run_binance_ws(symbol)),
-            name=f"binance-ws-{key}",
-            daemon=True,
-        ).start()
-
-    async def _run_binance_ws(self, symbol: str) -> None:
-        stream = symbol.replace("/", "").lower() + "@trade"
-        url = f"wss://stream.binance.com:9443/ws/{stream}"
-        try:
-            import websockets
-        except ImportError:
-            logger.warning("websockets not installed — WS stream disabled")
-            return
-        while True:
-            try:
-                async with websockets.connect(url, ping_interval=20) as ws:
-                    async for message in ws:
-                        data = json.loads(message)
-                        price = float(data.get("p") or data.get("price") or 0)
-                        self.record(
-                            StreamEvent(
-                                channel="trade",
-                                symbol=symbol,
-                                payload={"price": price, "raw": data},
-                            )
-                        )
-            except Exception as exc:
-                logger.debug("WS reconnect %s: %s", symbol, exc)
-                await asyncio.sleep(2.0)
-
     def snapshot_recent(self, limit: int = 50) -> list[dict[str, Any]]:
         with self._lock:
-            items = list(self._recent)[-limit:]
+            items = self._recent[-limit:]
         return [
             {
                 "channel": event.channel,
@@ -95,6 +64,99 @@ class StreamManager:
             }
             for event in items
         ]
+
+    def ensure_orderbook_mirror(self, symbol: str) -> None:
+        try:
+            from data.ws_orderbook_mirror import get_orderbook_mirror
+
+            mirror = get_orderbook_mirror()
+            mirror.ensure_stream(symbol)
+
+            def _poll() -> None:
+                while True:
+                    try:
+                        snap = mirror.snapshot(symbol)
+                        if snap:
+                            self.record(
+                                StreamEvent(
+                                    channel="orderbook",
+                                    symbol=symbol,
+                                    payload=snap,
+                                )
+                            )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("orderbook poll %s: %s", symbol, exc)
+                    time.sleep(0.25)
+
+            threading.Thread(
+                target=_poll,
+                name=f"ob-poll-{symbol.replace('/', '')}",
+                daemon=True,
+            ).start()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("orderbook mirror unavailable: %s", exc)
+
+    def start_ws_server(self) -> None:
+        if self._server_thread and self._server_thread.is_alive():
+            return
+        self._server_thread = threading.Thread(
+            target=lambda: asyncio.run(self._run_server()),
+            name="terminal-ws-server",
+            daemon=True,
+        )
+        self._server_thread.start()
+
+    async def _run_server(self) -> None:
+        try:
+            import websockets
+            from websockets.server import serve
+        except ImportError:
+            logger.warning("websockets not installed — client WS server disabled")
+            return
+
+        self._loop = asyncio.get_running_loop()
+
+        async def handler(ws):  # noqa: ANN001
+            queue = self.subscribe_queue()
+            try:
+                hello = {
+                    "type": "hello",
+                    "channels": ["orderbook", "trade"],
+                    "snapshot": self.snapshot_recent(30),
+                }
+                await ws.send(json.dumps(hello, ensure_ascii=False))
+                while True:
+                    event = await queue.get()
+                    msg = json.dumps(
+                        {
+                            "type": "event",
+                            "channel": event.channel,
+                            "symbol": event.symbol,
+                            "payload": event.payload,
+                            "ts": event.ts,
+                        },
+                        ensure_ascii=False,
+                    )
+                    await ws.send(msg)
+            except Exception:
+                pass
+            finally:
+                self.unsubscribe_queue(queue)
+
+        async with serve(handler, "0.0.0.0", self._ws_port, ping_interval=20):
+            logger.info("Terminal WS listening on 0.0.0.0:%s", self._ws_port)
+            await asyncio.Future()
+
+    def bootstrap_default_streams(self) -> None:
+        for symbol in _DEFAULT_SYMBOLS:
+            try:
+                self.ensure_orderbook_mirror(symbol)
+            except Exception:
+                pass
+        try:
+            self.start_ws_server()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("WS server start failed: %s", exc)
 
 
 _manager: StreamManager | None = None

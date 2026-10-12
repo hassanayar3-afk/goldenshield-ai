@@ -17,7 +17,13 @@ def _utc_now_iso() -> str:
 
 class DatabaseConnection:
     def __init__(self, db_path: str) -> None:
-        self.db_path = Path(db_path)
+        try:
+            from config.settings import resolve_db_path_absolute
+
+            resolved = resolve_db_path_absolute(db_path)
+        except Exception:
+            resolved = Path(db_path)
+        self.db_path = resolved
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     @contextmanager

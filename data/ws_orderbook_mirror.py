@@ -82,6 +82,24 @@ class OrderBookMirror:
         except Exception as exc:  # noqa: BLE001
             logger.debug("REST book %s: %s", symbol, exc)
 
+    def snapshot(self, symbol: str) -> dict[str, float] | None:
+        with self._lock:
+            state = self._books.get(symbol)
+        if state is None or state.bid_qty + state.ask_qty <= 0:
+            self._refresh_rest(symbol)
+            with self._lock:
+                state = self._books.get(symbol)
+        if state is None:
+            return None
+        total = state.bid_qty + state.ask_qty
+        imbalance = (state.bid_qty - state.ask_qty) / total if total > 0 else 0.0
+        return {
+            "bid_qty": state.bid_qty,
+            "ask_qty": state.ask_qty,
+            "imbalance": imbalance,
+            "updated_at": state.updated_at,
+        }
+
     def imbalance(self, symbol: str) -> float | None:
         with self._lock:
             st = self._books.get(symbol)

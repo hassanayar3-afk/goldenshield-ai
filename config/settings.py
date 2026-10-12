@@ -39,23 +39,28 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 def _resolve_db_path(raw: str) -> str:
-    """مسار DB مطلق ثابت — يمنع بوتاً «جديداً» فارغاً عند اختلاف مجلد التشغيل."""
+    """مسار DB نسبي في الإعدادات — يُحلّ مطلقاً عند فتح الاتصال."""
     text = (raw or "storage/db/goldenshield.db").strip() or "storage/db/goldenshield.db"
     path = Path(text)
     if path.is_absolute():
-        return str(path)
+        return str(path).replace("\\", "/")
+    return str(path).replace("\\", "/")
+
+
+def resolve_db_path_absolute(db_path: str) -> Path:
+    """حل مسار DB للتشغيل الفعلي (workspace أو GOLDENSHIELD_OFFICIAL_ROOT)."""
+    path = Path((db_path or "storage/db/goldenshield.db").strip())
+    if path.is_absolute():
+        return path
     official = Path(
         (os.getenv("GOLDENSHIELD_OFFICIAL_ROOT") or r"C:\GoldenShield_Binance").strip()
     )
     try:
         if official.is_dir():
-            return str((official / path).resolve())
+            return (official / path).resolve()
     except Exception:
         pass
-    try:
-        return str((BASE_DIR / path).resolve())
-    except Exception:
-        return str(Path.cwd() / path)
+    return (BASE_DIR / path).resolve()
 
 
 @dataclass(frozen=True)
