@@ -99,7 +99,9 @@ class TokenGuard:
         for device_id, meta in devices.items():
             if not isinstance(meta, dict):
                 continue
-            token = str(meta.get("token") or meta.get("device_token") or "").strip()
+            token = str(
+                meta.get("token") or meta.get("device_token") or device_id or ""
+            ).strip()
             if token:
                 mapping[str(device_id)] = token
         return mapping
@@ -140,6 +142,24 @@ class TokenGuard:
                     source=ctx.source,
                     is_master=True,
                     device_id=None,
+                ),
+            )
+        devices_raw = {}
+        if self._devices_loader is not None:
+            try:
+                loaded = self._devices_loader()
+                devices_raw = loaded.get("devices", loaded) if isinstance(loaded, dict) else {}
+            except Exception:
+                devices_raw = {}
+        if isinstance(devices_raw, dict) and ctx.token in devices_raw:
+            return TokenVerificationResult(
+                True,
+                "device_ok",
+                AuthContext(
+                    token=ctx.token,
+                    source=ctx.source,
+                    is_master=False,
+                    device_id=ctx.token,
                 ),
             )
         for device_id, device_token in self._device_tokens().items():

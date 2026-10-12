@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from terminal_app.config import ROOT, RUNTIME
 from terminal_app.http.json_io import send_cors, send_json
-from terminal_app.services import mobile_core as core
+from terminal_app.services import bot_bridge as bb
 
 
 def handle_download_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
@@ -51,7 +51,7 @@ def handle_download_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
         return True
 
     if path in ("/download/live-base", "/LIVE_API_BASE.txt", "/api/live-base"):
-        tun = core._tunnel_url().lstrip("\ufeff").strip().rstrip("/")
+        tun = bb.tunnel_url().lstrip("\ufeff").strip().rstrip("/")
         if not tun.startswith("http"):
             host = (handler.headers.get("Host") or "").strip()
             if host and "trycloudflare.com" in host:

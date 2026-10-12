@@ -8,7 +8,7 @@ from pathlib import Path
 from terminal_app.config import ROOT
 from terminal_app.http.auth_adapter import auth_ok
 from terminal_app.http.json_io import send_json
-from terminal_app.services import mobile_core as core
+from terminal_app.services import alerts_queue as aq
 
 
 def handle_upload_put(handler: BaseHTTPRequestHandler, path: str) -> bool:
@@ -36,6 +36,6 @@ def handle_upload_put(handler: BaseHTTPRequestHandler, path: str) -> bool:
             target.write_bytes(raw)
         except Exception:
             pass
-    core._push_alert("apk", "تم تحديث APK", f"{length} بايت", level="ok")
+    aq.push_alert("apk", "تم تحديث APK", f"{length} بايت", level="ok")
     send_json(handler, 200, {"ok": True, "bytes": length})
     return True

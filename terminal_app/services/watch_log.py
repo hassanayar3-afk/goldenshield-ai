@@ -6,15 +6,15 @@ import threading
 import time
 
 from terminal_app.config import ROOT
-from terminal_app.services import mobile_core as core
+from terminal_app.services import bot_bridge as bb
 
 
 def watch_bot_log_for_alerts() -> None:
     log = ROOT / "storage" / "logs" / "bot_stdout.log"
     last_size = log.stat().st_size if log.exists() else 0
     try:
-        for row in core._parse_signals_from_log():
-            core._last_score_bucket[row["sym"]] = core._score_bucket(int(row["score"]))
+        for row in bb.parse_signals_from_log():
+            bb._last_score_bucket[row["sym"]] = bb.score_bucket(int(row["score"]))
     except Exception:
         pass
     while True:
@@ -26,7 +26,7 @@ def watch_bot_log_for_alerts() -> None:
             if size < last_size:
                 last_size = 0
             if size == last_size:
-                core._parse_signals_from_log()
+                bb.parse_signals_from_log()
                 continue
             with log.open("r", encoding="utf-8", errors="replace") as handle:
                 handle.seek(last_size)
@@ -34,17 +34,19 @@ def watch_bot_log_for_alerts() -> None:
                 last_size = handle.tell()
             for line in chunk.splitlines():
                 low = line.lower()
-                row = core._parse_signal_line(line)
+                row = bb.parse_signal_line(line)
                 if row:
-                    core._maybe_alert_signal(row)
+                    bb.maybe_alert_signal(row)
                     continue
+                from terminal_app.services import alerts_queue as aq
+
                 if "دخول تلقائي" in line or ("auto" in low and "entry" in low):
-                    core._push_alert("auto_entry", "⚡ دخول تلقائي", line[:180], level="trade")
+                    aq.push_alert("auto_entry", "⚡ دخول تلقائي", line[:180], level="trade")
                 elif "هدف" in line and ("1/3" in line or "2/3" in line or "3/3" in line):
-                    core._push_alert("target", "🎯 هدف متدرج", line[:180], level="trade")
+                    aq.push_alert("target", "🎯 هدف متدرج", line[:180], level="trade")
                 elif "kill switch" in low:
-                    core._push_alert("kill", "🚨 Kill Switch", line[:180], level="emergency")
-            core._parse_signals_from_log()
+                    aq.push_alert("kill", "🚨 Kill Switch", line[:180], level="emergency")
+            bb.parse_signals_from_log()
         except Exception:
             time.sleep(5)
 

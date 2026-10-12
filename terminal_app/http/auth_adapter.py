@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler
 from terminal_app.auth.pocket_touch_lock import PocketTouchLock
 from terminal_app.auth.token_guard import TokenGuard
 from terminal_app.config import MASTER_TOKEN
-from terminal_app.services import mobile_core as core
+from terminal_app.services import alerts_queue as aq
 
 
 class HandlerAuthAdapter:
@@ -25,7 +25,7 @@ class HandlerAuthAdapter:
 def token_guard() -> TokenGuard:
     return TokenGuard(
         master_token=MASTER_TOKEN,
-        devices_loader=lambda: core._devices(),
+        devices_loader=lambda: aq.devices(),
         allow_query_token=False,
     )
 
@@ -43,5 +43,5 @@ def auth_ok(handler: BaseHTTPRequestHandler) -> bool:
         ).replace("Bearer ", "")
         if token == MASTER_TOKEN:
             return True
-        devices = core._devices().get("devices", {})
+        devices = aq.devices().get("devices", {})
         return token in devices

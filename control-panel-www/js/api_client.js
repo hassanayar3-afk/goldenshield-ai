@@ -30,6 +30,12 @@
     bootstrap: function () {
       return api("/api/bootstrap");
     },
+    pair: function (pairCode, deviceName) {
+      return api("/api/pair", {
+        method: "POST",
+        body: JSON.stringify({ pair_code: pairCode, device_name: deviceName }),
+      });
+    },
     status: function () {
       return api("/api/status");
     },
@@ -38,6 +44,12 @@
     },
     signals: function () {
       return api("/api/signals");
+    },
+    stack: function () {
+      return api("/api/stack");
+    },
+    wsSnapshot: function () {
+      return api("/api/ws/snapshot");
     },
     act: function (body) {
       return api("/api/act", { method: "POST", body: JSON.stringify(body) });

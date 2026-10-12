@@ -43,9 +43,9 @@ def handle_post(handler: BaseHTTPRequestHandler) -> None:
             send_json(handler, 401, {"ok": False, "error": "unauthorized"})
             return
         if path in ("/api/discord/config", "/api/discord"):
-            from terminal_app.services import mobile_core as core
+            from terminal_app.services import bot_bridge as bb
 
-            result = core._save_discord_config(body)
+            result = bb.save_discord_config(body)
             send_json(handler, 200 if result.get("ok") else 400, result)
             return
         if path == "/api/heartbeat":

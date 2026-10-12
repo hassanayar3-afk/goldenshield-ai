@@ -52,7 +52,8 @@ def _serve_panel_file(handler: BaseHTTPRequestHandler, rel: str) -> bool:
 
 def handle_panel_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
     from terminal_app.config import PAIR_CODE
-    from terminal_app.services import mobile_core as core
+    from terminal_app.services import alerts_queue as aq
+    from terminal_app.services import bot_bridge as bb
 
     if path in ("/", "/panel", "/panel/", "/dashboard", "/dashboard/"):
         index = PANEL_ROOT / "index.html"
@@ -64,7 +65,7 @@ def handle_panel_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
             {
                 "ok": True,
                 "service": "goldenshield-mobile-api",
-                "ts": core._utc(),
+                        "ts": aq.utc(),
                 "hint": "control panel not installed — open /api/health",
                 "pair_code_hint": PAIR_CODE[:3] + "***",
             },

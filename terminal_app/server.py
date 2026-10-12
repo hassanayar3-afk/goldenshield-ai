@@ -8,7 +8,7 @@ from http.server import ThreadingHTTPServer
 
 from terminal_app.config import PAIR_CODE, PORT, RUNTIME, bootstrap
 from terminal_app.http.handler import GoldenShieldRequestHandler
-from terminal_app.services import mobile_core as core
+from terminal_app.services import alerts_queue as aq
 from terminal_app.services.watch_log import start_watch_log_thread
 from terminal_app.ws.stream_manager import get_stream_manager
 
@@ -16,7 +16,7 @@ from terminal_app.ws.stream_manager import get_stream_manager
 def main() -> None:
     bootstrap()
     try:
-        core._push_alert(
+        aq.push_alert(
             "boot",
             "Mobile API جاهز",
             f"المنفذ {PORT} · اربط الجهاز برمز {PAIR_CODE}",
@@ -29,8 +29,8 @@ def main() -> None:
     except Exception as exc:
         print(f"PID_WRITE_FAIL:{exc}", file=sys.stderr)
     try:
-        data = core._prune_devices(core._devices(), max_devices=8)
-        core._save_devices(data)
+        data = aq.prune_devices(aq.devices(), max_devices=8)
+        aq.save_devices(data)
     except Exception as exc:
         print(f"DEVICE_PRUNE_FAIL:{exc}", file=sys.stderr)
 

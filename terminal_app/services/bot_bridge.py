@@ -105,7 +105,7 @@ def status() -> dict:
         pass
 
     snap = bm.binance_snapshot()
-    positions = [p for p in positions() if p and "error" not in p]
+    open_rows = [p for p in positions() if p and "error" not in p]
     if snap.get("ok") and snap.get("equity") is not None:
         bal = float(snap["equity"])
         session_start = float(snap.get("session_start_equity") or bal)
@@ -120,7 +120,7 @@ def status() -> dict:
         bal = float(risk.get("current_balance") or risk.get("session_start_balance") or 0)
         session_start = float(risk.get("session_start_balance") or bal)
         session_pnl = bal - session_start
-        unrealized = sum(float(p.get("pnl") or 0) for p in positions)
+        unrealized = sum(float(p.get("pnl") or 0) for p in open_rows)
         free_cash = bal
         balance_source = "risk_state"
         exchange_ok = False
@@ -132,8 +132,8 @@ def status() -> dict:
             "on",
         }
 
-    tradeable = [p for p in positions if not p.get("dust")]
-    dust_n = len(positions) - len(tradeable)
+    tradeable = [p for p in open_rows if not p.get("dust")]
+    dust_n = len(open_rows) - len(tradeable)
     win_open = sum(float(p.get("pnl") or 0) for p in tradeable if float(p.get("pnl") or 0) >= 0)
     lose_open = sum(float(p.get("pnl") or 0) for p in tradeable if float(p.get("pnl") or 0) < 0)
 

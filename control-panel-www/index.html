@@ -11,10 +11,27 @@
     <h1>GoldenShield Terminal</h1>
     <p id="status-line">جاري التحميل…</p>
   </header>
+
+  <section class="gs-card gs-pair" id="pair-card">
+    <h2>ربط الجهاز</h2>
+    <label>رمز الربط<input type="text" id="pair-code" autocomplete="off" /></label>
+    <label>اسم الجهاز<input type="text" id="device-name" value="WebPanel" /></label>
+    <button type="button" class="gs-btn" id="btn-pair">ربط</button>
+    <p class="gs-muted" id="pair-status"></p>
+  </section>
+
   <main class="gs-grid">
     <section class="gs-card" id="account-card">
       <h2>المحفظة</h2>
       <div id="account-body">—</div>
+    </section>
+    <section class="gs-card" id="stack-card">
+      <h2>Stack / Battalion</h2>
+      <pre id="stack-body" class="gs-pre">—</pre>
+    </section>
+    <section class="gs-card" id="orderbook-card">
+      <h2>Order Book (WS)</h2>
+      <ul id="orderbook-list"></ul>
     </section>
     <section class="gs-card" id="signals-card">
       <h2>الإشارات</h2>

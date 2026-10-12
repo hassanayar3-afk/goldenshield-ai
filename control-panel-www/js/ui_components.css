@@ -41,3 +41,9 @@ body {
 .gs-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 #signals-list { list-style: none; padding: 0; margin: 0; }
 #signals-list li { padding: 0.35rem 0; border-bottom: 1px solid #243055; }
+.gs-pair { margin: 1rem; max-width: 420px; }
+.gs-pair label { display: block; margin: 0.5rem 0; }
+.gs-pair input { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #243055; background: #0b1020; color: #e8eefc; }
+.gs-muted { color: #9aa8c7; font-size: 0.9rem; }
+.gs-pre { font-size: 0.75rem; overflow: auto; max-height: 220px; white-space: pre-wrap; }
+#orderbook-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 0.85rem; }

@@ -8,7 +8,8 @@ from http.server import BaseHTTPRequestHandler
 
 from terminal_app.config import PAIR_CODE, RUNTIME, STRATEGY_CODE
 from terminal_app.http.json_io import send_json
-from terminal_app.services import mobile_core as core
+from terminal_app.services import alerts_queue as aq
+from terminal_app.services import bot_bridge as bb
 
 
 def handle_pair_post(handler: BaseHTTPRequestHandler, body: dict) -> bool:
@@ -31,12 +32,12 @@ def handle_pair_post(handler: BaseHTTPRequestHandler, body: dict) -> bool:
             return ""
 
     if resume_token:
-        data = core._devices()
+        data = aq.devices()
         devices = data.setdefault("devices", {})
         if resume_token in devices:
             devices[resume_token]["name"] = name or devices[resume_token].get("name") or "Android"
-            devices[resume_token]["last_seen"] = core._utc()
-            core._save_devices(data)
+            devices[resume_token]["last_seen"] = aq.utc()
+            aq.save_devices(data)
             send_json(
                 handler,
                 200,
@@ -45,7 +46,7 @@ def handle_pair_post(handler: BaseHTTPRequestHandler, body: dict) -> bool:
                     "resumed": True,
                     "device_token": resume_token,
                     "api_base_hint": tunnel_hint(),
-                    "rules": core._rules_payload(),
+                    "rules": bb.rules_payload(),
                     "strategy_code": STRATEGY_CODE,
                     "notify_channel": "discord+mobile",
                 },
@@ -72,20 +73,20 @@ def handle_pair_post(handler: BaseHTTPRequestHandler, body: dict) -> bool:
         return True
 
     if code != PAIR_CODE.upper():
-        core._push_alert("security", "محاولة ربط فاشلة", f"جهاز: {name}", level="warn")
+        aq.push_alert("security", "محاولة ربط فاشلة", f"جهاز: {name}", level="warn")
         send_json(handler, 403, {"ok": False, "error": "رمز الربط غير صحيح"})
         return True
 
     token = secrets.token_urlsafe(24)
-    data = core._devices()
+    data = aq.devices()
     data.setdefault("devices", {})[token] = {
         "name": name,
-        "paired_at": core._utc(),
-        "last_seen": core._utc(),
+        "paired_at": aq.utc(),
+        "last_seen": aq.utc(),
     }
-    data = core._prune_devices(data, max_devices=8)
-    core._save_devices(data)
-    core._push_alert("pair", "تم ربط جهاز", f"{name} مربوط بالتطبيق", level="ok")
+    data = aq.prune_devices(data, max_devices=8)
+    aq.save_devices(data)
+    aq.push_alert("pair", "تم ربط جهاز", f"{name} مربوط بالتطبيق", level="ok")
     send_json(
         handler,
         200,
@@ -93,7 +94,7 @@ def handle_pair_post(handler: BaseHTTPRequestHandler, body: dict) -> bool:
             "ok": True,
             "device_token": token,
             "api_base_hint": tunnel_hint(),
-            "rules": core._rules_payload(),
+            "rules": bb.rules_payload(),
             "strategy_code": STRATEGY_CODE,
             "notify_channel": "discord+mobile",
         },
