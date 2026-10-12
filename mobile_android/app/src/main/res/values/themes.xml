@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GoldenShieldControl" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#C9A227</item>
-        <item name="colorPrimaryVariant">#8B6914</item>
-        <item name="colorOnPrimary">#000000</item>
+    <style name="Theme.GoldenShieldControl" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#1A1A1A</item>
+        <item name="android:navigationBarColor">#1A1A1A</item>
     </style>
 </resources>

@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GoldenShield Control</string>
-    <string name="connect_title">ربط GoldenShield Terminal</string>
-    <string name="connect_help">اضغط «ربط السحابة تلقائياً» — يربط API + البوت + Discord + Binance على السيرفر.\nلا تستخدم 127.0.0.1 إلا مع Termux على الهاتف.</string>
-    <string name="cloud_auto">ربط السحابة تلقائياً (نفق + VPS)</string>
-    <string name="cloud_auto_ok">تم الربط بالسيرفر السحابي</string>
-    <string name="cloud_auto_fail">السيرفر لا يرد — شغّل GS_START_FULL_STACK على VPS أو انتظر النفق</string>
-    <string name="hint_url">https://your-tunnel.trycloudflare.com</string>
-    <string name="test_connection">اختبار الاتصال (/api/health)</string>
-    <string name="open_panel">فتح لوحة التحكم</string>
-    <string name="discover_tunnel">اكتشاف النفق (من عنوان VPS أو محلي)</string>
-    <string name="discover_ok">تم ضبط الرابط من السيرفر</string>
-    <string name="test_ok">الاتصال ناجح — افتح اللوحة</string>
-    <string name="test_fail">فشل الاتصال — تحقق من العنوان والمنفذ 8790</string>
-    <string name="err_localhost">127.0.0.1 لا يعمل إلا مع Termux على هذا الهاتف</string>
-    <string name="web_error">تعذر فتح الصفحة — جرّب رابط النفق أو IP السيرفر</string>
+    <string name="app_name">GoldenShield</string>
 </resources>
