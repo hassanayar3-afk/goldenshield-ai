@@ -84,6 +84,27 @@
     btnToggleRun.classList.toggle("is-paused", lastPaused);
     toggleRunLabel.textContent = lastPaused ? "تشغيل" : "إيقاف";
     toggleRunIcon.textContent = lastPaused ? "▶" : "⏸";
+
+    const banner = $("hero-banner");
+    if (banner) {
+      const msgs = [];
+      if (!st.bot_running) {
+        msgs.push("البوت غير نشط على هذا السيرفر — شغّل GS_START_FULL_STACK أو gs_daemon.ps1");
+      }
+      if (st.exchange_ok === false && st.exchange_error) {
+        msgs.push("Binance: " + String(st.exchange_error).slice(0, 120));
+      } else if (st.balance_source === "risk_state" && !st.exchange_ok) {
+        msgs.push("الرصيد من risk_state — انتظر مزامنة Binance أو تحديث");
+      }
+      if (msgs.length) {
+        banner.textContent = msgs.join(" · ");
+        banner.classList.remove("gs-banner--hidden");
+        banner.classList.toggle("gs-banner--warn", !!st.bot_running);
+      } else {
+        banner.textContent = "";
+        banner.classList.add("gs-banner--hidden");
+      }
+    }
   }
 
   function renderRules(rules) {
@@ -102,20 +123,25 @@
       (r.targets != null ? r.targets : 3);
   }
 
-  function renderSignals(rows, rules) {
+  function renderSignals(rows, rules, botRunning) {
     signalsList.innerHTML = "";
     const minDisplay = (rules && rules.display_min) || 70;
-    const filtered = (rows || []).filter(function (row) {
-      return Number(row.score || row.strength || 0) >= minDisplay;
-    });
-    filtered.sort(function (a, b) {
+    const sorted = (rows || []).slice().sort(function (a, b) {
       return Number(b.score || 0) - Number(a.score || 0);
     });
+    let filtered = sorted.filter(function (row) {
+      return Number(row.score || row.strength || 0) >= minDisplay;
+    });
+    if (!filtered.length && sorted.length) {
+      filtered = sorted.slice(0, 14);
+    }
 
     if (!filtered.length) {
       const li = document.createElement("li");
       li.className = "gs-muted";
-      li.textContent = "لا إشارات ≥ " + minDisplay + " حالياً — يتم التحديث تلقائياً";
+      li.textContent = botRunning
+        ? "لا إشارات ≥ " + minDisplay + " حالياً — يتم التحديث تلقائياً"
+        : "البوت لا يرسل نبضاً للوحة — شغّل gs_daemon / main.py على نفس السيرفر (8790)";
       signalsList.appendChild(li);
       return;
     }
@@ -270,62 +296,65 @@
       return;
     }
 
+    syncLine.textContent = "جاري المزامنة… " + liveTimeStr();
     const parts = [];
     let statusPayload = {};
     let rules = {};
 
-    try {
-      const stRes = await window.GSApi.status();
+    const results = await Promise.allSettled([
+      window.GSApi.status(),
+      window.GSApi.account(),
+      window.GSApi.signals(),
+      window.GSApi.positions(),
+      window.GSApi.history(),
+      window.GSApi.stack(),
+    ]);
+
+    function tag(name, r) {
+      if (r.status === "rejected") parts.push(name + ":" + (r.reason && r.reason.message ? r.reason.message : "err"));
+    }
+
+    tag("status", results[0]);
+    tag("account", results[1]);
+    tag("signals", results[2]);
+    tag("positions", results[3]);
+    tag("history", results[4]);
+    tag("stack", results[5]);
+
+    if (results[0].status === "fulfilled") {
+      const stRes = results[0].value;
       statusPayload = (stRes && stRes.status) || {};
       rules = (stRes && stRes.rules) || {};
-      renderHero(statusPayload);
       renderRules(rules);
-    } catch (e) {
-      parts.push("status:" + (e.message || "err"));
     }
-
-    try {
-      const acc = await window.GSApi.account();
+    if (results[1].status === "fulfilled") {
+      const acc = results[1].value;
       const st = (acc && acc.status) || statusPayload;
-      if (st && Object.keys(st).length) renderHero(st);
-    } catch (e) {
-      parts.push("account:" + (e.message || "err"));
+      if (st && Object.keys(st).length) statusPayload = st;
     }
+    renderHero(statusPayload);
 
-    try {
-      const sig = await window.GSApi.signals();
+    if (results[2].status === "fulfilled") {
+      const sig = results[2].value;
       const rows = (sig && sig.signals) || [];
       maybeNotifySignal(lastSignals, rows);
       lastSignals = rows;
-      renderSignals(rows, rules);
+      renderSignals(rows, rules, statusPayload.bot_running);
       signalsMeta.textContent =
         "آخر تحديث · " +
         liveTimeStr() +
         " · سيولة السوق: " +
         (rows[0] && rows[0].liquidity != null ? rows[0].liquidity : "—");
-    } catch (e) {
-      parts.push("signals:" + (e.message || "err"));
     }
 
-    try {
-      const pos = await window.GSApi.positions();
-      renderPositions((pos && pos.positions) || []);
-    } catch (e) {
-      parts.push("positions:" + (e.message || "err"));
+    if (results[3].status === "fulfilled") {
+      renderPositions((results[3].value && results[3].value.positions) || []);
     }
-
-    try {
-      const hist = await window.GSApi.history();
-      renderHistory((hist && hist.history) || []);
-    } catch (e) {
-      parts.push("history:" + (e.message || "err"));
+    if (results[4].status === "fulfilled") {
+      renderHistory((results[4].value && results[4].value.history) || []);
     }
-
-    try {
-      const stack = await window.GSApi.stack();
-      renderReport(statusPayload, (stack && stack.stack) || {}, rules);
-    } catch (e) {
-      parts.push("stack:" + (e.message || "err"));
+    if (results[5].status === "fulfilled") {
+      renderReport(statusPayload, (results[5].value && results[5].value.stack) || {}, rules);
     }
 
     syncLine.textContent = "آخر مزامنة حية: " + liveTimeStr();

@@ -191,6 +191,27 @@ body.gs-app {
   color: var(--muted);
 }
 
+.gs-banner {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  background: rgba(232, 93, 93, 0.12);
+  border: 1px solid rgba(232, 93, 93, 0.35);
+  color: #ffc9c9;
+}
+
+.gs-banner--warn {
+  background: rgba(212, 162, 76, 0.12);
+  border-color: rgba(212, 162, 76, 0.35);
+  color: #f5dfa8;
+}
+
+.gs-banner--hidden {
+  display: none;
+}
+
 .gs-section {
   margin-top: 1.25rem;
 }
