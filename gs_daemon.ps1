@@ -75,6 +75,18 @@ while ($true) {
         continue
     }
     if ($mains.Count -eq 1) {
+        try {
+            $hbPath = Join-Path $runtime "heartbeat.json"
+            $hbObj = @{
+                ts       = (Get-Date).ToUniversalTime().ToString("o")
+                service  = "bot-cycle"
+                signals  = 0
+                main_pid = $mains[0].ProcessId
+            }
+            $hbObj | ConvertTo-Json -Compress | Set-Content -Path $hbPath -Encoding UTF8
+        } catch {
+            Write-D ("HEARTBEAT_PULSE_FAIL " + $_.Exception.Message)
+        }
         Start-Sleep -Seconds 4
         continue
     }

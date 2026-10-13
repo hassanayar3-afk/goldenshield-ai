@@ -2,7 +2,8 @@
 param(
     [string]$Root = "C:\GoldenShield_Binance",
     [string]$Branch = "cursor/win-remote-deploy-fix-2e26",
-    [string]$DiscordWebhookUrl = ""
+    [string]$DiscordWebhookUrl = "",
+    [switch]$SkipStackStart
 )
 $ErrorActionPreference = "Continue"
 Set-Location $Root
@@ -37,8 +38,10 @@ if (-not $discordOk) {
     Write-Warning "Discord not configured in .env — set DISCORD_WEBHOOK_URL or BOT_TOKEN+CHANNEL_ID"
 }
 
-& (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
-Start-Sleep -Seconds 8
+if (-not $SkipStackStart) {
+    & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+    Start-Sleep -Seconds 8
+}
 
 try {
     $st = Invoke-RestMethod "http://127.0.0.1:8790/api/status" -Headers @{"X-GS-Token" = (Get-Content (Join-Path $Root "storage\runtime\mobile_devices.json") -Raw | ConvertFrom-Json).devices.PSObject.Properties.Name[0]} -TimeoutSec 30 -ErrorAction Stop

@@ -17,6 +17,7 @@ $logs = Join-Path $Root "storage\logs"
 New-Item -ItemType Directory -Force -Path $runtime, $logs | Out-Null
 $urlFile = Join-Path $runtime "mobile_tunnel_url.txt"
 $logFile = Join-Path $logs "cloudflare_tunnel.log"
+$logErr = Join-Path $logs "cloudflare_tunnel.err.log"
 
 if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
     ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
@@ -45,22 +46,29 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
 } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
 if ($token) {
-    Start-Process -FilePath $cf.Source -ArgumentList @("tunnel", "run", "--token", $token) `
-        -WorkingDirectory $Root -WindowStyle Minimized -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+    Start-Process -FilePath $cf.Source -ArgumentList @(
+        "tunnel", "run", "--token", $token,
+        "--logfile", $logFile, "--loglevel", "info"
+    ) -WorkingDirectory $Root -WindowStyle Hidden
     Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED see $logFile"
     exit 0
 }
 
 $target = "http://127.0.0.1:$port"
-Start-Process -FilePath $cf.Source -ArgumentList @("tunnel", "--url", $target) `
-    -WorkingDirectory $Root -WindowStyle Minimized -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+Start-Process -FilePath $cf.Source -ArgumentList @(
+    "tunnel", "--url", $target,
+    "--logfile", $logFile, "--loglevel", "info"
+) -WorkingDirectory $Root -WindowStyle Hidden
 
 $deadline = (Get-Date).AddMinutes(2)
 $url = ""
 while ((Get-Date) -lt $deadline -and -not $url) {
     Start-Sleep -Seconds 2
     if (-not (Test-Path $logFile)) { continue }
-    $text = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
+    $text = @(
+        (Get-Content $logFile -Raw -ErrorAction SilentlyContinue),
+        (Get-Content $logErr -Raw -ErrorAction SilentlyContinue)
+    ) -join "`n"
     if ($text -match "(https://[a-z0-9-]+\.trycloudflare\.com)") {
         $url = $Matches[1]
     }

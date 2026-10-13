@@ -26,6 +26,7 @@ $runtime = Join-Path $Root "storage\runtime"
 New-Item -ItemType Directory -Force -Path $runtime | Out-Null
 Remove-Item (Join-Path $runtime "user_stopped.flag") -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $runtime "bot_instance.lock") -Force -ErrorAction SilentlyContinue
+Remove-Item "C:\ProgramData\GoldenShield\bot_instance.lock" -Force -ErrorAction SilentlyContinue
 
 $kill = Join-Path $Root "scripts\gs_kill_all.ps1"
 if (Test-Path $kill) { & $kill }
@@ -40,10 +41,23 @@ Start-Sleep -Seconds 3
 Start-Sleep -Seconds 2
 & (Join-Path $PSScriptRoot "START_DISCORD_BRIDGE.ps1") -Root $Root
 
-Start-Process powershell -ArgumentList @(
-    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-    (Join-Path $Root "gs_daemon.ps1")
-) -WorkingDirectory $Root -WindowStyle Normal
+# Prefer long-lived Scheduled Task daemon (survives WinRM / short parent exit)
+$regDaemon = Join-Path $PSScriptRoot "REGISTER_GS_DAEMON_TASK.ps1"
+if (Test-Path $regDaemon) {
+    try {
+        & $regDaemon -Root $Root
+    } catch {
+        Start-Process powershell -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+            (Join-Path $Root "gs_daemon.ps1"), "-Root", $Root
+        ) -WorkingDirectory $Root -WindowStyle Hidden
+    }
+} else {
+    Start-Process powershell -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        (Join-Path $Root "gs_daemon.ps1"), "-Root", $Root
+    ) -WorkingDirectory $Root -WindowStyle Hidden
+}
 
 $tun = ""
 $tunFile = Join-Path $runtime "mobile_tunnel_url.txt"

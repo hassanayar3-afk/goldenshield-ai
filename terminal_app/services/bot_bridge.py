@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import re
 import secrets
 import sqlite3
+import subprocess
 import threading
 import time
 import traceback
@@ -93,8 +95,29 @@ def positions() -> list:
     return db_rows
 
 
+def _win_main_py_process_count() -> int:
+    if platform.system().lower() != "windows":
+        return 0
+    try:
+        ps = (
+            "(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | "
+            "Where-Object { $_.CommandLine -and $_.CommandLine -match 'main\\.py' }).Count"
+        )
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps],
+            capture_output=True,
+            text=True,
+            timeout=12,
+        )
+        return max(0, int((r.stdout or "0").strip() or "0"))
+    except Exception:
+        return 0
+
+
 def _probe_bot_running(max_age_sec: float = 45.0) -> bool:
     """هل حلقة البوت حية؟ (نبض، سجل، لوحة إشارات، أو daemon)."""
+    if _win_main_py_process_count() >= 1:
+        return True
     now = time.time()
     probes: list[float] = []
     try:
@@ -111,6 +134,14 @@ def _probe_bot_running(max_age_sec: float = 45.0) -> bool:
         pass
     if probes and min(probes) < max_age_sec:
         return True
+    try:
+        stdout_log = ROOT / "storage" / "logs" / "bot_stdout.log"
+        if stdout_log.is_file() and (now - stdout_log.stat().st_mtime) < max_age_sec * 2:
+            tail = stdout_log.read_text(encoding="utf-8", errors="replace")[-4000:]
+            if "No-Sleep=ON" in tail or "BOT_FORCE_ACTIVE" in tail or "دورة" in tail:
+                return True
+    except Exception:
+        pass
     try:
         stack = aq.load_json(RUNTIME / "gs_stack_status.json", {})
         if isinstance(stack, dict):

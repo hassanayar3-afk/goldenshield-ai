@@ -120,6 +120,8 @@ def _production_env_bytes() -> bytes:
         "TELEGRAM_LIVE_SIGNALS",
         "MOBILE_WEB_DIRECT_ACCESS",
         "BOT_FORCE_ACTIVE",
+        "CLOUDFLARE_TUNNEL_ENABLED",
+        "CLOUDFLARE_TUNNEL_LOCAL_URL",
     )
     for k in merge_keys:
         v = (local.get(k) or os.getenv(k) or "").strip()
@@ -127,6 +129,10 @@ def _production_env_bytes() -> bytes:
             v = "true"
         if not v and k in ("TELEGRAM_SEND_CYCLE_SIGNALS", "TELEGRAM_LIVE_SIGNALS"):
             v = "false"
+        if not v and k == "CLOUDFLARE_TUNNEL_ENABLED":
+            v = "true"
+        if not v and k == "CLOUDFLARE_TUNNEL_LOCAL_URL":
+            v = "http://127.0.0.1:8790"
         if not v:
             continue
         pat = re.compile(rf"^{re.escape(k)}=.*$", re.M)
