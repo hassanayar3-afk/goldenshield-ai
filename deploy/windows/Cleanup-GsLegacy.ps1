@@ -67,14 +67,19 @@ if ($Aggressive) {
     $canonicalApk = Join-Path $Root "downloads\GoldenShield-Control.apk"
     $sizes = @{}
     if (Test-Path $canonicalApk) { $sizes[$canonicalApk] = (Get-Item $canonicalApk).Length }
+    $pubApk = "C:\Users\Public\GoldenShield-Control.apk"
+    if ((Test-Path $canonicalApk) -and (Test-Path $pubApk)) {
+        $canonLen = (Get-Item $canonicalApk).Length
+        if ((Get-Item $pubApk).Length -ne $canonLen) {
+            Copy-Item $canonicalApk $pubApk -Force
+        }
+    }
     foreach ($glob in @(
-        "C:\Users\Public\GoldenShield*.apk",
         (Join-Path $Root "GoldenShield-Control.apk"),
         (Join-Path $Root "storage\mobile\*.apk")
     )) {
         Get-ChildItem $glob -ErrorAction SilentlyContinue | ForEach-Object {
             if ($_.FullName -eq $canonicalApk) { return }
-            if ($_.Length -gt 3500000 -and $sizes.Values -contains $_.Length) { return }
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
             Write-Host ("OLD_APK_REMOVED " + $_.FullName)
         }

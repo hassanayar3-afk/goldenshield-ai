@@ -40,7 +40,7 @@ if (Test-Path (Join-Path $Root ".env")) {
     }
 }
 if (-not $discordOk) {
-    Write-Warning "Discord not configured in .env — set DISCORD_WEBHOOK_URL or BOT_TOKEN+CHANNEL_ID"
+    Write-Warning "Discord not configured in .env - set DISCORD_WEBHOOK_URL or BOT_TOKEN+CHANNEL_ID"
 }
 
 if (-not $SkipStackStart) {
@@ -49,7 +49,7 @@ if (-not $SkipStackStart) {
         try {
             & $svc -Root $Root -RemoveScheduledTasks
         } catch {
-            Write-Warning ("Install-GsWindowsServices failed — fallback GS_START_FULL_STACK: " + $_.Exception.Message)
+            Write-Warning ("Install-GsWindowsServices failed; fallback GS_START_FULL_STACK: " + $_.Exception.Message)
             & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
         }
     } else {
@@ -59,7 +59,9 @@ if (-not $SkipStackStart) {
     try {
         & (Join-Path $Root "deploy\windows\Sync-GsMobileUrls.ps1") -Root $Root
     } catch {}
-    & (Join-Path $Root "deploy\windows\START_DISCORD_BRIDGE.ps1") -Root $Root -ErrorAction SilentlyContinue
+    try {
+        & (Join-Path $Root "deploy\windows\START_DISCORD_BRIDGE.ps1") -Root $Root
+    } catch {}
 }
 
 try {
