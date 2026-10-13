@@ -18,6 +18,7 @@ New-Item -ItemType Directory -Force -Path $runtime, $logs | Out-Null
 $urlFile = Join-Path $runtime "mobile_tunnel_url.txt"
 $logFile = Join-Path $logs "cloudflare_tunnel.log"
 $logErr = Join-Path $logs "cloudflare_tunnel.err.log"
+Remove-Item $logFile, $logErr -Force -ErrorAction SilentlyContinue
 
 if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
     ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
