@@ -59,7 +59,7 @@ if ($token) {
         Add-Content -Path $urlFile -Value ""
         Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED static=$($env:MOBILE_PUBLIC_BASE_URL)"
     } else {
-        Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED set MOBILE_PUBLIC_BASE_URL to your tunnel hostname — see $logFile"
+        Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED set MOBILE_PUBLIC_BASE_URL to your tunnel hostname - see $logFile"
     }
     exit 0
 }

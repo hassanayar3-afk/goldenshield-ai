@@ -6,7 +6,8 @@ param(
 $ErrorActionPreference = "Stop"
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(544)
 if (-not $isAdmin) {
-    Write-Warning "Run elevated (Admin) for Windows Services"
+    Write-Warning "WINDOWS_SERVICES_SKIP not elevated (Admin)"
+    exit 2
 }
 
 Set-Location $Root

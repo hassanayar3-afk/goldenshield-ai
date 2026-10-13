@@ -11,7 +11,7 @@ if (Test-Path $tunFile) {
     $tun = (Get-Content $tunFile -Raw -ErrorAction SilentlyContinue).Trim().TrimEnd("/")
 }
 if ($tun -notmatch "^https://") {
-    Write-Warning "TUNNEL_URL_MISSING — run START_CLOUDFLARE_TUNNEL.ps1"
+    Write-Warning "TUNNEL_URL_MISSING - run START_CLOUDFLARE_TUNNEL.ps1"
     exit 0
 }
 

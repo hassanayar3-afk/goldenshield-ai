@@ -44,16 +44,23 @@ if (-not $discordOk) {
 }
 
 if (-not $SkipStackStart) {
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(544)
     $svc = Join-Path $Root "deploy\windows\Install-GsWindowsServices.ps1"
-    if (Test-Path $svc) {
+    $started = $false
+    if ($isAdmin -and (Test-Path $svc)) {
         try {
             & $svc -Root $Root -RemoveScheduledTasks
+            if ($LASTEXITCODE -eq 0) { $started = $true }
         } catch {
             Write-Warning ("Install-GsWindowsServices failed; fallback GS_START_FULL_STACK: " + $_.Exception.Message)
-            & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
         }
-    } else {
+    }
+    if (-not $started) {
         & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+        $regDaemon = Join-Path $Root "deploy\windows\REGISTER_GS_DAEMON_TASK.ps1"
+        $regTunnel = Join-Path $Root "deploy\windows\REGISTER_GS_TUNNEL_TASK.ps1"
+        if (Test-Path $regDaemon) { try { & $regDaemon -Root $Root } catch {} }
+        if (Test-Path $regTunnel) { try { & $regTunnel -Root $Root } catch {} }
     }
     Start-Sleep -Seconds 8
     try {
