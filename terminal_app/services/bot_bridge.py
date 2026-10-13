@@ -542,13 +542,57 @@ def stack_payload() -> dict:
         if stack_disk.get("tunnel_url") and not payload["tunnel_url"]:
             payload["tunnel_url"] = stack_disk["tunnel_url"]
     return payload
+_TRYCF_TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
+_CLOUDFLARE_TUNNEL_LOG = ROOT / "storage" / "logs" / "cloudflare_tunnel.log"
+
+
+def _latest_trycloudflare_from_log() -> str:
+    try:
+        if not _CLOUDFLARE_TUNNEL_LOG.exists():
+            return ""
+        text = _CLOUDFLARE_TUNNEL_LOG.read_text(encoding="utf-8", errors="replace")
+        chunks = re.split(
+            r"Requesting new quick Tunnel on trycloudflare\.com",
+            text,
+            flags=re.IGNORECASE,
+        )
+        tail = chunks[-1] if chunks else text
+        hits = _TRYCF_TUNNEL_RE.findall(tail)
+        return hits[-1].rstrip("/") if hits else ""
+    except Exception:
+        return ""
+
+
+def _normalize_tunnel_base(url: str) -> str:
+    u = (url or "").lstrip("\ufeff").strip().rstrip("/")
+    if not u.startswith("http"):
+        return ""
+    return u
+
+
 def tunnel_url() -> str:
     p = RUNTIME / "mobile_tunnel_url.txt"
+    file_url = ""
     try:
         if p.exists():
-            return p.read_text(encoding="utf-8", errors="replace").strip()
+            file_url = _normalize_tunnel_base(
+                p.read_text(encoding="utf-8", errors="replace")
+            )
     except Exception:
         pass
+    static = _normalize_tunnel_base(os.getenv("MOBILE_PUBLIC_BASE_URL", ""))
+    if static:
+        return static + "/"
+    log_url = _latest_trycloudflare_from_log()
+    if log_url and (not file_url or "trycloudflare.com" in file_url):
+        if not file_url or urlparse(file_url).netloc.lower() != urlparse(log_url).netloc.lower():
+            try:
+                p.write_text(log_url + "/\n", encoding="utf-8")
+            except Exception:
+                pass
+            return log_url + "/"
+    if file_url:
+        return file_url + "/"
     return ""
 def signal_as_percent(row: dict) -> dict:
     """Bot logs score N/10; control UI ladder is 70/80/90 on a 0–100 scale."""
