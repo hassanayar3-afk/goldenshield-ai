@@ -19,7 +19,7 @@ if (Test-Path (Join-Path $Root ".git")) {
     git checkout $Branch 2>&1
     git pull origin $Branch 2>&1
 } else {
-    Write-Warning "No git repo — copy files manually or clone first"
+    Write-Warning "No git repo - copy files manually or clone first"
 }
 
 $py = & (Join-Path $Root "deploy\windows\Resolve-GsPython.ps1") -Root $Root
