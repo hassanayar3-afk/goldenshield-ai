@@ -7,17 +7,28 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 from terminal_app.http.json_io import read_json_body, send_json
-from terminal_app.routes import api_act, api_pair, api_public, api_read, api_upload, downloads, panel_static
+from terminal_app.routes import (
+    api_act,
+    api_live,
+    api_pair,
+    api_public,
+    api_read,
+    api_upload,
+    downloads,
+    panel_static,
+)
 
 
 def handle_get(handler: BaseHTTPRequestHandler) -> None:
-    path = urlparse(handler.path).path
+    path = urlparse(handler.path).path.split("?")[0]
     try:
         if downloads.handle_download_get(handler, path):
             return
         if panel_static.handle_panel_get(handler, path):
             return
         if api_public.handle_public_get(handler, path):
+            return
+        if api_live.handle_live_get(handler, path):
             return
         if api_read.handle_authenticated_get(handler, path):
             return

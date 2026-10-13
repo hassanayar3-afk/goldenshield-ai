@@ -22,7 +22,11 @@
 
   let wsPort = 8791;
   let refreshTimer = null;
+  let liveSource = null;
+  let liveConnected = false;
+  let liveIntervalSec = 1;
   const REFRESH_MS = 5000;
+  const REFRESH_FALLBACK_MS = 30000;
   let lastPaused = null;
   let alertsEnabled = localStorage.getItem("gs_alerts_enabled") === "1";
 
@@ -291,6 +295,81 @@
 
   let lastSignals = [];
 
+  function applyPanelCore(statusPayload, rules, signalRows, positions, pulseTs, liveMode) {
+    renderRules(rules || {});
+    renderHero(statusPayload || {});
+    const rows = signalRows || [];
+    maybeNotifySignal(lastSignals, rows);
+    lastSignals = rows;
+    renderSignals(rows, rules, (statusPayload && statusPayload.bot_running) || false);
+    renderPositions(positions || []);
+    const prefix = liveMode ? "بث مباشر ~" + liveIntervalSec + "ث" : "نبض البوت";
+    const tsLabel = pulseTs ? String(pulseTs).slice(11, 19) : liveTimeStr();
+    signalsMeta.textContent =
+      prefix +
+      " · " +
+      tsLabel +
+      " · أسعار حية · سيولة: " +
+      (rows[0] && rows[0].liquidity != null ? rows[0].liquidity : "—");
+    const apiTs =
+      statusPayload && statusPayload.ts != null
+        ? String(statusPayload.ts).slice(11, 19)
+        : "";
+    if (syncLine) {
+      syncLine.classList.toggle("gs-sync--live", !!liveMode);
+    }
+    syncLine.textContent = liveMode
+      ? "● LIVE · " + liveTimeStr() + (apiTs ? " · رصيد " + apiTs : "")
+      : "آخر مزامنة حية: " + liveTimeStr() + (apiTs ? " · رصيد " + apiTs : "");
+  }
+
+  function stopLiveStream() {
+    if (liveSource) {
+      liveSource.close();
+      liveSource = null;
+    }
+    liveConnected = false;
+  }
+
+  function startLiveStream() {
+    stopLiveStream();
+    const tok = window.GSApi.getToken();
+    if (!tok) return;
+    let url = "/api/live/stream?token=" + encodeURIComponent(tok);
+    try {
+      liveSource = new EventSource(url);
+    } catch (e) {
+      return;
+    }
+    liveSource.addEventListener("hello", function (ev) {
+      liveConnected = true;
+      try {
+        const hello = JSON.parse(ev.data || "{}");
+        if (hello.interval_sec) liveIntervalSec = hello.interval_sec;
+      } catch (e) {}
+    });
+    liveSource.addEventListener("tick", function (ev) {
+      try {
+        const data = JSON.parse(ev.data || "{}");
+        if (!data.ok) return;
+        applyPanelCore(
+          data.status,
+          data.rules,
+          data.signals,
+          data.positions,
+          data.pulse_ts || data.ts,
+          true
+        );
+        statusLine.textContent =
+          (data.status && data.status.bot_running ? "البوت يعمل · LIVE" : "البوت متوقف") +
+          (data.status && data.status.paused ? " · الدخول موقوف" : "");
+      } catch (e) {}
+    });
+    liveSource.onerror = function () {
+      liveConnected = false;
+    };
+  }
+
   function isUnauthorizedErr(msg) {
     const m = String(msg || "").toLowerCase();
     return m.indexOf("unauthorized") >= 0 || m.indexOf("401") >= 0;
@@ -332,31 +411,26 @@
       const stRes = results[0].value;
       statusPayload = (stRes && stRes.status) || {};
       rules = (stRes && stRes.rules) || {};
-      renderRules(rules);
     }
     if (results[1].status === "fulfilled") {
       const acc = results[1].value;
       const st = (acc && acc.status) || statusPayload;
       if (st && Object.keys(st).length) statusPayload = st;
     }
-    renderHero(statusPayload);
 
+    let signalRows = [];
+    let pulseTs = "";
     if (results[2].status === "fulfilled") {
       const sig = results[2].value;
-      const rows = (sig && sig.signals) || [];
-      maybeNotifySignal(lastSignals, rows);
-      lastSignals = rows;
-      renderSignals(rows, rules, statusPayload.bot_running);
-      const pulseTs = (sig && (sig.ts || sig.server_ts)) || "";
-      signalsMeta.textContent =
-        "نبض البوت · " +
-        (pulseTs ? String(pulseTs).slice(11, 19) : liveTimeStr()) +
-        " · أسعار حية · سيولة: " +
-        (rows[0] && rows[0].liquidity != null ? rows[0].liquidity : "—");
+      signalRows = (sig && sig.signals) || [];
+      pulseTs = (sig && (sig.ts || sig.server_ts)) || "";
     }
-
+    let posRows = [];
     if (results[3].status === "fulfilled") {
-      renderPositions((results[3].value && results[3].value.positions) || []);
+      posRows = (results[3].value && results[3].value.positions) || [];
+    }
+    if (!liveConnected) {
+      applyPanelCore(statusPayload, rules, signalRows, posRows, pulseTs, false);
     }
     if (results[4].status === "fulfilled") {
       renderHistory((results[4].value && results[4].value.history) || []);
@@ -365,17 +439,12 @@
       renderReport(statusPayload, (results[5].value && results[5].value.stack) || {}, rules);
     }
 
-    const apiTs =
-      statusPayload.ts != null ? String(statusPayload.ts).slice(11, 19) : "";
-    syncLine.textContent =
-      "آخر مزامنة حية: " +
-      liveTimeStr() +
-      (apiTs ? " · رصيد من API " + apiTs : "");
     if (parts.length) {
       const authFail = parts.some(function (p) {
         return isUnauthorizedErr(p);
       });
       if (authFail) {
+        stopLiveStream();
         try {
           localStorage.removeItem("gs_device_token");
         } catch (e) {}
@@ -468,9 +537,10 @@
   function startPanel() {
     pairCard.classList.add("gs-pair--hidden");
     updateAlertChip();
+    startLiveStream();
     refresh();
     if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(refresh, REFRESH_MS);
+    refreshTimer = setInterval(refresh, REFRESH_FALLBACK_MS);
   }
 
   function urlPairCode() {

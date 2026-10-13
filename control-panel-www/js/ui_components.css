@@ -184,6 +184,11 @@ body.gs-app {
   cursor: not-allowed;
 }
 
+.gs-sync.gs-sync--live {
+  color: #5eead4;
+  font-weight: 600;
+}
+
 .gs-sync {
   margin: 0.85rem 0 0;
   text-align: center;
