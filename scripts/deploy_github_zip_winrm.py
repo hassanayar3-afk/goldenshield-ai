@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import base64
 import sys
+import textwrap
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-import winrm
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +40,57 @@ def _github_token() -> str:
     return ""
 
 
+def _remote_deploy_ps1(token_b64: str, branch: str) -> str:
+    root = REMOTE.replace("'", "''")
+    return textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        $root = '{root}'
+        $token = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{token_b64}'))
+        $zip = Join-Path $env:TEMP ('gs_' + [guid]::NewGuid().ToString() + '.zip')
+        $hdr = @{{ Authorization = ('Bearer ' + $token); 'User-Agent' = 'GoldenShield-CloudAgent' }}
+        $url = 'https://api.github.com/repos/hassanayar3-afk/goldenshield-ai/zipball/{branch}'
+        Invoke-WebRequest -Uri $url -Headers $hdr -OutFile $zip -UseBasicParsing
+        $dest = Join-Path $env:TEMP ('gs_' + [guid]::NewGuid().ToString())
+        Expand-Archive -Path $zip -DestinationPath $dest -Force
+        $inner = Get-ChildItem $dest -Directory | Select-Object -First 1
+        if (-not $inner) {{ throw 'zip empty' }}
+        Write-Output ('ZIP_ROOT ' + $inner.FullName)
+        robocopy $inner.FullName $root /E /XD storage .git /XF .env goldenshield.env /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+        if ($LASTEXITCODE -ge 8) {{ throw ('robocopy failed ' + $LASTEXITCODE) }}
+        Remove-Item $zip -Force -EA SilentlyContinue
+        Remove-Item $dest -Recurse -Force -EA SilentlyContinue
+        Write-Output 'SYNC_OK'
+        & "$root\\deploy\\windows\\Fix-GsRuntimeAcl.ps1" -Root $root
+        & "$root\\deploy\\windows\\Ensure-GsStableMobileEnv.ps1" -Root $root
+        & "$root\\deploy\\windows\\Cleanup-GsLegacy.ps1" -Root $root -Aggressive
+        $c = Get-Content (Join-Path $root '.env') -Raw -Encoding UTF8
+        if ($c -match '(?m)^CLOUDFLARE_TUNNEL_ENABLED=false') {{
+          $c = [regex]::Replace($c, '(?m)^CLOUDFLARE_TUNNEL_ENABLED=false', 'CLOUDFLARE_TUNNEL_ENABLED=true', 1)
+          Set-Content (Join-Path $root '.env') -Value $c -Encoding UTF8
+        }}
+        & "$root\\deploy\\windows\\VPS_APPLY_FIX.ps1" -Root $root -Branch {branch}
+        & "$root\\deploy\\windows\\START_DISCORD_BRIDGE.ps1" -Root $root
+        & "$root\\deploy\\windows\\START_CLOUDFLARE_TUNNEL.ps1" -Root $root
+        Start-Sleep -Seconds 6
+        & "$root\\deploy\\windows\\Sync-GsMobileUrls.ps1" -Root $root
+        Start-ScheduledTask -TaskName GoldenShieldTunnel -ErrorAction SilentlyContinue
+        try {{
+          $h = Invoke-RestMethod http://127.0.0.1:8790/api/health -TimeoutSec 30
+          Write-Output ('HEALTH ' + $h.ok)
+        }} catch {{ Write-Output ('HEALTH_FAIL ' + $_.Exception.Message) }}
+        try {{
+          $pl = Invoke-RestMethod http://127.0.0.1:8790/api/mobile/pair-link -TimeoutSec 30
+          Write-Output ('PAIR_HINT ' + $pl.pair_code_hint)
+        }} catch {{ Write-Output ('PAIR_LINK_FAIL ' + $_.Exception.Message) }}
+        try {{
+          $tu = Get-Content (Join-Path $root 'storage\\runtime\\mobile_tunnel_url.txt') -Raw -EA SilentlyContinue
+          if ($tu) {{ Write-Output ('TUNNEL ' + $tu.Trim()) }}
+        }} catch {{}}
+        """
+    ).strip()
+
+
 def main() -> int:
     load_dotenv(ROOT / ".env", override=True)
     load_dotenv(ROOT / "goldenshield.env", override=True)
@@ -56,57 +107,16 @@ def main() -> int:
     print("ENV_UPLOAD_OK")
 
     tok_b64 = base64.b64encode(token.encode("utf-8")).decode("ascii")
-    branch = BRANCH
-    ps = rf"""
+    script_remote = REMOTE + r"\storage\runtime\cloud_agent_zip_deploy.ps1"
+    _upload_bytes(session, script_remote, _remote_deploy_ps1(tok_b64, BRANCH).encode("utf-8"))
+    print("DEPLOY_SCRIPT_UPLOAD_OK")
+
+    run = f"""
 $ErrorActionPreference='Stop'
-$root='{REMOTE}'
-$token=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{tok_b64}'))
-$zip=Join-Path $env:TEMP ('gs_'+[guid]::NewGuid().ToString()+'.zip')
-$hdr=@{{ Authorization=('Bearer '+$token); 'User-Agent'='GoldenShield-CloudAgent' }}
-$url='https://api.github.com/repos/hassanayar3-afk/goldenshield-ai/zipball/{branch}'
-Invoke-WebRequest -Uri $url -Headers $hdr -OutFile $zip -UseBasicParsing
-$dest=Join-Path $env:TEMP ('gs_'+[guid]::NewGuid().ToString())
-Expand-Archive -Path $zip -DestinationPath $dest -Force
-$inner=Get-ChildItem $dest -Directory | Select-Object -First 1
-if (-not $inner) {{ throw 'zip empty' }}
-Write-Output ('ZIP_ROOT '+$inner.FullName)
-robocopy $inner.FullName $root /E /XD storage .git /XF .env goldenshield.env /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
-if ($LASTEXITCODE -ge 8) {{ throw ('robocopy failed '+$LASTEXITCODE) }}
-Remove-Item $zip -Force -EA SilentlyContinue
-Remove-Item $dest -Recurse -Force -EA SilentlyContinue
-Write-Output 'SYNC_OK'
-& "$root\deploy\windows\Fix-GsRuntimeAcl.ps1" -Root $root
-& "$root\deploy\windows\Ensure-GsStableMobileEnv.ps1" -Root $root
-& "$root\deploy\windows\Cleanup-GsLegacy.ps1" -Root $root -Aggressive
-$c=Get-Content (Join-Path $root '.env') -Raw -Encoding UTF8
-if ($c -match '(?m)^CLOUDFLARE_TUNNEL_ENABLED=false') {{
-  $c=[regex]::Replace($c,'(?m)^CLOUDFLARE_TUNNEL_ENABLED=false','CLOUDFLARE_TUNNEL_ENABLED=true',1)
-  Set-Content (Join-Path $root '.env') -Value $c -Encoding UTF8
-}}
-& "$root\deploy\windows\VPS_APPLY_FIX.ps1" -Root $root -Branch {branch}
-& "$root\deploy\windows\START_DISCORD_BRIDGE.ps1" -Root $root
-& "$root\deploy\windows\START_CLOUDFLARE_TUNNEL.ps1" -Root $root
-Start-Sleep -Seconds 6
-& "$root\deploy\windows\Sync-GsMobileUrls.ps1" -Root $root
-Start-ScheduledTask -TaskName GoldenShieldTunnel -ErrorAction SilentlyContinue
-try {{
-  $h=Invoke-RestMethod http://127.0.0.1:8790/api/health -TimeoutSec 30
-  Write-Output ('HEALTH '+$h.ok)
-}} catch {{ Write-Output ('HEALTH_FAIL '+$_.Exception.Message) }}
-try {{
-  $d=Invoke-RestMethod http://127.0.0.1:8790/api/discord -TimeoutSec 30
-  Write-Output ('DISCORD configured='+$d.configured)
-}} catch {{ Write-Output ('DISCORD_FAIL '+$_.Exception.Message) }}
-try {{
-  $s=Invoke-RestMethod http://127.0.0.1:8790/api/status -TimeoutSec 30
-  Write-Output ('STATUS bot_running='+$s.status.bot_running+' balance='+$s.status.balance+' exchange_ok='+$s.status.exchange_ok)
-}} catch {{ Write-Output ('STATUS_FAIL '+$_.Exception.Message) }}
-try {{
-  $tu=Get-Content (Join-Path $root 'storage\runtime\mobile_tunnel_url.txt') -Raw -EA SilentlyContinue
-  if ($tu) {{ Write-Output ('TUNNEL '+$tu.Trim()) }}
-}} catch {{}}
+& '{script_remote.replace("'", "''")}'
+Remove-Item '{script_remote.replace("'", "''")}' -Force -EA SilentlyContinue
 """
-    r = session.run_ps(ps)
+    r = session.run_ps(run)
     secrets = [v for v in load_local_env_for_deploy().values() if v]
     secrets.append(token)
     out = (r.std_out or b"").decode("utf-8", errors="replace")
