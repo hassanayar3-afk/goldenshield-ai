@@ -56,7 +56,27 @@ def handle_authenticated_get(handler: BaseHTTPRequestHandler, path: str) -> bool
             bb.parse_signals_from_log()
         except Exception:
             pass
-        send_json(handler, 200, {"ok": True, "signals": bb.signals_live()})
+        pulse_ts = ""
+        try:
+            pulse = bb.RUNTIME / "last_cycle_signals.json"
+            if pulse.exists():
+                data = __import__("json").loads(
+                    pulse.read_text(encoding="utf-8", errors="replace")
+                )
+                if isinstance(data, dict) and data.get("ts"):
+                    pulse_ts = str(data["ts"])
+        except Exception:
+            pass
+        send_json(
+            handler,
+            200,
+            {
+                "ok": True,
+                "ts": pulse_ts or aq.utc(),
+                "server_ts": aq.utc(),
+                "signals": bb.signals_live(),
+            },
+        )
         return True
 
     if path == "/api/positions":

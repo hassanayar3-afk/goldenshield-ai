@@ -22,6 +22,7 @@
 
   let wsPort = 8791;
   let refreshTimer = null;
+  const REFRESH_MS = 5000;
   let lastPaused = null;
   let alertsEnabled = localStorage.getItem("gs_alerts_enabled") === "1";
 
@@ -290,9 +291,15 @@
 
   let lastSignals = [];
 
+  function isUnauthorizedErr(msg) {
+    const m = String(msg || "").toLowerCase();
+    return m.indexOf("unauthorized") >= 0 || m.indexOf("401") >= 0;
+  }
+
   async function refresh() {
     if (!window.GSApi.getToken()) {
-      statusLine.textContent = "اربط الجهاز أو فعّل web-auto";
+      statusLine.textContent = "اربط الجهاز — افتح رابط ?pair_code= من /api/mobile/pair-link";
+      syncLine.textContent = "لا مزامنة — الجلسة غير مربوطة · " + liveTimeStr();
       return;
     }
 
@@ -340,10 +347,11 @@
       maybeNotifySignal(lastSignals, rows);
       lastSignals = rows;
       renderSignals(rows, rules, statusPayload.bot_running);
+      const pulseTs = (sig && (sig.ts || sig.server_ts)) || "";
       signalsMeta.textContent =
-        "آخر تحديث · " +
-        liveTimeStr() +
-        " · سيولة السوق: " +
+        "نبض البوت · " +
+        (pulseTs ? String(pulseTs).slice(11, 19) : liveTimeStr()) +
+        " · أسعار حية · سيولة: " +
         (rows[0] && rows[0].liquidity != null ? rows[0].liquidity : "—");
     }
 
@@ -357,13 +365,32 @@
       renderReport(statusPayload, (results[5].value && results[5].value.stack) || {}, rules);
     }
 
-    syncLine.textContent = "آخر مزامنة حية: " + liveTimeStr();
+    const apiTs =
+      statusPayload.ts != null ? String(statusPayload.ts).slice(11, 19) : "";
+    syncLine.textContent =
+      "آخر مزامنة حية: " +
+      liveTimeStr() +
+      (apiTs ? " · رصيد من API " + apiTs : "");
     if (parts.length) {
-      statusLine.textContent = "آخر مزامنة " + liveTimeStr() + " • " + parts.join(", ");
+      const authFail = parts.some(function (p) {
+        return isUnauthorizedErr(p);
+      });
+      if (authFail) {
+        try {
+          localStorage.removeItem("gs_device_token");
+        } catch (e) {}
+        statusLine.textContent =
+          "انتهت جلسة الربط — افتح الرابط من جديد مع ?pair_code= (تغيير النفق يمسح الجلسة)";
+        pairCard.classList.remove("gs-pair--hidden");
+        prefillPairFromUrl();
+      } else {
+        statusLine.textContent = "آخر مزامنة " + liveTimeStr() + " • " + parts.join(", ");
+      }
     } else {
       statusLine.textContent =
         (statusPayload.bot_running ? "البوت يعمل" : "البوت متوقف") +
-        (statusPayload.paused ? " · الدخول موقوف" : "");
+        (statusPayload.paused ? " · الدخول موقوف" : "") +
+        (statusPayload.demo ? " · Demo" : "");
     }
   }
 
@@ -443,7 +470,7 @@
     updateAlertChip();
     refresh();
     if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(refresh, 15000);
+    refreshTimer = setInterval(refresh, REFRESH_MS);
   }
 
   function urlPairCode() {

@@ -768,7 +768,17 @@ def signals_live() -> list:
     if not rows:
         rows = _load_signals_pulse_file()
     if rows:
-        return [signal_as_percent(r) for r in rows if isinstance(r, dict)]
+        out = [dict(r) for r in rows if isinstance(r, dict)]
+        try:
+            syms = [str(r.get("sym") or "") for r in out if r.get("sym")]
+            prices = bm.live_prices(syms[:12])
+            for r in out:
+                sym = str(r.get("sym") or "")
+                if sym in prices and prices[sym] > 0:
+                    r["price"] = prices[sym]
+        except Exception:
+            pass
+        return [signal_as_percent(r) for r in out]
     try:
         from config.settings import get_settings
 

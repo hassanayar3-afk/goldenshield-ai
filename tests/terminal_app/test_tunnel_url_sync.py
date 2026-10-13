@@ -19,9 +19,15 @@ def test_tunnel_url_prefers_latest_trycloudflare_log(tmp_path, monkeypatch):
         "https://old-host.trycloudflare.com/\n", encoding="utf-8"
     )
     (logs / "cloudflare_tunnel.log").write_text(
+        'Requesting new quick Tunnel on trycloudflare.com\n'
         '{"message":"|  https://new-host.trycloudflare.com  |"}\n',
         encoding="utf-8",
     )
+    import os
+    import time
+
+    time.sleep(0.02)
+    os.utime(logs / "cloudflare_tunnel.log", None)
 
     assert bb.tunnel_url().startswith("https://new-host.trycloudflare.com")
     assert "new-host" in (runtime / "mobile_tunnel_url.txt").read_text(encoding="utf-8")
