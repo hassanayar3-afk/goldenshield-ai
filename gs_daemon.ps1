@@ -54,6 +54,17 @@ function Write-D([string]$m) {
 Write-D "DAEMON_START"
 Write-D ("PYTHON=" + $py)
 
+try {
+    $aclFix = Join-Path $runtime "."
+    if (Test-Path $aclFix) {
+        icacls $runtime /inheritance:e /grant:r "${env:USERNAME}:(OI)(CI)F" /T 2>$null | Out-Null
+    }
+} catch {
+    Write-D ("ACL_FIX_SKIP " + $_.Exception.Message)
+}
+
+$lastLaunchAt = [datetime]::MinValue
+
 while ($true) {
     if (Test-Path $stop) {
         Write-D "DAEMON_STOP flag"
@@ -61,7 +72,7 @@ while ($true) {
     }
 
     $mains = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -match '^(python|pythonw|py)\.exe$' -and $_.CommandLine -and $_.CommandLine -match 'main\.py'
+        $_.CommandLine -and $_.CommandLine -match 'main\.py'
     })
     if ($mains.Count -gt 1) {
         $keep = ($mains | Sort-Object ProcessId | Select-Object -First 1).ProcessId
@@ -95,6 +106,11 @@ while ($true) {
     Remove-Item (Join-Path $runtime "bot_instance.lock") -Force -ErrorAction SilentlyContinue
     Remove-Item "C:\ProgramData\GoldenShield\bot_instance.lock" -Force -ErrorAction SilentlyContinue
 
+    if (((Get-Date) - $lastLaunchAt).TotalSeconds -lt 25) {
+        Start-Sleep -Seconds 4
+        continue
+    }
+
     Write-D "MAIN_LAUNCH"
     $outLog = Join-Path $logDir "bot_stdout.log"
     $errLog = Join-Path $logDir "bot_stderr.log"
@@ -105,8 +121,7 @@ while ($true) {
         Start-Sleep -Seconds 3
         continue
     }
+    $lastLaunchAt = Get-Date
     Write-D ("MAIN_PID=" + $p.Id)
-    Wait-Process -Id $p.Id -ErrorAction SilentlyContinue
-    Write-D ("MAIN_EXIT code=" + $p.ExitCode)
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 12
 }

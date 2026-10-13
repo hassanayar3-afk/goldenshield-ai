@@ -101,7 +101,7 @@ def _win_main_py_process_count() -> int:
     try:
         ps = (
             "(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | "
-            "Where-Object { $_.CommandLine -and $_.CommandLine -match 'main\\.py' }).Count"
+            "Where-Object { $_.CommandLine -and $_.CommandLine -like '*main.py*' }).Count"
         )
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps],

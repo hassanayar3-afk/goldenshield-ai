@@ -157,6 +157,13 @@ def _production_env_bytes() -> bytes:
             text = pat.sub(f"{blank}=", text, count=1) if pat.search(text) else text
     if "TELEGRAM_MUTE_ALL=" not in text:
         text += "TELEGRAM_MUTE_ALL=true\nTELEGRAM_OUTBOUND_DISABLED=true\n"
+    # Production VPS always uses quick tunnel unless explicitly disabled in secrets
+    if (os.getenv("CLOUDFLARE_TUNNEL_ENABLED") or "true").strip().lower() not in ("false", "0"):
+        pat_cf = re.compile(r"^CLOUDFLARE_TUNNEL_ENABLED=.*$", re.M)
+        if pat_cf.search(text):
+            text = pat_cf.sub("CLOUDFLARE_TUNNEL_ENABLED=true", text, count=1)
+        else:
+            text += "CLOUDFLARE_TUNNEL_ENABLED=true\n"
     return text.encode("utf-8")
 
 

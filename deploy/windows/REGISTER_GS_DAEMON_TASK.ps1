@@ -6,6 +6,11 @@ $ErrorActionPreference = "Stop"
 $daemon = Join-Path $Root "gs_daemon.ps1"
 if (-not (Test-Path $daemon)) { throw "Missing $daemon" }
 $taskName = "GoldenShieldDaemon"
+Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.CommandLine -and $_.CommandLine -match "gs_daemon\.ps1"
+} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument (
     "-NoProfile -ExecutionPolicy Bypass -File `"$daemon`" -Root `"$Root`""
 )

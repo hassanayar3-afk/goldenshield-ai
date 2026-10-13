@@ -12,8 +12,14 @@ if (-not (Test-Path (Join-Path $Root "main.py"))) {
 Set-Location $Root
 . (Join-Path $PSScriptRoot "Import-GsDotEnv.ps1") -EnvPath (Join-Path $Root ".env")
 $env:GOLDENSHIELD_OFFICIAL_ROOT = $Root
+if ($env:CLOUDFLARE_TUNNEL_ENABLED -ne "false" -and $env:CLOUDFLARE_TUNNEL_ENABLED -ne "0") {
+    $env:CLOUDFLARE_TUNNEL_ENABLED = "true"
+}
 
 Write-Host "=== GS_START_FULL_STACK Root=$Root ==="
+
+$aclFix = Join-Path $PSScriptRoot "Fix-GsRuntimeAcl.ps1"
+if (Test-Path $aclFix) { & $aclFix -Root $Root }
 
 & (Join-Path $PSScriptRoot "ENFORCE_NO_SLEEP.ps1") -RegisterTask
 & (Join-Path $PSScriptRoot "ENFORCE_NO_SLEEP.ps1")
@@ -28,18 +34,27 @@ Remove-Item (Join-Path $runtime "user_stopped.flag") -Force -ErrorAction Silentl
 Remove-Item (Join-Path $runtime "bot_instance.lock") -Force -ErrorAction SilentlyContinue
 Remove-Item "C:\ProgramData\GoldenShield\bot_instance.lock" -Force -ErrorAction SilentlyContinue
 
+Stop-ScheduledTask -TaskName "GoldenShieldDaemon" -ErrorAction SilentlyContinue
+Stop-ScheduledTask -TaskName "GoldenShieldTunnel" -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+
 $kill = Join-Path $Root "scripts\gs_kill_all.ps1"
 if (Test-Path $kill) { & $kill }
 Start-Sleep -Seconds 2
 
-Start-Process cmd -ArgumentList @(
-    "/c", "set GOLDENSHIELD_OFFICIAL_ROOT=$Root&& python -m terminal_app.server"
-) -WorkingDirectory $Root -WindowStyle Normal
-Start-Sleep -Seconds 3
+$pyApi = & (Join-Path $PSScriptRoot "Resolve-GsPython.ps1") -Root $Root
+Start-Process -FilePath $pyApi -ArgumentList @("-m", "terminal_app.server") `
+    -WorkingDirectory $Root -WindowStyle Hidden
+Start-Sleep -Seconds 4
 
 & (Join-Path $PSScriptRoot "START_CLOUDFLARE_TUNNEL.ps1") -Root $Root
 Start-Sleep -Seconds 2
 & (Join-Path $PSScriptRoot "START_DISCORD_BRIDGE.ps1") -Root $Root
+
+$regTunnel = Join-Path $PSScriptRoot "REGISTER_GS_TUNNEL_TASK.ps1"
+if (Test-Path $regTunnel) {
+    try { & $regTunnel -Root $Root } catch { Write-Warning $_.Exception.Message }
+}
 
 # Prefer long-lived Scheduled Task daemon (survives WinRM / short parent exit)
 $regDaemon = Join-Path $PSScriptRoot "REGISTER_GS_DAEMON_TASK.ps1"
