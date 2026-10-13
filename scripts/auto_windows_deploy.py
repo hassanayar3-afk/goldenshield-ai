@@ -117,7 +117,14 @@ def main() -> int:
 
     # WinRM
     if _tcp(host, 5985) and (os.getenv("WIN_PASSWORD") or "").strip():
-        print("WINRM → deploy_visible_winrm")
+        print("WINRM → deploy_github_zip_winrm")
+        try:
+            from scripts import deploy_github_zip_winrm
+
+            return int(deploy_github_zip_winrm.main())
+        except Exception as exc:
+            print("WINRM github deploy failed", type(exc).__name__)
+        print("WINRM → deploy_visible_winrm (fallback)")
         try:
             from scripts import deploy_visible_winrm
 

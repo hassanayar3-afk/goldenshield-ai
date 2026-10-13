@@ -8,6 +8,11 @@ if (-not $Root) {
 }
 Set-Location $Root
 
+$importEnv = Join-Path $Root "deploy\windows\Import-GsDotEnv.ps1"
+if (Test-Path $importEnv) {
+    . $importEnv -EnvPath (Join-Path $Root ".env")
+}
+
 $env:PYTHONPATH = $Root
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUNBUFFERED = "1"
@@ -17,9 +22,13 @@ $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:BOT_FORCE_ACTIVE = "true"
 $env:NO_SLEEP_MODE = "true"
 $env:LOOP_INTERVAL_SECONDS = "4"
-$env:TELEGRAM_LIVE_SIGNALS = "true"
-$env:TELEGRAM_LIVE_SIGNALS_SECONDS = "4"
-$env:TELEGRAM_LIVE_POSITIONS_SECONDS = "3"
+if ($env:TELEGRAM_MUTE_ALL -ne "true" -and $env:TELEGRAM_OUTBOUND_DISABLED -ne "true") {
+    $env:TELEGRAM_LIVE_SIGNALS = "true"
+    $env:TELEGRAM_LIVE_SIGNALS_SECONDS = "4"
+    $env:TELEGRAM_LIVE_POSITIONS_SECONDS = "3"
+} else {
+    $env:TELEGRAM_LIVE_SIGNALS = "false"
+}
 $env:SSOT_SYNC_ENABLED = "true"
 $env:ENTERPRISE_PIPELINE_ENABLED = "true"
 $env:EXECUTION_BACKEND = "binance"

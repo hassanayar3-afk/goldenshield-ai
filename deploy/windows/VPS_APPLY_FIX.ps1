@@ -9,6 +9,10 @@ Set-Location $Root
 
 Write-Host "=== VPS_APPLY_FIX Root=$Root Branch=$Branch ==="
 
+if ($DiscordWebhookUrl) {
+    & (Join-Path $Root "deploy\windows\Set-GsDiscordEnv.ps1") -WebhookUrl $DiscordWebhookUrl -Root $Root
+}
+
 if (Test-Path (Join-Path $Root ".git")) {
     git fetch origin $Branch 2>&1
     git checkout $Branch 2>&1
@@ -40,7 +44,7 @@ try {
     $st = Invoke-RestMethod "http://127.0.0.1:8790/api/status" -Headers @{"X-GS-Token" = (Get-Content (Join-Path $Root "storage\runtime\mobile_devices.json") -Raw | ConvertFrom-Json).devices.PSObject.Properties.Name[0]} -TimeoutSec 30 -ErrorAction Stop
     Write-Host ("STATUS bot_running=" + $st.status.bot_running + " balance=" + $st.status.balance)
 } catch {
-    Write-Host "STATUS_CHECK skipped (pair token) — open http://127.0.0.1:8790/api/health"
+    Write-Host "STATUS_CHECK skipped (pair token) - open http://127.0.0.1:8790/api/health"
 }
 
 Write-Host "=== VPS_APPLY_FIX_DONE ==="
