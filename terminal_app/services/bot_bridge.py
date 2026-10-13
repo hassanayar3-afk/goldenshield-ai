@@ -584,8 +584,23 @@ def tunnel_url() -> str:
     if static:
         return static + "/"
     log_url = _latest_trycloudflare_from_log()
-    if log_url and (not file_url or "trycloudflare.com" in file_url):
-        if not file_url or urlparse(file_url).netloc.lower() != urlparse(log_url).netloc.lower():
+    try:
+        log_m = (
+            _CLOUDFLARE_TUNNEL_LOG.stat().st_mtime
+            if _CLOUDFLARE_TUNNEL_LOG.exists()
+            else 0.0
+        )
+        file_m = p.stat().st_mtime if p.exists() else 0.0
+    except Exception:
+        log_m = file_m = 0.0
+    if log_url and not file_url:
+        try:
+            p.write_text(log_url + "/\n", encoding="utf-8")
+        except Exception:
+            pass
+        return log_url + "/"
+    if log_url and file_url and log_m > file_m:
+        if urlparse(file_url).netloc.lower() != urlparse(log_url).netloc.lower():
             try:
                 p.write_text(log_url + "/\n", encoding="utf-8")
             except Exception:
@@ -593,6 +608,8 @@ def tunnel_url() -> str:
             return log_url + "/"
     if file_url:
         return file_url + "/"
+    if log_url:
+        return log_url + "/"
     return ""
 def signal_as_percent(row: dict) -> dict:
     """Bot logs score N/10; control UI ladder is 70/80/90 on a 0–100 scale."""
