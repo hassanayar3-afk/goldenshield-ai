@@ -1,3 +1,2 @@
-# الرابط الأول يُحقن في APK v2.1 — يُحدَّث عند كل build
-http://13.140.149.172:8790
-https://due-broke-cds-bracket.trycloudflare.com
+# يُحدَّث عند النشر — السطر الأول = نفق Cloudflare الحالي
+https://cached-sufficient-photographers-floating.trycloudflare.com
