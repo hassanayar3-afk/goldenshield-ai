@@ -4,10 +4,39 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler
 
-from terminal_app.config import PAIR_CODE, STRATEGY_CODE
+import os
+import urllib.parse
+
+from terminal_app.config import PAIR_CODE, PORT, STRATEGY_CODE
 from terminal_app.http.json_io import send_json
 from terminal_app.services import alerts_queue as aq
 from terminal_app.services import bot_bridge as bb
+
+
+def pair_link_payload() -> dict:
+    """روابط لوحة التحكم مع رمز الربط في query (للمتصفح / WebView)."""
+    tun = bb.tunnel_url().lstrip("\ufeff").strip().rstrip("/")
+    code = PAIR_CODE
+    q = urllib.parse.urlencode({"pair_code": code})
+    panel = f"{tun}/?{q}" if tun.startswith("http") else ""
+    host = (
+        os.getenv("MOBILE_PUBLIC_IP")
+        or os.getenv("GS_PANEL_PUBLIC_HOST")
+        or os.getenv("WIN_HOST")
+        or ""
+    ).strip()
+    ip_panel = f"http://{host}:{PORT}/?{q}" if host else ""
+    return {
+        "pair_code": code,
+        "mobile_pair_code": code,
+        "panel_pair_url": panel,
+        "ip_panel_pair_url": ip_panel,
+        "pair_query": q,
+        "note_ip": (
+            "ip_panel_pair_url يعمل داخل شبكة السيرفر أو RDP؛ "
+            "8790 غالباً غير مفتوح من الإنترنت — استخدم panel_pair_url."
+        ),
+    }
 
 
 def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
@@ -44,14 +73,16 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                     "mobile_pair_code": "device pairing secret",
                     "device_token": "session auth via X-GS-Token after /api/pair",
                 },
+                **pair_link_payload(),
             },
         )
         return True
+    if path == "/api/mobile/pair-link":
+        send_json(handler, 200, {"ok": True, "ts": aq.utc(), **pair_link_payload()})
+        return True
     if path == "/api/mobile/config":
-        import os as _os
-
         tun = bb.tunnel_url().lstrip("\ufeff").strip().rstrip("/")
-        port = int(_os.getenv("MOBILE_API_PORT", "8790") or 8790)
+        port = int(os.getenv("MOBILE_API_PORT", "8790") or 8790)
         base = tun if tun.startswith("http") else f"http://127.0.0.1:{port}"
         send_json(
             handler,
@@ -69,7 +100,10 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                     "stack": "/api/stack",
                 },
                 "apk_download": (base.rstrip("/") + "/download/apk") if base else "",
-                "tri_commander_mode": (_os.getenv("TRI_COMMANDER_MODE", "true").lower() not in {"0", "false", "no"}),
+                "tri_commander_mode": (
+                    os.getenv("TRI_COMMANDER_MODE", "true").lower() not in {"0", "false", "no"}
+                ),
+                **pair_link_payload(),
             },
         )
         return True

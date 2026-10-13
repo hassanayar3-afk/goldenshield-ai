@@ -446,6 +446,43 @@
     refreshTimer = setInterval(refresh, 15000);
   }
 
+  function urlPairCode() {
+    const params = new URLSearchParams(window.location.search || "");
+    return (
+      params.get("pair_code") ||
+      params.get("pair") ||
+      params.get("mobile_pair_code") ||
+      ""
+    ).trim();
+  }
+
+  function prefillPairFromUrl() {
+    const code = urlPairCode();
+    const input = $("pair-code");
+    if (code && input) {
+      input.value = code;
+    }
+    return code;
+  }
+
+  function tryPairWithCode(code, deviceName) {
+    if (!code) return Promise.resolve(false);
+    return window.GSApi.pair(code, deviceName || "Android")
+      .then(function (res) {
+        if (res.device_token) {
+          window.GSApi.setToken(res.device_token);
+          pairStatus.textContent = "تم الربط";
+          return true;
+        }
+        return false;
+      })
+      .catch(function (e) {
+        pairStatus.textContent = e.message || String(e);
+        pairCard.classList.remove("gs-pair--hidden");
+        return false;
+      });
+  }
+
   function tryWebAutoPair(boot) {
     if (!boot || !boot.web_direct_access) return Promise.resolve(false);
     return window.GSApi.webAutoPair("WebPanel").then(function (res) {
@@ -464,12 +501,31 @@
         startPanel();
         return;
       }
+      const fromUrl = prefillPairFromUrl();
+      const deviceName = fromUrl ? "Android" : "WebPanel";
+      if (fromUrl) {
+        return tryPairWithCode(fromUrl, deviceName).then(function (ok) {
+          if (ok) {
+            startPanel();
+            return;
+          }
+          return tryWebAutoPair(boot).then(function (autoOk) {
+            if (autoOk) {
+              startPanel();
+            } else {
+              pairCard.classList.remove("gs-pair--hidden");
+              statusLine.textContent =
+                "تأكد أن الرمز GS-LINK… وليس GS-GOLD80 (رمز الاستراتيجية)";
+            }
+          });
+        });
+      }
       return tryWebAutoPair(boot).then(function (ok) {
         if (ok) {
           startPanel();
         } else {
           pairCard.classList.remove("gs-pair--hidden");
-          statusLine.textContent = "أدخل رمز الربط من mobile_api_credentials";
+          statusLine.textContent = "أدخل رمز الربط من /api/mobile/pair-link";
         }
       });
     })
