@@ -583,32 +583,15 @@ def tunnel_url() -> str:
     static = _normalize_tunnel_base(os.getenv("MOBILE_PUBLIC_BASE_URL", ""))
     if static:
         return static + "/"
+    # ملف النفق (يُحدَّث عند تشغيل cloudflared) هو المصدر الموثوق — السجل قد يحتوي hostnames منتهية
+    if file_url:
+        return file_url + "/"
     log_url = _latest_trycloudflare_from_log()
-    try:
-        log_m = (
-            _CLOUDFLARE_TUNNEL_LOG.stat().st_mtime
-            if _CLOUDFLARE_TUNNEL_LOG.exists()
-            else 0.0
-        )
-        file_m = p.stat().st_mtime if p.exists() else 0.0
-    except Exception:
-        log_m = file_m = 0.0
-    if log_url and not file_url:
+    if log_url:
         try:
             p.write_text(log_url + "/\n", encoding="utf-8")
         except Exception:
             pass
-        return log_url + "/"
-    if log_url and file_url and log_m > file_m:
-        if urlparse(file_url).netloc.lower() != urlparse(log_url).netloc.lower():
-            try:
-                p.write_text(log_url + "/\n", encoding="utf-8")
-            except Exception:
-                pass
-            return log_url + "/"
-    if file_url:
-        return file_url + "/"
-    if log_url:
         return log_url + "/"
     return ""
 def signal_as_percent(row: dict) -> dict:

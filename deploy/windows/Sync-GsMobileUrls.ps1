@@ -17,14 +17,15 @@ if ($tun -notmatch "^https://") {
 
 $configPath = Join-Path $Root "config\mobile_default_servers.txt"
 $assetPath = Join-Path $Root "mobile_android\app\src\main\assets\default_servers.txt"
-$lines = @(
+# سطر واحد فقط — لا روابط trycloudflare قديمة متعددة (سبب تشتت APK/اللوحة)
+$configBody = @(
     "# auto-sync $(Get-Date -Format o)",
-    $tun,
-    "http://127.0.0.1:8790"
-)
-Set-Content -Path $configPath -Value ($lines -join "`n") -Encoding UTF8
+    "# active tunnel (single source)",
+    $tun
+) -join "`n"
+Set-Content -Path $configPath -Value $configBody -Encoding UTF8
 New-Item -ItemType Directory -Force -Path (Split-Path $assetPath -Parent) | Out-Null
-Set-Content -Path $assetPath -Value (@($tun + "/", "http://127.0.0.1:8790/") -join "`n") -Encoding UTF8
+Set-Content -Path $assetPath -Value ($tun + "/") -Encoding UTF8
 
 $apkSrc = Join-Path $Root "downloads\GoldenShield-Control.apk"
 $apkPub = "C:\Users\Public\GoldenShield-Control.apk"
