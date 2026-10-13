@@ -5,6 +5,9 @@ param(
 $ErrorActionPreference = "Continue"
 Set-Location $Root
 . (Join-Path $PSScriptRoot "Import-GsDotEnv.ps1") -EnvPath (Join-Path $Root ".env")
+if (-not ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://")) {
+    $env:CLOUDFLARE_TUNNEL_ENABLED = "true"
+}
 
 $enabled = ($env:CLOUDFLARE_TUNNEL_ENABLED -ne "false") -and ($env:CLOUDFLARE_TUNNEL_ENABLED -ne "0")
 if (-not $enabled) {
@@ -51,7 +54,13 @@ if ($token) {
         "tunnel", "run", "--token", $token,
         "--logfile", $logFile, "--loglevel", "info"
     ) -WorkingDirectory $Root -WindowStyle Hidden
-    Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED see $logFile"
+    if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
+        ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
+        Add-Content -Path $urlFile -Value ""
+        Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED static=$($env:MOBILE_PUBLIC_BASE_URL)"
+    } else {
+        Write-Host "CLOUDFLARE_NAMED_TUNNEL_STARTED set MOBILE_PUBLIC_BASE_URL to your tunnel hostname — see $logFile"
+    }
     exit 0
 }
 

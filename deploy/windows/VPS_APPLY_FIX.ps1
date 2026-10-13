@@ -27,6 +27,11 @@ Write-Host "PYTHON=$py"
 & $py -m pip install -r requirements.txt --quiet
 & $py scripts\bootstrap_storage.py
 
+$stableEnv = Join-Path $Root "deploy\windows\Ensure-GsStableMobileEnv.ps1"
+if (Test-Path $stableEnv) { & $stableEnv -Root $Root }
+$cleanup = Join-Path $Root "deploy\windows\Cleanup-GsLegacy.ps1"
+if (Test-Path $cleanup) { & $cleanup -Root $Root -Aggressive }
+
 $discordOk = $false
 if (Test-Path (Join-Path $Root ".env")) {
     $envLines = Get-Content (Join-Path $Root ".env")
@@ -39,8 +44,22 @@ if (-not $discordOk) {
 }
 
 if (-not $SkipStackStart) {
-    & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+    $svc = Join-Path $Root "deploy\windows\Install-GsWindowsServices.ps1"
+    if (Test-Path $svc) {
+        try {
+            & $svc -Root $Root -RemoveScheduledTasks
+        } catch {
+            Write-Warning ("Install-GsWindowsServices failed — fallback GS_START_FULL_STACK: " + $_.Exception.Message)
+            & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+        }
+    } else {
+        & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+    }
     Start-Sleep -Seconds 8
+    try {
+        & (Join-Path $Root "deploy\windows\Sync-GsMobileUrls.ps1") -Root $Root
+    } catch {}
+    & (Join-Path $Root "deploy\windows\START_DISCORD_BRIDGE.ps1") -Root $Root -ErrorAction SilentlyContinue
 }
 
 try {

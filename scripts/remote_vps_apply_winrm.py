@@ -122,6 +122,9 @@ def _production_env_bytes() -> bytes:
         "BOT_FORCE_ACTIVE",
         "CLOUDFLARE_TUNNEL_ENABLED",
         "CLOUDFLARE_TUNNEL_LOCAL_URL",
+        "CLOUDFLARE_TUNNEL_TOKEN",
+        "MOBILE_PUBLIC_BASE_URL",
+        "MOBILE_PAIR_CODE",
     )
     for k in merge_keys:
         v = (local.get(k) or os.getenv(k) or "").strip()
