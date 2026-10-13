@@ -6,12 +6,12 @@ plugins {
 fun panelUrlFromConfig(): String {
     val f = rootProject.projectDir.parentFile.resolve("config/mobile_default_servers.txt")
     if (!f.isFile) {
-        return "https://due-broke-cds-bracket.trycloudflare.com/"
+        return "about:blank"
     }
     val line = f.readLines()
         .map { it.trim() }
         .firstOrNull { it.startsWith("http://") || it.startsWith("https://") }
-        ?: "https://due-broke-cds-bracket.trycloudflare.com"
+        ?: "about:blank"
     return if (line.endsWith("/")) line else "$line/"
 }
 

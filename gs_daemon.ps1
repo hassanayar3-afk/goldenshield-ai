@@ -72,7 +72,11 @@ while ($true) {
     }
 
     $mains = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.CommandLine -and $_.CommandLine -match 'main\.py'
+        $_.Name -eq "python.exe" -and $_.CommandLine -and (
+            $_.CommandLine -match '\s-u\s+main\.py(\s|"|$)' -or
+            $_.CommandLine -match 'python(\.exe)?"\s+-u\s+main\.py' -or
+            $_.CommandLine -match '\\main\.py(\s|"|$)'
+        )
     })
     if ($mains.Count -gt 1) {
         $keep = ($mains | Sort-Object ProcessId | Select-Object -First 1).ProcessId

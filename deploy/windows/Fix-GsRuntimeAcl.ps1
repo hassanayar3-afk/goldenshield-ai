@@ -7,6 +7,8 @@ $dirs = @(
     (Join-Path $Root "storage\runtime"),
     (Join-Path $Root "storage\logs"),
     (Join-Path $Root "storage\db"),
+    (Join-Path $Root "storage\reports"),
+    (Join-Path $Root "storage\mobile"),
     (Join-Path $env:ProgramData "GoldenShield")
 )
 foreach ($d in $dirs) {

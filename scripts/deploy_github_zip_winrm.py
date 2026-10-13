@@ -75,10 +75,20 @@ if ($LASTEXITCODE -ge 8) {{ throw ('robocopy failed '+$LASTEXITCODE) }}
 Remove-Item $zip -Force -EA SilentlyContinue
 Remove-Item $dest -Recurse -Force -EA SilentlyContinue
 Write-Output 'SYNC_OK'
+& "$root\deploy\windows\Fix-GsRuntimeAcl.ps1" -Root $root
+$c=Get-Content (Join-Path $root '.env') -Raw -Encoding UTF8
+if ($c -match '(?m)^CLOUDFLARE_TUNNEL_ENABLED=false') {{
+  $c=[regex]::Replace($c,'(?m)^CLOUDFLARE_TUNNEL_ENABLED=false','CLOUDFLARE_TUNNEL_ENABLED=true',1)
+  Set-Content (Join-Path $root '.env') -Value $c -Encoding UTF8
+}}
 & "$root\deploy\windows\GS_START_VIA_TASK.ps1" -Root $root
 Start-Sleep -Seconds 45
 & "$root\deploy\windows\VPS_APPLY_FIX.ps1" -Root $root -Branch {branch} -SkipStackStart
 & "$root\deploy\windows\START_DISCORD_BRIDGE.ps1" -Root $root
+& "$root\deploy\windows\START_CLOUDFLARE_TUNNEL.ps1" -Root $root
+Start-Sleep -Seconds 6
+& "$root\deploy\windows\Sync-GsMobileUrls.ps1" -Root $root
+Start-ScheduledTask -TaskName GoldenShieldTunnel -ErrorAction SilentlyContinue
 try {{
   $h=Invoke-RestMethod http://127.0.0.1:8790/api/health -TimeoutSec 30
   Write-Output ('HEALTH '+$h.ok)
