@@ -55,8 +55,10 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
 } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
 if ($token) {
+    $tokenFile = Join-Path $runtime "tunnel.token"
+    Set-Content -Path $tokenFile -Value $token.Trim() -Encoding ASCII -NoNewline
     Start-Process -FilePath $cf.Source -ArgumentList @(
-        "tunnel", "run", "--token", $token,
+        "tunnel", "run", "--token-file", $tokenFile,
         "--logfile", $logFile, "--loglevel", "info"
     ) -WorkingDirectory $Root -WindowStyle Hidden
     if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {

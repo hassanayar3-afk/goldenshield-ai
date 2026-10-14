@@ -78,12 +78,18 @@ def main() -> int:
         return 3
 
     local = (os.getenv("CLOUDFLARE_TUNNEL_LOCAL_URL") or "http://127.0.0.1:8790").strip()
+    token_file = root / "storage" / "runtime" / "tunnel.token"
+    try:
+        token_file.write_text(token.strip(), encoding="utf-8")
+    except Exception as exc:
+        log.error("token file write failed: %s", exc)
+        return 4
     args = [
         str(exe),
         "tunnel",
         "run",
-        "--token",
-        token,
+        "--token-file",
+        str(token_file),
         "--logfile",
         str(log_file),
         "--loglevel",
