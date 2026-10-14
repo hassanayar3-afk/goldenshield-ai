@@ -3,7 +3,8 @@
 Cloudflare Named Tunnel autopilot for violafashioniq.com -> 127.0.0.1:8790
 
 Requires (one of):
-  - CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (recommended, fully scriptable)
+  - CLOUDFLARE_API_TOKEN (cfut_/cfat_ scoped token) + optional CLOUDFLARE_ACCOUNT_ID
+  - CLOUDFLARE_GLOBAL_API_KEY (cfk_ legacy) + CLOUDFLARE_EMAIL
   - Existing CLOUDFLARE_TUNNEL_TOKEN in .env
   - Prior `cloudflared tunnel login` cert at %USERPROFILE%\\.cloudflared\\cert.pem (CLI create path)
 
@@ -29,6 +30,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 from deploy_ops.logging_config import configure_sovereign_logging
@@ -45,6 +47,14 @@ PUBLIC_HOST = os.getenv(
 )
 LOCAL_SERVICE = (os.getenv("CLOUDFLARE_TUNNEL_LOCAL_URL") or "http://127.0.0.1:8790").strip()
 CF_API = "https://api.cloudflare.com/client/v4"
+
+
+@dataclass(frozen=True)
+class CfAuth:
+    mode: str  # bearer | global
+    bearer: str = ""
+    global_key: str = ""
+    email: str = ""
 
 
 def _root() -> Path:
@@ -83,6 +93,8 @@ def _harvest_from_backups(root: Path) -> dict[str, str]:
     found: dict[str, str] = {}
     keys = {
         "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_GLOBAL_API_KEY",
+        "CLOUDFLARE_EMAIL",
         "CLOUDFLARE_ACCOUNT_ID",
         "CLOUDFLARE_TUNNEL_TOKEN",
         "CLOUDFLARE_ZONE_ID",
@@ -111,19 +123,39 @@ def _set_env_line(root: Path, key: str, value: str) -> None:
     os.environ[key] = value
 
 
+def _resolve_cf_auth() -> CfAuth | None:
+    raw = (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip()
+    gkey = (os.getenv("CLOUDFLARE_GLOBAL_API_KEY") or "").strip()
+    email = (os.getenv("CLOUDFLARE_EMAIL") or os.getenv("CLOUDFLARE_API_EMAIL") or "").strip()
+    if raw.startswith("cfk_"):
+        gkey = raw if not gkey else gkey
+        raw = ""
+    if gkey.startswith("cfk_"):
+        if not email:
+            return None
+        return CfAuth(mode="global", global_key=gkey, email=email)
+    if raw and not raw.startswith("cfk_"):
+        return CfAuth(mode="bearer", bearer=raw)
+    return None
+
+
 def _cf_request(
     method: str,
     path: str,
-    api_token: str,
+    auth: CfAuth,
     body: dict | None = None,
 ) -> dict:
     url = f"{CF_API}{path}"
     data = None
-    headers = {
-        "Authorization": f"Bearer {api_token}",
+    headers: dict[str, str] = {
         "Content-Type": "application/json",
         "User-Agent": "GoldenShield-Tunnel-Autopilot/1.0",
     }
+    if auth.mode == "bearer":
+        headers["Authorization"] = f"Bearer {auth.bearer}"
+    else:
+        headers["X-Auth-Email"] = auth.email
+        headers["X-Auth-Key"] = auth.global_key
     if body is not None:
         data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -135,10 +167,10 @@ def _cf_request(
         raise RuntimeError(f"Cloudflare API {method} {path} HTTP {exc.code}: {err_body}") from exc
 
 
-def _resolve_account_id(api_token: str, hinted: str) -> str:
+def _resolve_account_id(auth: CfAuth, hinted: str) -> str:
     if hinted:
         return hinted
-    data = _cf_request("GET", "/accounts", api_token)
+    data = _cf_request("GET", "/accounts", auth)
     results = data.get("result") or []
     if not results:
         raise RuntimeError("No Cloudflare accounts visible for API token")
@@ -147,18 +179,18 @@ def _resolve_account_id(api_token: str, hinted: str) -> str:
     raise RuntimeError("Multiple Cloudflare accounts — set CLOUDFLARE_ACCOUNT_ID in .env")
 
 
-def _resolve_zone_id(api_token: str, domain: str, hinted: str) -> str:
+def _resolve_zone_id(auth: CfAuth, domain: str, hinted: str) -> str:
     if hinted:
         return hinted
-    data = _cf_request("GET", f"/zones?name={domain}", api_token)
+    data = _cf_request("GET", f"/zones?name={domain}", auth)
     results = data.get("result") or []
     if not results:
         raise RuntimeError(f"Zone not found for {domain} — add domain to Cloudflare or set CLOUDFLARE_ZONE_ID")
     return str(results[0]["id"])
 
 
-def _find_or_create_tunnel(api_token: str, account_id: str) -> str:
-    listed = _cf_request("GET", f"/accounts/{account_id}/cfd_tunnel", api_token)
+def _find_or_create_tunnel(auth: CfAuth, account_id: str) -> str:
+    listed = _cf_request("GET", f"/accounts/{account_id}/cfd_tunnel", auth)
     for t in listed.get("result") or []:
         if str(t.get("name", "")).lower() == TUNNEL_NAME.lower():
             return str(t["id"])
@@ -166,7 +198,7 @@ def _find_or_create_tunnel(api_token: str, account_id: str) -> str:
     created = _cf_request(
         "POST",
         f"/accounts/{account_id}/cfd_tunnel",
-        api_token,
+        auth,
         {
             "name": TUNNEL_NAME,
             "config_src": "cloudflare",
@@ -176,11 +208,11 @@ def _find_or_create_tunnel(api_token: str, account_id: str) -> str:
     return str((created.get("result") or {})["id"])
 
 
-def _configure_ingress(api_token: str, account_id: str, tunnel_id: str, hostname: str, service: str) -> None:
+def _configure_ingress(auth: CfAuth, account_id: str, tunnel_id: str, hostname: str, service: str) -> None:
     _cf_request(
         "PUT",
         f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations",
-        api_token,
+        auth,
         {
             "config": {
                 "ingress": [
@@ -192,28 +224,28 @@ def _configure_ingress(api_token: str, account_id: str, tunnel_id: str, hostname
     )
 
 
-def _fetch_tunnel_token(api_token: str, account_id: str, tunnel_id: str) -> str:
-    data = _cf_request("GET", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token", api_token)
+def _fetch_tunnel_token(auth: CfAuth, account_id: str, tunnel_id: str) -> str:
+    data = _cf_request("GET", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token", auth)
     tok = data.get("result")
     if isinstance(tok, str) and tok.strip():
         return tok.strip()
     raise RuntimeError("Empty tunnel token from Cloudflare API")
 
 
-def _ensure_dns_cname(api_token: str, zone_id: str, hostname: str, tunnel_id: str) -> None:
+def _ensure_dns_cname(auth: CfAuth, zone_id: str, hostname: str, tunnel_id: str) -> None:
     target = f"{tunnel_id}.cfargotunnel.com"
-    listed = _cf_request("GET", f"/zones/{zone_id}/dns_records?name={hostname}", api_token)
+    listed = _cf_request("GET", f"/zones/{zone_id}/dns_records?name={hostname}", auth)
     records = listed.get("result") or []
     for rec in records:
         if str(rec.get("type")) == "CNAME" and str(rec.get("content", "")).lower() == target.lower():
             return
         rid = rec.get("id")
         if rid and rec.get("type") in {"A", "AAAA", "CNAME"}:
-            _cf_request("DELETE", f"/zones/{zone_id}/dns_records/{rid}", api_token)
+            _cf_request("DELETE", f"/zones/{zone_id}/dns_records/{rid}", auth)
     _cf_request(
         "POST",
         f"/zones/{zone_id}/dns_records",
-        api_token,
+        auth,
         {
             "type": "CNAME",
             "name": hostname,
@@ -364,23 +396,32 @@ def run_autopilot() -> dict:
     report["steps"].append("cloudflared_ready")
 
     run_token = (os.getenv("CLOUDFLARE_TUNNEL_TOKEN") or harvested.get("CLOUDFLARE_TUNNEL_TOKEN") or "").strip()
-    api_token = (os.getenv("CLOUDFLARE_API_TOKEN") or harvested.get("CLOUDFLARE_API_TOKEN") or "").strip()
+    cf_auth = _resolve_cf_auth()
+    if not cf_auth and (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip().startswith("cfk_"):
+        report["error"] = "global_api_key_needs_email"
+        report["hint"] = (
+            "cfk_ is Global API Key (not Bearer token). Set CLOUDFLARE_EMAIL=your@cloudflare-login "
+            "and CLOUDFLARE_GLOBAL_API_KEY=cfk_... OR create scoped API token (cfut_) with Tunnel+DNS Edit"
+        )
 
-    if not run_token and api_token:
+    if not run_token and cf_auth:
         try:
-            account_id = _resolve_account_id(api_token, (os.getenv("CLOUDFLARE_ACCOUNT_ID") or "").strip())
+            account_id = _resolve_account_id(cf_auth, (os.getenv("CLOUDFLARE_ACCOUNT_ID") or "").strip())
             zone_id = _resolve_zone_id(
-                api_token,
+                cf_auth,
                 PUBLIC_HOST,
                 (os.getenv("CLOUDFLARE_ZONE_ID") or harvested.get("CLOUDFLARE_ZONE_ID") or "").strip(),
             )
-            tunnel_id = _find_or_create_tunnel(api_token, account_id)
-            _configure_ingress(api_token, account_id, tunnel_id, PUBLIC_HOST, LOCAL_SERVICE)
-            _ensure_dns_cname(api_token, zone_id, PUBLIC_HOST, tunnel_id)
-            run_token = _fetch_tunnel_token(api_token, account_id, tunnel_id)
+            tunnel_id = _find_or_create_tunnel(cf_auth, account_id)
+            _configure_ingress(cf_auth, account_id, tunnel_id, PUBLIC_HOST, LOCAL_SERVICE)
+            _ensure_dns_cname(cf_auth, zone_id, PUBLIC_HOST, tunnel_id)
+            run_token = _fetch_tunnel_token(cf_auth, account_id, tunnel_id)
             _set_env_line(root, "CLOUDFLARE_TUNNEL_TOKEN", run_token)
             _set_env_line(root, "CLOUDFLARE_ACCOUNT_ID", account_id)
             _set_env_line(root, "CLOUDFLARE_ZONE_ID", zone_id)
+            if cf_auth.mode == "global":
+                _set_env_line(root, "CLOUDFLARE_GLOBAL_API_KEY", cf_auth.global_key)
+                _set_env_line(root, "CLOUDFLARE_EMAIL", cf_auth.email)
             report["steps"].append("api_tunnel_provisioned")
         except Exception as exc:
             report["error"] = f"api_provision_failed:{exc}"
@@ -415,9 +456,10 @@ def run_autopilot() -> dict:
                 "error",
                 "missing_credentials: set CLOUDFLARE_API_TOKEN (+ optional ACCOUNT_ID) or CLOUDFLARE_TUNNEL_TOKEN",
             )
-            report["hint"] = (
-                "Create API token with Account Cloudflare Tunnel Edit + Zone DNS Edit, "
-                "or run once: cloudflared tunnel login (browser)"
+            report["hint"] = report.get(
+                "hint",
+                "Use cfut_ API token (Bearer) or cfk_ Global Key + CLOUDFLARE_EMAIL, "
+                "or CLOUDFLARE_TUNNEL_TOKEN from Zero Trust dashboard",
             )
             print(json.dumps(report, indent=2))
             return report
