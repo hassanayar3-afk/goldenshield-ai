@@ -4,6 +4,8 @@ param(
 )
 $ErrorActionPreference = "Continue"
 Set-Location $Root
+$env:PYTHONPATH = $Root
+$env:GOLDENSHIELD_OFFICIAL_ROOT = $Root
 
 $py = & (Join-Path $Root "deploy\windows\Resolve-GsPython.ps1") -Root $Root
 & $py -m pip install -r (Join-Path $Root "requirements.txt") -q 2>$null

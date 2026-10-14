@@ -13,6 +13,12 @@ Does NOT log secrets. Writes CLOUDFLARE_TUNNEL_TOKEN to .env when obtained via A
 from __future__ import annotations
 
 import base64
+import sys
+from pathlib import Path as _Path
+
+_root_guess = _Path(__file__).resolve().parents[1]
+if str(_root_guess) not in sys.path:
+    sys.path.insert(0, str(_root_guess))
 import json
 import os
 import re
