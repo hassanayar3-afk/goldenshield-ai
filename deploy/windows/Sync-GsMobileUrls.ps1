@@ -15,7 +15,7 @@ if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
     }
 }
 if ($tun -match "trycloudflare\.com" -and $env:GS_BAN_QUICK_TUNNEL -eq "true") {
-    Write-Warning "trycloudflare banned — set MOBILE_PUBLIC_BASE_URL"
+    Write-Warning "trycloudflare banned - set MOBILE_PUBLIC_BASE_URL"
     exit 2
 }
 if ($tun -notmatch "^https://") {
