@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 from scripts._win_ssh import load_local_env_for_deploy  # noqa: E402
 
 REMOTE = r"C:\GoldenShield_Binance"
-BRANCH = "cursor/win-remote-deploy-fix-2e26"
+BRANCH = "cursor/black-horse-sovereign-2e26"
 DEFAULT_ENV_ARTIFACT = Path("/opt/cursor/artifacts/vps-production.env")
 
 
