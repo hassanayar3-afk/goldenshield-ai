@@ -70,7 +70,7 @@ if ($token) {
 }
 
 if ($banQuick) {
-    Write-Warning "QUICK_TUNNEL_BANNED — use Named Tunnel token only"
+    Write-Warning "QUICK_TUNNEL_BANNED - use Named Tunnel token only"
     exit 2
 }
 $target = "http://127.0.0.1:$port"
