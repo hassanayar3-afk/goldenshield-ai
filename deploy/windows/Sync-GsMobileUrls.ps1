@@ -5,10 +5,18 @@ param(
 $ErrorActionPreference = "Continue"
 Set-Location $Root
 
-$tunFile = Join-Path $Root "storage\runtime\mobile_tunnel_url.txt"
 $tun = ""
-if (Test-Path $tunFile) {
-    $tun = (Get-Content $tunFile -Raw -ErrorAction SilentlyContinue).Trim().TrimEnd("/")
+if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
+    $tun = $env:MOBILE_PUBLIC_BASE_URL.Trim().TrimEnd("/")
+} else {
+    $tunFile = Join-Path $Root "storage\runtime\mobile_tunnel_url.txt"
+    if (Test-Path $tunFile) {
+        $tun = (Get-Content $tunFile -Raw -ErrorAction SilentlyContinue).Trim().TrimEnd("/")
+    }
+}
+if ($tun -match "trycloudflare\.com" -and $env:GS_BAN_QUICK_TUNNEL -eq "true") {
+    Write-Warning "trycloudflare banned — set MOBILE_PUBLIC_BASE_URL"
+    exit 2
 }
 if ($tun -notmatch "^https://") {
     Write-Warning "TUNNEL_URL_MISSING - run START_CLOUDFLARE_TUNNEL.ps1"

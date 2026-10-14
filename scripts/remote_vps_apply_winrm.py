@@ -125,6 +125,7 @@ def _production_env_bytes() -> bytes:
         "CLOUDFLARE_TUNNEL_TOKEN",
         "MOBILE_PUBLIC_BASE_URL",
         "MOBILE_PAIR_CODE",
+        "GS_BAN_QUICK_TUNNEL",
     )
     for k in merge_keys:
         v = (local.get(k) or os.getenv(k) or "").strip()
@@ -136,6 +137,10 @@ def _production_env_bytes() -> bytes:
             v = "true"
         if not v and k == "CLOUDFLARE_TUNNEL_LOCAL_URL":
             v = "http://127.0.0.1:8790"
+        if not v and k == "MOBILE_PUBLIC_BASE_URL":
+            v = "https://violafashioniq.com/"
+        if not v and k == "GS_BAN_QUICK_TUNNEL":
+            v = "true"
         if not v:
             continue
         pat = re.compile(rf"^{re.escape(k)}=.*$", re.M)

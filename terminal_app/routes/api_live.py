@@ -41,9 +41,16 @@ def _token_from_handler(handler: BaseHTTPRequestHandler) -> str:
 def live_stream_auth_ok(handler: BaseHTTPRequestHandler) -> bool:
     try:
         tok = _token_from_handler(handler)
-        if not tok:
+        return live_stream_auth_ok_token(tok)
+    except Exception:
+        return False
+
+
+def live_stream_auth_ok_token(tok: str) -> bool:
+    try:
+        if not (tok or "").strip():
             return False
-        return token_guard().verify_raw_token(tok).ok
+        return token_guard().verify_raw_token(tok.strip()).ok
     except Exception:
         return False
 

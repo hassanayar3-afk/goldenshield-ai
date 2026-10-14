@@ -30,7 +30,12 @@ if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
     exit 0
 }
 
+$banQuick = ($env:GS_BAN_QUICK_TUNNEL -eq "true") -or ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://")
 $token = $(if ($env:CLOUDFLARE_TUNNEL_TOKEN) { $env:CLOUDFLARE_TUNNEL_TOKEN } else { "" }).Trim()
+if ($banQuick -and -not $token -and -not ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://")) {
+    Write-Warning "QUICK_TUNNEL_BANNED set CLOUDFLARE_TUNNEL_TOKEN or MOBILE_PUBLIC_BASE_URL"
+    exit 2
+}
 $local = $(if ($env:CLOUDFLARE_TUNNEL_LOCAL_URL) { $env:CLOUDFLARE_TUNNEL_LOCAL_URL } else { "http://127.0.0.1:8790" }).Trim()
 $port = 8790
 if ($local -match ":(\d+)") { $port = [int]$Matches[1] }
@@ -64,6 +69,10 @@ if ($token) {
     exit 0
 }
 
+if ($banQuick) {
+    Write-Warning "QUICK_TUNNEL_BANNED — use Named Tunnel token only"
+    exit 2
+}
 $target = "http://127.0.0.1:$port"
 Start-Process -FilePath $cf.Source -ArgumentList @(
     "tunnel", "--url", $target,

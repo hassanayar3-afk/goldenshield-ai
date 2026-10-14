@@ -110,6 +110,20 @@ class MainActivity : AppCompatActivity() {
         return conn
     }
 
+    override fun onResume() {
+        super.onResume()
+        Executors.newSingleThreadExecutor().execute {
+            val base = prefs.getString("last_good_base", null)?.trim()?.trimEnd('/')
+            if (base.isNullOrBlank() || !base.startsWith("http")) {
+                return@execute
+            }
+            if (!healthOk(base)) {
+                val panelUrl = resolvePanelUrl()
+                runOnUiThread { webView.loadUrl(panelUrl) }
+            }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (webView.canGoBack()) {

@@ -62,6 +62,7 @@ def _remote_deploy_ps1(token_b64: str, branch: str) -> str:
         Remove-Item $dest -Recurse -Force -EA SilentlyContinue
         Write-Output 'SYNC_OK'
         & "$root\\deploy\\windows\\Fix-GsRuntimeAcl.ps1" -Root $root
+        & "$root\\deploy_ops\\Harvest-GsSecrets.ps1" -Root $root
         & "$root\\deploy\\windows\\Ensure-GsStableMobileEnv.ps1" -Root $root
         & "$root\\deploy\\windows\\Cleanup-GsLegacy.ps1" -Root $root -Aggressive
         $c = Get-Content (Join-Path $root '.env') -Raw -Encoding UTF8
