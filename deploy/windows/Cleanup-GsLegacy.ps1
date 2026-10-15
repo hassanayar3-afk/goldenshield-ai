@@ -25,11 +25,11 @@ $useNamed = [bool]($env:CLOUDFLARE_TUNNEL_TOKEN -and $env:CLOUDFLARE_TUNNEL_TOKE
 $cfProcs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.CommandLine -and $_.CommandLine -match "cloudflared"
 })
-if ($useStatic) {
+if ($useStatic -and -not $useNamed) {
     foreach ($p in $cfProcs) {
         Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
     }
-    Write-Host "CLOUDFLARED_STOPPED (static MOBILE_PUBLIC_BASE_URL)"
+    Write-Host "CLOUDFLARED_STOPPED (static URL without named tunnel token)"
 } elseif ($cfProcs.Count -gt 1) {
     $keep = $cfProcs[-1].ProcessId
     foreach ($p in $cfProcs) {
