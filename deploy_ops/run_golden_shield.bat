@@ -10,7 +10,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\deploy\windows\GS_ST
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\deploy\windows\REGISTER_GS_BOOT_STACK.ps1" -Root "%ROOT%" -SkipRegister
 for /f "delims=" %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\deploy\windows\Resolve-GsPython.ps1" -Root "%ROOT%"') do set "GSPY=%%P"
 start "" /B "%GSPY%" "%ROOT%\core_engine\neural_matrix.py"
-timeout /t 8 /nobreak >nul
-"%GSPY%" "%ROOT%\deploy_ops\push_discord_live_status.py"
+start "" /B "%GSPY%" "%ROOT%\deploy_ops\push_discord_live_status.py"
 endlocal
 exit /b 0
