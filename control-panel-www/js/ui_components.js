@@ -80,8 +80,7 @@
     $("stat-balance").textContent = fmtBalance(st.balance);
     setDailyPct($("stat-daily"), st.daily_net_pct);
     const open = st.open_positions != null ? st.open_positions : 0;
-    const dust = st.dust_positions != null ? st.dust_positions : 0;
-    $("stat-open").textContent = open + " • غبار " + dust;
+    $("stat-open").textContent = String(open);
     $("stat-win").textContent = fmtMoney(st.win_open);
     $("stat-lose").textContent = fmtMoney(st.lose_open);
 
