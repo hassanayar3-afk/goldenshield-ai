@@ -63,8 +63,7 @@ if ($token) {
     $tokenFile = Join-Path $runtime "tunnel.token"
     Set-Content -Path $tokenFile -Value $token.Trim() -Encoding ASCII -NoNewline
     Start-Process -FilePath $cf.Source -ArgumentList @(
-        "tunnel", "run", "--token-file", $tokenFile,
-        "--logfile", $logFile, "--loglevel", "info"
+        "tunnel", "--logfile", $logFile, "--loglevel", "info", "run", "--token-file", $tokenFile
     ) -WorkingDirectory $Root -WindowStyle Hidden
     if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
         ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
@@ -82,8 +81,7 @@ if ($banQuick) {
 }
 $target = "http://127.0.0.1:$port"
 Start-Process -FilePath $cf.Source -ArgumentList @(
-    "tunnel", "--url", $target,
-    "--logfile", $logFile, "--loglevel", "info"
+    "tunnel", "--logfile", $logFile, "--loglevel", "info", "--url", $target
 ) -WorkingDirectory $Root -WindowStyle Hidden
 
 $deadline = (Get-Date).AddMinutes(2)

@@ -87,13 +87,13 @@ def main() -> int:
     args = [
         str(exe),
         "tunnel",
-        "run",
-        "--token-file",
-        str(token_file),
         "--logfile",
         str(log_file),
         "--loglevel",
         "info",
+        "run",
+        "--token-file",
+        str(token_file),
     ]
     log.info("Starting named tunnel -> %s", local)
     while True:
