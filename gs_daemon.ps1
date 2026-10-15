@@ -54,6 +54,20 @@ function Write-D([string]$m) {
 Write-D "DAEMON_START"
 Write-D ("PYTHON=" + $py)
 
+function Ensure-SnapshotWriter {
+    param([string]$PythonExe)
+    $writer = Join-Path $Root "deploy_ops\gs_snapshot_writer.py"
+    if (-not (Test-Path $writer)) { return }
+    $running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.CommandLine -and $_.CommandLine -match "gs_snapshot_writer\.py"
+    }).Count
+    if ($running -ge 1) { return }
+    Write-D "SNAPSHOT_WRITER_LAUNCH"
+    Start-Process -FilePath $PythonExe -ArgumentList @($writer) -WorkingDirectory $Root -WindowStyle Hidden
+}
+
+Ensure-SnapshotWriter -PythonExe $py
+
 try {
     $aclFix = Join-Path $runtime "."
     if (Test-Path $aclFix) {
@@ -90,6 +104,7 @@ while ($true) {
         continue
     }
     if ($mains.Count -eq 1) {
+        Ensure-SnapshotWriter -PythonExe $py
         try {
             $hbPath = Join-Path $runtime "heartbeat.json"
             $hbObj = @{

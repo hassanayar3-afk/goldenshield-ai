@@ -1,6 +1,8 @@
 # GoldenShield Terminal — تشغيل إنتاج متكامل (24/7 + API + Tri-Commander + Discord + Tunnel)
 param(
-    [string]$Root = ""
+    [string]$Root = "",
+    [switch]$SkipKillMobileApi,
+    [switch]$RestartMobileApi
 )
 $ErrorActionPreference = "Continue"
 if (-not $Root) {
@@ -39,13 +41,24 @@ Stop-ScheduledTask -TaskName "GoldenShieldTunnel" -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
 $kill = Join-Path $Root "scripts\gs_kill_all.ps1"
-if (Test-Path $kill) { & $kill }
+if (Test-Path $kill) {
+    $killArgs = @()
+    if ($RestartMobileApi) { $killArgs += "-KillMobileApi" }
+    elseif ($SkipKillMobileApi) { /* preserve API */ }
+    else { $killArgs += "-KillMobileApi" }
+    & $kill @killArgs
+}
 Start-Sleep -Seconds 2
 
-$pyApi = & (Join-Path $PSScriptRoot "Resolve-GsPython.ps1") -Root $Root
-Start-Process -FilePath $pyApi -ArgumentList @("-m", "terminal_app.server") `
-    -WorkingDirectory $Root -WindowStyle Hidden
-Start-Sleep -Seconds 4
+$ensureApi = Join-Path $PSScriptRoot "Ensure-GsMobileApi.ps1"
+if (Test-Path $ensureApi) {
+    & $ensureApi -Root $Root | Write-Host
+} else {
+    $pyApi = & (Join-Path $PSScriptRoot "Resolve-GsPython.ps1") -Root $Root
+    Start-Process -FilePath $pyApi -ArgumentList @("-m", "terminal_app.server") `
+        -WorkingDirectory $Root -WindowStyle Hidden
+    Start-Sleep -Seconds 4
+}
 
 & (Join-Path $PSScriptRoot "START_CLOUDFLARE_TUNNEL.ps1") -Root $Root
 Start-Sleep -Seconds 2

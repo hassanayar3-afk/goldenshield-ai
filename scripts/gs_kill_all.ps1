@@ -1,4 +1,9 @@
-# GoldenShield — kill all bot / launcher / pulse processes (single-instance prep)
+# GoldenShield — kill bot / launcher processes (Mobile API preserved unless -KillMobileApi)
+param(
+    [switch]$KillMobileApi,
+    [switch]$KillCloudflared = $true,
+    [switch]$KillDiscord = $true
+)
 $ErrorActionPreference = "Continue"
 $patterns = @(
     'main\.py',
@@ -21,9 +26,9 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         ($_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)') -or
         ($_.CommandLine -match 'live_console\.(bat|ps1)') -or
         ($_.CommandLine -match '00_LIVE_CONSOLE') -or
-        ($_.CommandLine -match 'terminal_app\.server') -or
-        ($_.CommandLine -match 'discord_bridge\.py') -or
-        ($_.CommandLine -match 'cloudflared')
+        ($KillMobileApi -and $_.CommandLine -match 'terminal_app\.server') -or
+        ($KillDiscord -and $_.CommandLine -match 'discord_bridge\.py') -or
+        ($KillCloudflared -and $_.CommandLine -match 'cloudflared')
     )
 } | ForEach-Object {
     try {

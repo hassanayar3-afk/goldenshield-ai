@@ -14,6 +14,11 @@ function Test-GsHealth {
     }
 }
 
+$ensureApi = Join-Path $Root "deploy\windows\Ensure-GsMobileApi.ps1"
+if (Test-Path $ensureApi) {
+    & $ensureApi -Root $Root | Write-Output
+}
+
 if (Test-GsHealth) {
     Write-Output "WATCHDOG_OK"
     exit 0
@@ -24,6 +29,6 @@ $viaTask = Join-Path $Root "deploy\windows\GS_START_VIA_TASK.ps1"
 if (Test-Path $viaTask) {
     & $viaTask -Root $Root
 } else {
-    & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root
+    & (Join-Path $Root "deploy\windows\GS_START_FULL_STACK.ps1") -Root $Root -SkipKillMobileApi
 }
 exit 0

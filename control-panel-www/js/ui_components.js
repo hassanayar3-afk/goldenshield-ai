@@ -25,6 +25,8 @@
   let liveSource = null;
   let liveConnected = false;
   let liveIntervalSec = 1;
+  let apiDisconnected = false;
+  let lastGoodStatus = null;
   const REFRESH_MS = 5000;
   const REFRESH_FALLBACK_MS = 30000;
   let lastPaused = null;
@@ -112,6 +114,11 @@
     const banner = $("hero-banner");
     if (banner) {
       const msgs = [];
+      if (apiDisconnected) {
+        msgs.unshift("API Disconnected — لا اتصال بـ Mobile API (8790). Stale: البيانات قد لا تتحدث.");
+      } else if (st.api_stale) {
+        msgs.unshift("Stale — آخر مزامنة API قديمة؛ تحقق من السيرفر.");
+      }
       if (!st.bot_running) {
         msgs.push("البوت غير نشط على هذا السيرفر — شغّل GS_START_FULL_STACK أو gs_daemon.ps1");
       }
@@ -123,10 +130,12 @@
       if (msgs.length) {
         banner.textContent = msgs.join(" · ");
         banner.classList.remove("gs-banner--hidden");
-        banner.classList.toggle("gs-banner--warn", !!st.bot_running);
+        banner.classList.toggle("gs-banner--danger", !!apiDisconnected);
+        banner.classList.toggle("gs-banner--warn", !apiDisconnected && !!st.bot_running);
       } else {
         banner.textContent = "";
         banner.classList.add("gs-banner--hidden");
+        banner.classList.remove("gs-banner--danger");
       }
     }
   }
@@ -362,10 +371,12 @@
     }
     liveSource.addEventListener("hello", function (ev) {
       liveConnected = true;
+      apiDisconnected = false;
       try {
         const hello = JSON.parse(ev.data || "{}");
         if (hello.interval_sec) liveIntervalSec = hello.interval_sec;
       } catch (e) {}
+      scheduleRefreshInterval();
     });
     liveSource.addEventListener("tick", function (ev) {
       try {
@@ -386,7 +397,15 @@
     });
     liveSource.onerror = function () {
       liveConnected = false;
+      scheduleRefreshInterval();
+      refresh();
     };
+  }
+
+  function scheduleRefreshInterval() {
+    const ms = liveConnected ? REFRESH_FALLBACK_MS : REFRESH_MS;
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refresh, ms);
   }
 
   function isUnauthorizedErr(msg) {
@@ -426,15 +445,31 @@
     tag("history", results[4]);
     tag("stack", results[5]);
 
-    if (results[0].status === "fulfilled") {
+    const statusOk = results[0].status === "fulfilled";
+    const accountOk = results[1].status === "fulfilled";
+    if (statusOk) {
       const stRes = results[0].value;
       statusPayload = (stRes && stRes.status) || {};
       rules = (stRes && stRes.rules) || {};
+      lastGoodStatus = statusPayload;
+      apiDisconnected = false;
     }
-    if (results[1].status === "fulfilled") {
+    if (accountOk) {
       const acc = results[1].value;
       const st = (acc && acc.status) || statusPayload;
-      if (st && Object.keys(st).length) statusPayload = st;
+      if (st && Object.keys(st).length) {
+        statusPayload = st;
+        lastGoodStatus = st;
+      }
+    }
+    if (!statusOk && !accountOk) {
+      apiDisconnected = true;
+      statusPayload = Object.assign(
+        { api_stale: true },
+        lastGoodStatus || {}
+      );
+    } else if (!statusOk || !accountOk) {
+      statusPayload = Object.assign({}, lastGoodStatus || statusPayload, { api_stale: true });
     }
 
     let signalRows = [];
@@ -448,8 +483,13 @@
     if (results[3].status === "fulfilled") {
       posRows = (results[3].value && results[3].value.positions) || [];
     }
-    if (!liveConnected) {
+    if (!liveConnected || apiDisconnected || statusPayload.api_stale) {
       applyPanelCore(statusPayload, rules, signalRows, posRows, pulseTs, false);
+    }
+    if (syncLine && (apiDisconnected || statusPayload.api_stale)) {
+      syncLine.classList.add("gs-sync--stale");
+    } else if (syncLine) {
+      syncLine.classList.remove("gs-sync--stale");
     }
     if (results[4].status === "fulfilled") {
       renderHistory((results[4].value && results[4].value.history) || []);
@@ -558,8 +598,7 @@
     updateAlertChip();
     startLiveStream();
     refresh();
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(refresh, REFRESH_FALLBACK_MS);
+    scheduleRefreshInterval();
   }
 
   function urlPairCode() {

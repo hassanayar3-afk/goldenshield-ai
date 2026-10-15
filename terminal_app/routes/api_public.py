@@ -7,10 +7,24 @@ from http.server import BaseHTTPRequestHandler
 import os
 import urllib.parse
 
-from terminal_app.config import PAIR_CODE, PORT, STRATEGY_CODE
+import time
+from pathlib import Path
+
+from terminal_app.config import PAIR_CODE, PORT, RUNTIME, STRATEGY_CODE
 from terminal_app.http.json_io import send_json
 from terminal_app.services import alerts_queue as aq
 from terminal_app.services import bot_bridge as bb
+
+
+def _client_is_local(handler: BaseHTTPRequestHandler) -> bool:
+    try:
+        host = (handler.headers.get("Host") or "").split(":")[0].strip().lower()
+        if host in {"127.0.0.1", "localhost", "::1"}:
+            return True
+        fwd = (handler.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return fwd in {"127.0.0.1", "::1"}
+    except Exception:
+        return False
 
 
 def pair_link_payload() -> dict:
@@ -41,10 +55,35 @@ def pair_link_payload() -> dict:
 
 def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
     if path == "/api/health":
+        snap_age = None
+        hb_age = None
+        try:
+            snap_path = Path(RUNTIME) / "binance_snapshot.json"
+            if snap_path.is_file():
+                snap_age = round(time.time() - snap_path.stat().st_mtime, 1)
+        except Exception:
+            pass
+        try:
+            hb_path = Path(RUNTIME) / "heartbeat.json"
+            if hb_path.is_file():
+                hb_age = round(time.time() - hb_path.stat().st_mtime, 1)
+        except Exception:
+            pass
+        spinal_ok = snap_age is not None and snap_age < 120.0
         send_json(
             handler,
             200,
-            {"ok": True, "service": "goldenshield-mobile-api", "ts": aq.utc()},
+            {
+                "ok": True,
+                "service": "goldenshield-mobile-api",
+                "ts": aq.utc(),
+                "port": PORT,
+                "spinal": {
+                    "snapshot_age_sec": snap_age,
+                    "heartbeat_age_sec": hb_age,
+                    "snapshot_fresh": spinal_ok,
+                },
+            },
         )
         return True
     if path in ("/api/bootstrap", "/api/boot"):
@@ -68,6 +107,8 @@ def handle_public_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                     __import__("os").getenv("MOBILE_WEB_DIRECT_ACCESS", "true").lower()
                     not in {"0", "false", "no", "off"}
                 ),
+                "local_preview": _client_is_local(handler),
+                "auto_pair": True,
                 "auth_model": {
                     "strategy_code": "macro/scalp identity only (e.g. GS-GOLD80)",
                     "mobile_pair_code": "device pairing secret",

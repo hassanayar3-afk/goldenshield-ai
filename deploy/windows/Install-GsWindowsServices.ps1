@@ -15,7 +15,7 @@ Set-Location $Root
 $env:GOLDENSHIELD_OFFICIAL_ROOT = $Root
 
 $kill = Join-Path $Root "scripts\gs_kill_all.ps1"
-if (Test-Path $kill) { & $kill }
+if (Test-Path $kill) { & $kill -KillMobileApi }
 Start-Sleep -Seconds 2
 
 $py = & (Join-Path $PSScriptRoot "Resolve-GsPython.ps1") -Root $Root
@@ -96,3 +96,4 @@ if ($RemoveScheduledTasks) {
 }
 
 Write-Host "WINDOWS_SERVICES_INSTALLED"
+exit 0
