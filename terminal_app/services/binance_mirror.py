@@ -27,8 +27,8 @@ from terminal_app.config import (
 from terminal_app.services import alerts_queue as aq
 
 _STABLE_ASSETS = frozenset({"USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI"})
-_SNAP_TTL_SEC = 20.0
-_SNAP_STALE_SEC = 120.0
+_SNAP_TTL_SEC = float(os.getenv("GS_SNAP_TTL_SEC", "20") or 20)
+_SNAP_STALE_SEC = float(os.getenv("GS_SNAP_STALE_SEC", "120") or 120)
 _SNAP_BAN_TTL_SEC = 90.0
 _snap_cache: dict = {"ts": 0.0, "data": None, "ban_until": 0.0}
 _snap_lock = threading.Lock()
@@ -478,6 +478,23 @@ def binance_snapshot(force: bool = False) -> dict:
         }
         _snap_cache["ts"] = time.time()
         _snap_cache["data"] = payload
+        try:
+            from data_highway import zero_copy_cache as zc
+
+            zc.update_account(
+                {
+                    "ok": True,
+                    "equity": payload.get("equity"),
+                    "free_cash": payload.get("free_cash"),
+                    "session_pnl": payload.get("session_pnl"),
+                    "open_positions": payload.get("open_positions"),
+                    "demo": payload.get("demo"),
+                    "ts": payload.get("ts"),
+                    "source": "binance",
+                }
+            )
+        except Exception:
+            pass
         try:
             (RUNTIME / "binance_snapshot.json").write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2),

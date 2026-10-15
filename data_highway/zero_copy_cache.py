@@ -14,6 +14,7 @@ _state: dict[str, Any] = {
     "book": {},
     "prices": {},
     "idempotency": {},
+    "account": {},
 }
 _events: deque[dict[str, Any]] = deque(maxlen=int(os.getenv("GS_MEMORY_DEQUE_MAX", "1000") or 1000))
 
@@ -54,3 +55,16 @@ def update_positions(positions: dict[str, Any]) -> None:
 def update_price(symbol: str, price: float) -> None:
     with _lock:
         _state["prices"][symbol] = price
+
+
+def update_account(payload: dict[str, Any]) -> None:
+    """Hot-path account mirror for UI/SSE (no disk)."""
+    if not isinstance(payload, dict):
+        return
+    with _lock:
+        _state["account"] = dict(payload)
+
+
+def account_state() -> dict[str, Any]:
+    with _lock:
+        return dict(_state.get("account") or {})

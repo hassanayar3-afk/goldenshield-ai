@@ -60,9 +60,20 @@ async def _watchdog_loop(last_tick: list[float]) -> None:
             last_tick[0] = time.monotonic()
 
 
+async def _refresh_account_memory() -> None:
+    try:
+        from terminal_app.services import binance_mirror as bm
+
+        await asyncio.to_thread(bm.binance_snapshot, False)
+    except Exception as exc:
+        log.debug("account memory refresh: %s", exc)
+
+
 async def _consensus_cycle() -> None:
     from data_highway.zero_copy_cache import publish, remember_idempotent
     from terminal.orchestrator import TriCommanderOrchestrator, tri_commander_enabled
+
+    await _refresh_account_memory()
 
     if not tri_commander_enabled():
         log.info("TRI_COMMANDER_MODE off — neural matrix idle")

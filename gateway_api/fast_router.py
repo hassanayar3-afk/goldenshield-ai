@@ -74,7 +74,16 @@ async def live_stream(token: str = Query("")) -> StreamingResponse:
     if not _verify_token(token):
         raise HTTPException(status_code=401, detail="unauthorized")
 
-    interval = max(0.5, float(os.getenv("LIVE_PANEL_INTERVAL_SEC", "1.0") or 1.0))
+    try:
+        ms = (os.getenv("GS_LIVE_INTERVAL_MS") or "").strip()
+        if ms:
+            interval = max(0.005, float(ms) / 1000.0)
+        else:
+            raw = float(os.getenv("LIVE_PANEL_INTERVAL_SEC", "1.0") or 1.0)
+            floor = 0.005 if (os.getenv("GS_ULTRA_LIVE_STREAM", "false").lower() in {"1", "true", "yes"}) else 0.05
+            interval = max(floor, raw)
+    except Exception:
+        interval = 1.0
 
     async def gen():
         while True:

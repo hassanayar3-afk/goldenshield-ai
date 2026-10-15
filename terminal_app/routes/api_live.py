@@ -18,7 +18,12 @@ from terminal_app.services import bot_bridge as bb
 
 def _live_interval_sec() -> float:
     try:
-        return max(0.5, float(os.getenv("LIVE_PANEL_INTERVAL_SEC", "1.0") or 1.0))
+        ms = (os.getenv("GS_LIVE_INTERVAL_MS") or "").strip()
+        if ms:
+            return max(0.005, float(ms) / 1000.0)
+        raw = float(os.getenv("LIVE_PANEL_INTERVAL_SEC", "1.0") or 1.0)
+        floor = 0.005 if (os.getenv("GS_ULTRA_LIVE_STREAM", "false").lower() in {"1", "true", "yes"}) else 0.05
+        return max(floor, raw)
     except Exception:
         return 1.0
 
@@ -72,6 +77,13 @@ def panel_live_tick() -> dict:
                 pulse_ts = str(data["ts"])
     except Exception:
         pass
+    mem = {}
+    try:
+        from data_highway.zero_copy_cache import account_state
+
+        mem = account_state()
+    except Exception:
+        pass
     return {
         "ok": True,
         "type": "tick",
@@ -82,6 +94,7 @@ def panel_live_tick() -> dict:
         "positions": positions,
         "rules": bb.rules_payload(),
         "live": True,
+        "memory_account": mem,
     }
 
 
