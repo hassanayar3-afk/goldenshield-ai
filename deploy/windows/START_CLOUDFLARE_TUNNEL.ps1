@@ -23,15 +23,20 @@ $logFile = Join-Path $logs "cloudflare_tunnel.log"
 $logErr = Join-Path $logs "cloudflare_tunnel.err.log"
 Remove-Item $logFile, $logErr -Force -ErrorAction SilentlyContinue
 
-if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://") {
-    ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
-    Add-Content -Path $urlFile -Value ""
-    Write-Host "TUNNEL_STATIC_OK $($env:MOBILE_PUBLIC_BASE_URL)"
-    exit 0
-}
-
 $banQuick = ($env:GS_BAN_QUICK_TUNNEL -eq "true") -or ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://")
 $token = $(if ($env:CLOUDFLARE_TUNNEL_TOKEN) { $env:CLOUDFLARE_TUNNEL_TOKEN } else { "" }).Trim()
+if (-not $token) {
+    $tokenFileFallback = Join-Path $runtime "tunnel.token"
+    if (Test-Path $tokenFileFallback) {
+        $token = (Get-Content $tokenFileFallback -Raw -Encoding ASCII).Trim()
+    }
+}
+if ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://" -and -not $token) {
+    ($env:MOBILE_PUBLIC_BASE_URL.TrimEnd("/") + "/") | Set-Content -Path $urlFile -Encoding UTF8 -NoNewline
+    Add-Content -Path $urlFile -Value ""
+    Write-Warning "MOBILE_PUBLIC_BASE_URL set but CLOUDFLARE_TUNNEL_TOKEN missing - cloudflared not started"
+    exit 2
+}
 if ($banQuick -and -not $token -and -not ($env:MOBILE_PUBLIC_BASE_URL -match "^https?://")) {
     Write-Warning "QUICK_TUNNEL_BANNED set CLOUDFLARE_TUNNEL_TOKEN or MOBILE_PUBLIC_BASE_URL"
     exit 2
