@@ -580,13 +580,60 @@
   }
 
   function tryWebAutoPair(boot) {
-    if (!boot || !boot.web_direct_access) return Promise.resolve(false);
+    const allow =
+      (boot && boot.web_direct_access) ||
+      (window.GS_PANEL_BOOT && window.GS_PANEL_BOOT.web_direct_access);
+    if (!allow) return Promise.resolve(false);
     return window.GSApi.webAutoPair("WebPanel").then(function (res) {
       if (res.device_token) {
         window.GSApi.setToken(res.device_token);
         return true;
       }
       return false;
+    });
+  }
+
+  function injectedPairCode(boot) {
+    const bootCfg = window.GS_PANEL_BOOT || {};
+    return (
+      urlPairCode() ||
+      bootCfg.mobile_pair_code ||
+      bootCfg.pair_code ||
+      (boot && (boot.mobile_pair_code || boot.pair_code)) ||
+      ""
+    ).trim();
+  }
+
+  function isLocalPreview(boot) {
+    const bootCfg = window.GS_PANEL_BOOT || {};
+    if (bootCfg.local_preview) return true;
+    const h = (window.location.hostname || "").toLowerCase();
+    return h === "127.0.0.1" || h === "localhost" || h === "::1";
+  }
+
+  function runAutoPairChain(boot) {
+    const code = injectedPairCode(boot);
+    const local = isLocalPreview(boot);
+    const chain = local
+      ? tryWebAutoPair(boot).then(function (ok) {
+          if (ok) return true;
+          return code ? tryPairWithCode(code, "WebPanel") : false;
+        })
+      : code
+        ? tryPairWithCode(code, "WebPanel").then(function (ok) {
+            if (ok) return true;
+            return tryWebAutoPair(boot);
+          })
+        : tryWebAutoPair(boot);
+    return chain.then(function (ok) {
+      if (ok) {
+        startPanel();
+        return;
+      }
+      pairCard.classList.remove("gs-pair--hidden");
+      statusLine.textContent = local
+        ? "تعذّر الربط التلقائي — تحقق MOBILE_WEB_DIRECT_ACCESS على السيرفر"
+        : "أدخل رمز الربط من /api/mobile/pair-link";
     });
   }
 
@@ -597,33 +644,8 @@
         startPanel();
         return;
       }
-      const fromUrl = prefillPairFromUrl();
-      const deviceName = fromUrl ? "Android" : "WebPanel";
-      if (fromUrl) {
-        return tryPairWithCode(fromUrl, deviceName).then(function (ok) {
-          if (ok) {
-            startPanel();
-            return;
-          }
-          return tryWebAutoPair(boot).then(function (autoOk) {
-            if (autoOk) {
-              startPanel();
-            } else {
-              pairCard.classList.remove("gs-pair--hidden");
-              statusLine.textContent =
-                "تأكد أن الرمز GS-LINK… وليس GS-GOLD80 (رمز الاستراتيجية)";
-            }
-          });
-        });
-      }
-      return tryWebAutoPair(boot).then(function (ok) {
-        if (ok) {
-          startPanel();
-        } else {
-          pairCard.classList.remove("gs-pair--hidden");
-          statusLine.textContent = "أدخل رمز الربط من /api/mobile/pair-link";
-        }
-      });
+      prefillPairFromUrl();
+      return runAutoPairChain(boot);
     })
     .catch(function () {
       refresh();

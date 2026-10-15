@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler
 
-from terminal_app.config import PANEL_ROOT
+import os
+
+from terminal_app.config import PANEL_ROOT, PAIR_CODE, PORT
 from terminal_app.http.json_io import send_cors, send_json
 
 
@@ -50,10 +52,56 @@ def _serve_panel_file(handler: BaseHTTPRequestHandler, rel: str) -> bool:
     return True
 
 
+def _client_is_local(handler: BaseHTTPRequestHandler) -> bool:
+    try:
+        host = (handler.headers.get("Host") or "").split(":")[0].strip().lower()
+        if host in {"127.0.0.1", "localhost", "::1"}:
+            return True
+        fwd = (handler.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return fwd in {"127.0.0.1", "::1"}
+    except Exception:
+        return False
+
+
+def _serve_panel_boot_js(handler: BaseHTTPRequestHandler) -> bool:
+    web_auto = os.getenv("MOBILE_WEB_DIRECT_ACCESS", "true").lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    local = _client_is_local(handler)
+    body = (
+        "window.GS_PANEL_BOOT="
+        + __import__("json").dumps(
+            {
+                "pair_code": PAIR_CODE,
+                "mobile_pair_code": PAIR_CODE,
+                "web_direct_access": web_auto,
+                "local_preview": local,
+                "auto_pair": True,
+                "api_port": int(os.getenv("MOBILE_API_PORT", str(PORT)) or PORT),
+            },
+            ensure_ascii=False,
+        )
+        + ";\n"
+    ).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/javascript; charset=utf-8")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(body)))
+    send_cors(handler)
+    handler.end_headers()
+    handler.wfile.write(body)
+    return True
+
+
 def handle_panel_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    from terminal_app.config import PAIR_CODE
     from terminal_app.services import alerts_queue as aq
     from terminal_app.services import bot_bridge as bb
+
+    if path == "/js/panel_boot.js":
+        return _serve_panel_boot_js(handler)
 
     if path in ("/", "/panel", "/panel/", "/dashboard", "/dashboard/"):
         index = PANEL_ROOT / "index.html"
