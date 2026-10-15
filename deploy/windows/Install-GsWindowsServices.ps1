@@ -3,7 +3,7 @@ param(
     [string]$Root = "C:\GoldenShield_Binance",
     [switch]$RemoveScheduledTasks
 )
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(544)
 if (-not $isAdmin) {
     Write-Warning "WINDOWS_SERVICES_SKIP not elevated (Admin)"
@@ -44,8 +44,8 @@ function Install-GsService {
         [string]$StdoutLog,
         [string]$StderrLog
     )
-    & $nssm stop $Name 2>$null | Out-Null
-    & $nssm remove $Name confirm 2>$null | Out-Null
+    try { & $nssm stop $Name 2>$null | Out-Null } catch {}
+    try { & $nssm remove $Name confirm 2>$null | Out-Null } catch {}
     & $nssm install $Name $Exe $Args | Out-Null
     & $nssm set $Name AppDirectory $Root | Out-Null
     & $nssm set $Name AppStdout $StdoutLog | Out-Null
