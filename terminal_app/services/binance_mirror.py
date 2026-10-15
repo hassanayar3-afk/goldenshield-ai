@@ -337,11 +337,18 @@ def binance_snapshot(force: bool = False) -> dict:
         from data.exchange_client import get_exchange
 
         ex = get_exchange()
-        # Warm markets once (cached by ccxt) — avoids per-ticker market loads
-        try:
-            ex.load_markets()
-        except Exception:
-            pass
+        # load_markets hits exchangeInfo — often 451 on restricted VPS IPs; skip when configured
+        skip_markets = str(os.getenv("BINANCE_SKIP_LOAD_MARKETS", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if not skip_markets:
+            try:
+                ex.load_markets()
+            except Exception:
+                pass
         bal = ex.fetch_balance() or {}
         total = bal.get("total") or {}
         free = bal.get("free") or {}
