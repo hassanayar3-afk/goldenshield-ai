@@ -62,6 +62,7 @@ def _build_exchange(cred: ApiCredential | None) -> ccxt.binance:
         pass
 
     if demo:
+        # Demo VPS IPs often 451 on exchangeInfo; callers skip load_markets via BINANCE_SKIP_LOAD_MARKETS.
         try:
             exchange.enable_demo_trading(True)
         except Exception:

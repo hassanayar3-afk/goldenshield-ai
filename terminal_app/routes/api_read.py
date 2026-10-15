@@ -33,7 +33,7 @@ def handle_authenticated_get(handler: BaseHTTPRequestHandler, path: str) -> bool
         return True
 
     if path == "/api/account":
-        snap = bm.binance_snapshot(force=False)
+        snap = bm.resolve_display_snapshot(force=False)
         status = bb.status()
         if not snap.get("ok"):
             snap = bm.account_from_status(status)

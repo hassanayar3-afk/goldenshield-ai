@@ -51,6 +51,139 @@ def load_snap_disk() -> dict | None:
     return None
 
 
+def _load_balance_mirror_disk() -> dict | None:
+    try:
+        path = RUNTIME / "balance_mirror.json"
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        equity = float(data.get("equity") or data.get("balance") or 0)
+        if equity <= 0:
+            return None
+        demo = str(os.getenv("BINANCE_DEMO_TRADING", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        return {
+            "ok": True,
+            "degraded": True,
+            "equity": equity,
+            "free_cash": float(data.get("free_cash") or data.get("free") or equity),
+            "session_start_equity": float(
+                data.get("session_start_equity") or data.get("session_start_balance") or equity
+            ),
+            "session_pnl": float(data.get("session_pnl") or 0),
+            "unrealized_pnl": float(data.get("unrealized_pnl") or 0),
+            "assets": data.get("assets") or [],
+            "holdings": data.get("holdings") or [],
+            "open_positions": int(data.get("open_positions") or 0),
+            "dust_positions": int(data.get("dust_positions") or 0),
+            "demo": demo,
+            "source": "balance_mirror",
+            "error": "binance unavailable — balance_mirror.json",
+            "ts": aq.utc(),
+        }
+    except Exception:
+        return None
+
+
+def _load_zero_copy_account() -> dict | None:
+    try:
+        from data_highway.zero_copy_cache import account_state
+
+        acc = account_state()
+        if not acc.get("ok"):
+            return None
+        equity = acc.get("equity")
+        if equity is None:
+            return None
+        equity_f = float(equity)
+        if equity_f <= 0:
+            return None
+        demo = bool(acc.get("demo"))
+        if not demo:
+            demo = str(os.getenv("BINANCE_DEMO_TRADING", "")).lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        return {
+            "ok": True,
+            "degraded": True,
+            "equity": equity_f,
+            "free_cash": float(acc.get("free_cash") or equity_f),
+            "session_start_equity": float(acc.get("session_start_equity") or equity_f),
+            "session_pnl": float(acc.get("session_pnl") or 0),
+            "unrealized_pnl": float(acc.get("unrealized_pnl") or 0),
+            "assets": acc.get("assets") or [],
+            "holdings": [],
+            "open_positions": int(acc.get("open_positions") or 0),
+            "dust_positions": 0,
+            "demo": demo,
+            "source": "zero_copy_cache",
+            "error": acc.get("error") or "binance unavailable — memory mirror",
+            "ts": acc.get("ts") or aq.utc(),
+        }
+    except Exception:
+        return None
+
+
+def fallback_display_snapshot(live_error: str | None = None) -> dict | None:
+    """Last-known-good balance layers — keeps UI off 0.00 when Binance REST fails (451)."""
+    err = (live_error or "").strip()
+    for loader in (
+        lambda: _snap_cache.get("data"),
+        load_snap_disk,
+        _load_zero_copy_account,
+        _load_balance_mirror_disk,
+        snapshot_from_risk_sources,
+    ):
+        try:
+            raw = loader()
+        except Exception:
+            raw = None
+        if not isinstance(raw, dict) or not raw.get("ok"):
+            continue
+        if raw.get("equity") is None and raw.get("free_cash") is None:
+            continue
+        out = dict(raw)
+        out["ok"] = True
+        out["degraded"] = True
+        out["stale"] = True
+        if err:
+            out["error"] = err[:240]
+        elif not out.get("error"):
+            out["error"] = "binance unavailable — cached mirror"
+        return out
+    return None
+
+
+def resolve_display_snapshot(force: bool = False) -> dict:
+    """Panel-safe snapshot: live Binance when possible, else cached mirror (never empty if cache exists)."""
+    snap = binance_snapshot(force=force)
+    if snap.get("ok") and snap.get("equity") is not None:
+        return snap
+    fb = fallback_display_snapshot(str(snap.get("error") or ""))
+    if fb:
+        return fb
+    return snap
+
+
+def live_exchange_reachable(snap: dict | None) -> bool:
+    st = snap if isinstance(snap, dict) else {}
+    if not st.get("ok"):
+        return False
+    if st.get("degraded") or st.get("stale"):
+        return False
+    src = str(st.get("source") or "binance")
+    return src == "binance" and not _is_geo_or_restricted_error(str(st.get("error") or ""))
+
+
 try:
     _disk_seed = load_snap_disk()
     if _disk_seed:
@@ -246,6 +379,10 @@ def binance_snapshot(force: bool = False) -> dict:
             out["ban_until"] = ban_until
             out["error"] = cached.get("error") or "binance temporarily banned — using cache"
             return out
+        fb = fallback_display_snapshot("binance temporarily banned — using cache")
+        if fb:
+            fb["ban_until"] = ban_until
+            return fb
         fail = {
             "ok": False,
             "degraded": True,
@@ -303,9 +440,10 @@ def binance_snapshot(force: bool = False) -> dict:
             out["degraded"] = True
             out["stale"] = True
             return out
-        disk = _load_snap_disk()
+        disk = load_snap_disk()
         if disk:
             out = dict(disk)
+            out["ok"] = True
             out["degraded"] = True
             out["stale"] = True
             out["error"] = "snapshot busy — disk cache"
@@ -338,12 +476,19 @@ def binance_snapshot(force: bool = False) -> dict:
 
         ex = get_exchange()
         # load_markets hits exchangeInfo — often 451 on restricted VPS IPs; skip when configured
-        skip_markets = str(os.getenv("BINANCE_SKIP_LOAD_MARKETS", "")).lower() in {
+        demo_env = str(os.getenv("BINANCE_DEMO_TRADING", "")).lower() in {
             "1",
             "true",
             "yes",
             "on",
         }
+        skip_raw = (os.getenv("BINANCE_SKIP_LOAD_MARKETS") or "").strip().lower()
+        if skip_raw in {"0", "false", "no", "off"}:
+            skip_markets = False
+        elif skip_raw in {"1", "true", "yes", "on"}:
+            skip_markets = True
+        else:
+            skip_markets = demo_env
         if not skip_markets:
             try:
                 ex.load_markets()
@@ -538,7 +683,12 @@ def binance_snapshot(force: bool = False) -> dict:
             return out
 
         if _is_geo_or_restricted_error(msg):
-            _snap_cache["ban_until"] = time.time() + max(_SNAP_BAN_TTL_SEC, 300.0)
+            _snap_cache["ban_until"] = time.time() + min(45.0, _SNAP_BAN_TTL_SEC)
+        fb = fallback_display_snapshot(msg)
+        if fb:
+            if ban_until:
+                fb["ban_until"] = ban_until
+            return fb
         risk_snap = snapshot_from_risk_sources()
         if risk_snap and risk_snap.get("ok"):
             risk_snap["error"] = msg[:240]

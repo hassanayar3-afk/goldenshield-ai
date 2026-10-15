@@ -87,7 +87,14 @@
       const parts = [];
       if (st.balance_source) parts.push(String(st.balance_source));
       if (st.exchange_ok === true) parts.push("Binance OK");
-      else if (st.exchange_ok === false) parts.push("offline");
+      else if (st.exchange_ok === false) {
+        const bal = Number(st.balance);
+        if (bal > 0 && st.balance_source && st.balance_source !== "risk_state") {
+          parts.push("mirror");
+        } else {
+          parts.push("offline");
+        }
+      }
       if (st.demo) parts.push("Demo");
       srcEl.textContent = parts.length ? parts.join(" · ") : "—";
     }

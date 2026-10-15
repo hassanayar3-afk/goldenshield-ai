@@ -159,11 +159,7 @@ def status() -> dict:
     paused = (RUNTIME / "user_stopped.flag").exists()
     bot_running = _probe_bot_running()
 
-    snap = bm.binance_snapshot()
-    if not snap.get("ok"):
-        risk_snap = bm.snapshot_from_risk_sources()
-        if risk_snap and risk_snap.get("ok"):
-            snap = risk_snap
+    snap = bm.resolve_display_snapshot()
     open_rows = [p for p in positions() if p and "error" not in p]
     if snap.get("ok") and snap.get("equity") is not None:
         bal = float(snap["equity"])
@@ -171,8 +167,8 @@ def status() -> dict:
         session_pnl = float(snap.get("session_pnl") or (bal - session_start))
         unrealized = float(snap.get("unrealized_pnl") or 0)
         free_cash = float(snap.get("free_cash") or 0)
-        balance_source = "binance"
-        exchange_ok = True
+        balance_source = str(snap.get("source") or "binance")
+        exchange_ok = bm.live_exchange_reachable(snap)
         assets = snap.get("assets") or []
         demo = bool(snap.get("demo"))
     else:
