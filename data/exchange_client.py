@@ -11,6 +11,7 @@ from data.api_failover import (
     is_rate_limit_error,
     list_binance_credentials,
 )
+from data.binance_proxy import ccxt_proxies_dict
 
 _exchange: ccxt.binance | None = None
 _active_label: str = "primary"
@@ -45,12 +46,9 @@ def _build_exchange(cred: ApiCredential | None) -> ccxt.binance:
         config["apiKey"] = cred.api_key
         config["secret"] = cred.secret
 
-    proxy = (
-        (os.getenv("BINANCE_HTTPS_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or "")
-        .strip()
-    )
-    if proxy:
-        config["proxies"] = {"http": proxy, "https": proxy}
+    proxies = ccxt_proxies_dict()
+    if proxies:
+        config["proxies"] = proxies
 
     demo_public = (os.getenv("BINANCE_DEMO_API_PUBLIC") or "").strip()
     demo_private = (os.getenv("BINANCE_DEMO_API_PRIVATE") or demo_public).strip()
