@@ -192,8 +192,18 @@ class GoldenShieldDiscordBot(discord.Client):
 
     async def publish_status(self) -> None:
         channel = self.get_channel(self.channel_id)
+        if channel is None:
+            try:
+                channel = await self.fetch_channel(self.channel_id)
+            except Exception as exc:
+                log.error(
+                    "channel %s not found — invite bot to server & check DISCORD_CHANNEL_ID: %s",
+                    self.channel_id,
+                    exc,
+                )
+                return
         if not isinstance(channel, discord.TextChannel):
-            log.error("channel %s not found", self.channel_id)
+            log.error("channel %s is not a text channel", self.channel_id)
             return
         embed = await self.build_status_embed()
         view = ControlView(self)
@@ -225,8 +235,11 @@ class GoldenShieldDiscordBot(discord.Client):
             await asyncio.sleep(float(os.getenv("GS_DISCORD_STATUS_SEC", "45") or 45))
 
     async def on_ready(self) -> None:
-        log.info("Discord connected as %s", self.user)
-        await self.publish_status()
+        log.info("Discord connected as %s — ● LIVE gateway", self.user)
+        try:
+            await self.publish_status()
+        except Exception as exc:
+            log.exception("publish_status on_ready: %s", exc)
 
     async def close(self) -> None:
         if self._session and not self._session.closed:
