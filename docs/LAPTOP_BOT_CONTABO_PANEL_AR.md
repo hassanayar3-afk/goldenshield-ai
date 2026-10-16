@@ -4,10 +4,30 @@
 - **main.py** على IP المنزل (بدون 451).
 - **Mobile API** على Contabo يقرأ ملفات `storage/runtime` المزامنة.
 
-## 1) اللابتوب — إعداد
+## ضغطة واحدة — اللابتوب
 
 ```powershell
-cd C:\GoldenShield   # أو مسار clone المشروع
+cd C:\GoldenShield
+git pull
+.\GOLDENSHIELD_LAPTOP_START.bat
+```
+
+أو:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\GOLDENSHIELD_LAPTOP_ONE_SHOT.ps1 -Root "C:\GoldenShield"
+```
+
+## ضغطة واحدة — Contabo (لوحة فقط)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\GoldenShield_Binance\deploy\windows\GOLDENSHIELD_CONTABO_PANEL_ONE_SHOT.ps1
+```
+
+## 1) اللابتوب — إعداد (يدوي / اختياري)
+
+```powershell
+cd C:\GoldenShield
 powershell -ExecutionPolicy Bypass -File .\deploy\windows\Setup-LaptopTradingBot.ps1
 ```
 
