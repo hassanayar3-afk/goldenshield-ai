@@ -228,12 +228,52 @@ def live_prices(symbols: list[str]) -> dict[str, float]:
     except Exception:
         pass
     return prices
+def _panel_remote_snapshot_only() -> bool:
+    """Contabo panel: read laptop-synced files only (no ccxt / 451 on VPS)."""
+    return str(os.getenv("GS_PANEL_REMOTE_SNAPSHOT_ONLY", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _snapshot_panel_remote_mode(force: bool = False) -> dict:
+    disk = load_snap_disk()
+    if disk and disk.get("ok"):
+        out = dict(disk)
+        out["degraded"] = bool(out.get("degraded", False))
+        out["remote_panel"] = True
+        out["source"] = out.get("source") or "laptop_sync"
+        _snap_cache["ts"] = time.time()
+        _snap_cache["data"] = out
+        return out
+    risk_snap = snapshot_from_risk_sources()
+    if risk_snap and risk_snap.get("ok"):
+        risk_snap["remote_panel"] = True
+        return risk_snap
+    return {
+        "ok": False,
+        "degraded": True,
+        "remote_panel": True,
+        "error": "no synced snapshot — run laptop bot + Sync-RuntimeToContabo",
+        "equity": None,
+        "holdings": [],
+        "assets": [],
+        "source": "laptop_sync",
+        "ts": aq.utc(),
+    }
+
+
 def binance_snapshot(force: bool = False) -> dict:
     """مرآة حية لمحفظة Binance Spot (رصيد + أصول + PnL الجلسة).
 
     Critical: never stampede Binance on parallel /status+/positions polls —
     that caused client ``status:timeout`` / ``positions:Failed to fetch``.
     """
+    if _panel_remote_snapshot_only():
+        return _snapshot_panel_remote_mode(force=force)
+
     now = time.time()
     cached = _snap_cache.get("data")
     cache_age = now - float(_snap_cache.get("ts") or 0)
