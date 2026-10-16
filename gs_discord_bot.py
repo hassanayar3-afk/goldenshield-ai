@@ -24,12 +24,17 @@ HEALTH_URL = os.getenv("GS_MOBILE_HEALTH_URL", "http://127.0.0.1:8790/api/health
 API_BASE = os.getenv("GS_MOBILE_API_BASE", "http://127.0.0.1:8790").strip().rstrip("/")
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [gs_discord_bot] %(levelname)s %(message)s",
     handlers=[
         logging.FileHandler(LOG_DIR / "gs_discord_bot.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
     ],
 )
 log = logging.getLogger("gs_discord_bot")
@@ -217,11 +222,17 @@ class GoldenShieldDiscordBot(discord.Client):
         try:
             if self._status_message:
                 await self._status_message.edit(embed=embed, view=view)
+                log.info("publish_status updated message id=%s", self._status_message.id)
             else:
                 self._status_message = await channel.send(embed=embed, view=view)
+                log.info("publish_status sent new message id=%s", self._status_message.id)
         except Exception as exc:
             log.warning("publish_status edit/send: %s", exc)
-            self._status_message = await channel.send(embed=embed, view=view)
+            try:
+                self._status_message = await channel.send(embed=embed, view=view)
+                log.info("publish_status fallback send id=%s", self._status_message.id)
+            except Exception as exc2:
+                log.exception("publish_status failed: %s", exc2)
 
     async def _health_loop(self) -> None:
         await self.wait_until_ready()
@@ -235,7 +246,7 @@ class GoldenShieldDiscordBot(discord.Client):
             await asyncio.sleep(float(os.getenv("GS_DISCORD_STATUS_SEC", "45") or 45))
 
     async def on_ready(self) -> None:
-        log.info("Discord connected as %s — ● LIVE gateway", self.user)
+        log.info("Discord connected as %s - LIVE gateway", self.user)
         try:
             await self.publish_status()
         except Exception as exc:
