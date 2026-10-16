@@ -125,6 +125,15 @@ def _production_env_bytes() -> bytes:
         "CLOUDFLARE_TUNNEL_TOKEN",
         "MOBILE_PUBLIC_BASE_URL",
         "MOBILE_PAIR_CODE",
+        "PROXY_URL",
+        "PROXY_SCHEME",
+        "PROXY_HOST",
+        "PROXY_PORT",
+        "PROXY_USER",
+        "PROXY_PASSWORD",
+        "BINANCE_HTTPS_PROXY",
+        "BINANCE_SOCKS_PROXY",
+        "BINANCE_SKIP_LOAD_MARKETS",
     )
     for k in merge_keys:
         v = (local.get(k) or os.getenv(k) or "").strip()
