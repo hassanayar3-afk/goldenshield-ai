@@ -8,9 +8,6 @@ from operations.panic_button import PanicButton, PanicResult
 from operations.pre_flight_checklist import PreFlightCheck, PreFlightResult, run_pre_flight
 from operations.runtime_state import OperationsRuntime
 from operations.scheduler import DailyReportScheduler
-from operations.telegram_bot import TelegramBot
-from operations.telegram_commands import TelegramCommandHandler
-from operations.telegram_dashboard import TelegramDashboard
 
 __all__ = [
     "AlertDispatcher",
@@ -22,9 +19,6 @@ __all__ = [
     "PanicResult",
     "PreFlightCheck",
     "PreFlightResult",
-    "TelegramBot",
-    "TelegramCommandHandler",
-    "TelegramDashboard",
     "WatchdogResult",
     "format_daily_report",
     "log_error",

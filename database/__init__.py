@@ -7,11 +7,7 @@ from database.repositories.config_repo import ConfigRepository
 from database.repositories.operations_repo import OperationsRepository
 from database.repositories.snapshot_repo import SnapshotRepository
 from database.repositories.trade_repo import TradeRepository, TradeRow
-from database.telegram_backup import (
-    TelegramBackupResult,
-    send_vault_intro,
-    upload_backup_to_telegram,
-)
+from database.telegram_backup import TelegramVaultResult, send_vault_intro, upload_backup_to_telegram
 
 __all__ = [
     "BackupManager",
@@ -22,11 +18,11 @@ __all__ = [
     "GDriveUploadResult",
     "OperationsRepository",
     "SnapshotRepository",
-    "TelegramBackupResult",
+    "TelegramVaultResult",
     "TradeRepository",
     "TradeRow",
     "init_database",
     "send_vault_intro",
-    "upload_backup",
     "upload_backup_to_telegram",
+    "upload_backup",
 ]

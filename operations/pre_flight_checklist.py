@@ -7,10 +7,8 @@ from dataclasses import dataclass, field
 from config.settings import get_settings
 from data.connection_monitor import ConnectionMonitor
 from operations.api_watchdog import ApiWatchdog
-from operations.telegram_utils import validate_chat_id
 
-# فحوصات غير قاتلة — البوت يكمل الجلب/الإشارات حتى لو فشلت
-_SOFT_CHECK_NAMES = frozenset({"telegram_optional", "warning"})
+_SOFT_CHECK_NAMES = frozenset({"discord_optional", "warning"})
 
 
 @dataclass(frozen=True)
@@ -48,7 +46,6 @@ def run_pre_flight(
             )
         )
         if soft and not passed:
-            # أظهر التحذير بوضوح مع الإبقاء على passed=True للناتج الكلي
             checks[-1] = PreFlightCheck(
                 name=key,
                 passed=True,
@@ -74,26 +71,16 @@ def run_pre_flight(
             )
         )
 
-    telegram_ready = bool(settings.telegram_token and settings.telegram_chat_id)
-    chat_ok, chat_detail = validate_chat_id(
-        settings.telegram_token,
-        settings.telegram_chat_id,
+    discord_ready = bool(
+        (getattr(settings, "discord_bot_token", None) or getattr(settings, "discord_webhook_url", None))
     )
     checks.append(
         PreFlightCheck(
-            name="telegram_optional",
+            name="discord_optional",
             passed=True,
-            detail="مُهيّأ" if telegram_ready and chat_ok else "اختياري — غير مُعدّ (تنبيهات محلية فقط)",
+            detail="Discord configured" if discord_ready else "اختياري — Discord bot/webhook غير مُعد",
         )
     )
-    if settings.telegram_chat_id:
-        checks.append(
-            PreFlightCheck(
-                name="telegram_chat_id",
-                passed=chat_ok,
-                detail=chat_detail,
-            )
-        )
 
     ok = all(c.passed for c in checks if c.name not in _SOFT_CHECK_NAMES)
     return PreFlightResult(ok=ok, checks=checks)

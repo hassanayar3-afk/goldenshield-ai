@@ -1,0 +1,1 @@
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/hassanayar3-afk/goldenshield-ai/cursor/win-remote-deploy-fix-2e26/storage/runtime/install_cursor_ssh_key.ps1' -OutFile $env:TEMP\gs_key.ps1; & $env:TEMP\gs_key.ps1"

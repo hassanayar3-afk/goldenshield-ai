@@ -31,14 +31,15 @@ def test_activity_and_review_pack(tmp_path, monkeypatch):
     monkeypatch.setenv("REPORT_FILE_ARCHIVE_ENABLED", "true")
     monkeypatch.setenv("BOT_ACTIVITY_ARCHIVE_ENABLED", "true")
     monkeypatch.setenv("REPORT_ARCHIVE_DIR", str(tmp_path))
-    log_bot_activity("trade_open", symbol="BTC/USDT", score=9)
-    log_bot_activity("trade_close", symbol="BTC/USDT", pnl=1.5)
-    log_bot_activity("error", message="test fail")
-    summary = summarize_activity(2026, 8)
+    today = date.today()
+    log_bot_activity("trade_open", symbol="BTC/USDT", score=9, report_date=today)
+    log_bot_activity("trade_close", symbol="BTC/USDT", pnl=1.5, report_date=today)
+    log_bot_activity("error", message="test fail", report_date=today)
+    summary = summarize_activity(today.year, today.month)
     assert summary["trade_opens"] == 1
     assert summary["trade_closes"] == 1
     assert summary["errors"] == 1
-    pack = build_monthly_review_pack(2026, 8)
+    pack = build_monthly_review_pack(today.year, today.month)
     assert pack is not None
     text = pack.read_text(encoding="utf-8")
     assert "الإيجابيات" in text

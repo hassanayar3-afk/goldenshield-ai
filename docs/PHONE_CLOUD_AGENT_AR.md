@@ -23,7 +23,8 @@
 
 - `WIN_HOST`
 - `WIN_USER`
-- `WIN_PASSWORD`
+- `WIN_PASSWORD` (أو WinRM إذا كان SSH مغلقاً)
+- `WIN_SSH_PRIVATE_KEY` (**مهم**) — إذا كان SSH على VPS يقبل **مفتاحاً فقط** وليس كلمة المرور
 - `TELEGRAM_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `BINANCE_API_KEY`
@@ -33,6 +34,35 @@
 - `EXECUTION_BACKEND`
 
 بدون هذه الأسرار يستطيع الوكيل تعديل الكود فقط، ولا يدير السيرفر الحي.
+
+### 2.1) حل «لا يدخل الوكيل إلى السيرفر»
+
+الوكيل يحتاج **قناة واحدة** على الأقل:
+
+| القناة | متى تستخدمها | ما الذي تفعله على VPS (مرة واحدة) |
+|--------|----------------|-------------------------------------|
+| **SSH + مفتاح** | الأفضل للنشر الكامل | أنشئ زوج مفاتيح، ضع **المفتاح العام** في `C:\Users\<WIN_USER>\.ssh\authorized_keys`، وضع **المفتاح الخاص** في Cursor Secret `WIN_SSH_PRIVATE_KEY` |
+| **SSH + كلمة مرور** | إذا فضّلت كلمة المرور | في `C:\ProgramData\ssh\sshd_config`: `PasswordAuthentication yes` ثم `Restart-Service sshd` |
+| **WinRM** | إذا SSH محجوب | على VPS (PowerShell كمسؤول): `Enable-PSRemoting -Force`، فعّل Basic auth، وافتح المنفذ **5985** في الجدار الناري للوصول من الإنترنت |
+
+**فحص من الوكيل بعد ضبط الأسرار:**
+
+```bash
+python3 scripts/auto_windows_deploy.py
+```
+
+(يفحص SSH ثم WinRM ثم يرسل تيليجرام إن احتاج خطوة واحدة على VPS.)
+
+```bash
+python3 scripts/probe_windows_remote.py
+python3 scripts/deploy_to_windows.py
+```
+
+أو نشر حزمة التشغيل المرئية عبر WinRM:
+
+```bash
+python3 scripts/deploy_visible_winrm.py
+```
 
 ### 3) من Agents على الهاتف
 1. افتح https://cursor.com/agents

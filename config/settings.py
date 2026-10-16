@@ -39,23 +39,28 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 def _resolve_db_path(raw: str) -> str:
-    """مسار DB مطلق ثابت — يمنع بوتاً «جديداً» فارغاً عند اختلاف مجلد التشغيل."""
+    """مسار DB نسبي في الإعدادات — يُحلّ مطلقاً عند فتح الاتصال."""
     text = (raw or "storage/db/goldenshield.db").strip() or "storage/db/goldenshield.db"
     path = Path(text)
     if path.is_absolute():
-        return str(path)
+        return str(path).replace("\\", "/")
+    return str(path).replace("\\", "/")
+
+
+def resolve_db_path_absolute(db_path: str) -> Path:
+    """حل مسار DB للتشغيل الفعلي (workspace أو GOLDENSHIELD_OFFICIAL_ROOT)."""
+    path = Path((db_path or "storage/db/goldenshield.db").strip())
+    if path.is_absolute():
+        return path
     official = Path(
         (os.getenv("GOLDENSHIELD_OFFICIAL_ROOT") or r"C:\GoldenShield_Binance").strip()
     )
     try:
         if official.is_dir():
-            return str((official / path).resolve())
+            return (official / path).resolve()
     except Exception:
         pass
-    try:
-        return str((BASE_DIR / path).resolve())
-    except Exception:
-        return str(Path.cwd() / path)
+    return (BASE_DIR / path).resolve()
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,10 @@ class Settings:
     telegram_send_cycle_signals: bool
     telegram_signals_only: bool
     telegram_signal_min_percent: int
+    discord_bot_token: str | None
+    discord_webhook_url: str | None
+    discord_channel_id: str | None
+    discord_signals_only: bool
     manual_entry_required: bool
     auto_entry_min_percent: int
     news_filter_enabled: bool
@@ -267,6 +276,13 @@ def load_settings(env: str | None = None, *, reload: bool = False) -> Settings:
         in {"1", "true", "yes", "on"},
         # إرسال إشارات تيليجرام من 70/100 فما فوق (درجة 7+ — هجين يدوي/تلقائي)
         telegram_signal_min_percent=int(os.getenv("TELEGRAM_SIGNAL_MIN_PERCENT", "70")),
+        discord_bot_token=os.getenv("DISCORD_BOT_TOKEN") or None,
+        discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL") or None,
+        discord_channel_id=os.getenv("DISCORD_CHANNEL_ID") or None,
+        discord_signals_only=os.getenv("DISCORD_SIGNALS_ONLY", "false")
+        .strip()
+        .lower()
+        in {"1", "true", "yes", "on"},
         # false = هجين: تلقائي عند ≥ AUTO_ENTRY | يدوي عبر تيليجرام للدرجات الأقل
         manual_entry_required=os.getenv("MANUAL_ENTRY_REQUIRED", "false")
         .strip()

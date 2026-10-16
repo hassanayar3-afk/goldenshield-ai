@@ -1,7 +1,17 @@
 # Durable No-Sleep single-instance daemon for GoldenShield (Binance)
+param(
+    [string]$Root = ""
+)
 $ErrorActionPreference = "Continue"
-$Root = "C:\GoldenShield_Binance"
+if (-not $Root) {
+    $Root = if ($env:GOLDENSHIELD_OFFICIAL_ROOT) { $env:GOLDENSHIELD_OFFICIAL_ROOT } else { "C:\GoldenShield_Binance" }
+}
 Set-Location $Root
+
+$importEnv = Join-Path $Root "deploy\windows\Import-GsDotEnv.ps1"
+if (Test-Path $importEnv) {
+    . $importEnv -EnvPath (Join-Path $Root ".env")
+}
 
 $env:PYTHONPATH = $Root
 $env:PYTHONIOENCODING = "utf-8"
@@ -12,15 +22,18 @@ $env:GOLDENSHIELD_LOCK_FAIL_CLOSED = "true"
 $env:BOT_FORCE_ACTIVE = "true"
 $env:NO_SLEEP_MODE = "true"
 $env:LOOP_INTERVAL_SECONDS = "4"
-$env:TELEGRAM_LIVE_SIGNALS = "true"
-$env:TELEGRAM_LIVE_SIGNALS_SECONDS = "4"
-$env:TELEGRAM_LIVE_POSITIONS_SECONDS = "3"
+$env:DISCORD_NOTIFY_ENABLED = "true"
 $env:SSOT_SYNC_ENABLED = "true"
 $env:ENTERPRISE_PIPELINE_ENABLED = "true"
 $env:EXECUTION_BACKEND = "binance"
 
-$py = "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe"
-if (-not (Test-Path $py)) { $py = "py" }
+$resolvePy = Join-Path $Root "deploy\windows\Resolve-GsPython.ps1"
+if (Test-Path $resolvePy) {
+    $py = & $resolvePy -Root $Root
+} else {
+    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $py) { $py = "py" }
+}
 $logDir = Join-Path $Root "storage\logs"
 $runtime = Join-Path $Root "storage\runtime"
 New-Item -ItemType Directory -Force -Path $logDir, $runtime | Out-Null
@@ -33,6 +46,32 @@ function Write-D([string]$m) {
 }
 
 Write-D "DAEMON_START"
+Write-D ("PYTHON=" + $py)
+
+function Ensure-SnapshotWriter {
+    param([string]$PythonExe)
+    $writer = Join-Path $Root "deploy_ops\gs_snapshot_writer.py"
+    if (-not (Test-Path $writer)) { return }
+    $running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.CommandLine -and $_.CommandLine -match "gs_snapshot_writer\.py"
+    }).Count
+    if ($running -ge 1) { return }
+    Write-D "SNAPSHOT_WRITER_LAUNCH"
+    Start-Process -FilePath $PythonExe -ArgumentList @($writer) -WorkingDirectory $Root -WindowStyle Hidden
+}
+
+Ensure-SnapshotWriter -PythonExe $py
+
+try {
+    $aclFix = Join-Path $runtime "."
+    if (Test-Path $aclFix) {
+        icacls $runtime /inheritance:e /grant:r "${env:USERNAME}:(OI)(CI)F" /T 2>$null | Out-Null
+    }
+} catch {
+    Write-D ("ACL_FIX_SKIP " + $_.Exception.Message)
+}
+
+$lastLaunchAt = [datetime]::MinValue
 
 while ($true) {
     if (Test-Path $stop) {
@@ -41,7 +80,11 @@ while ($true) {
     }
 
     $mains = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -match '^(python|pythonw|py)\.exe$' -and $_.CommandLine -and $_.CommandLine -match 'main\.py'
+        $_.Name -eq "python.exe" -and $_.CommandLine -and (
+            $_.CommandLine -match '\s-u\s+main\.py(\s|"|$)' -or
+            $_.CommandLine -match 'python(\.exe)?"\s+-u\s+main\.py' -or
+            $_.CommandLine -match '\\main\.py(\s|"|$)'
+        )
     })
     if ($mains.Count -gt 1) {
         $keep = ($mains | Sort-Object ProcessId | Select-Object -First 1).ProcessId
@@ -55,6 +98,19 @@ while ($true) {
         continue
     }
     if ($mains.Count -eq 1) {
+        Ensure-SnapshotWriter -PythonExe $py
+        try {
+            $hbPath = Join-Path $runtime "heartbeat.json"
+            $hbObj = @{
+                ts       = (Get-Date).ToUniversalTime().ToString("o")
+                service  = "bot-cycle"
+                signals  = 0
+                main_pid = $mains[0].ProcessId
+            }
+            $hbObj | ConvertTo-Json -Compress | Set-Content -Path $hbPath -Encoding UTF8
+        } catch {
+            Write-D ("HEARTBEAT_PULSE_FAIL " + $_.Exception.Message)
+        }
         Start-Sleep -Seconds 4
         continue
     }
@@ -62,6 +118,11 @@ while ($true) {
     # Clear stale lock before launch so singleton can acquire
     Remove-Item (Join-Path $runtime "bot_instance.lock") -Force -ErrorAction SilentlyContinue
     Remove-Item "C:\ProgramData\GoldenShield\bot_instance.lock" -Force -ErrorAction SilentlyContinue
+
+    if (((Get-Date) - $lastLaunchAt).TotalSeconds -lt 25) {
+        Start-Sleep -Seconds 4
+        continue
+    }
 
     Write-D "MAIN_LAUNCH"
     $outLog = Join-Path $logDir "bot_stdout.log"
@@ -73,8 +134,7 @@ while ($true) {
         Start-Sleep -Seconds 3
         continue
     }
+    $lastLaunchAt = Get-Date
     Write-D ("MAIN_PID=" + $p.Id)
-    Wait-Process -Id $p.Id -ErrorAction SilentlyContinue
-    Write-D ("MAIN_EXIT code=" + $p.ExitCode)
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 12
 }
