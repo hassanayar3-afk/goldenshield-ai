@@ -49,12 +49,13 @@ if ($LASTEXITCODE -ne 0) {
 
 # --- 2) .env ---
 Write-Host "[2/6] Checking .env..."
-& (Join-Path $scriptDir "Ensure-LaptopEnv.ps1") -Root $Root
+. (Join-Path $scriptDir "Import-GsDotEnv.ps1") -EnvPath (Join-Path $Root ".env")
+$skipSyncCheck = ($env:GS_SKIP_RUNTIME_SYNC -eq "true")
+& (Join-Path $scriptDir "Ensure-LaptopEnv.ps1") -Root $Root -SkipContaboSyncCheck:$skipSyncCheck
 if ($LASTEXITCODE -ne 0) {
     notepad (Join-Path $Root ".env") 2>$null
     exit $LASTEXITCODE
 }
-. (Join-Path $scriptDir "Import-GsDotEnv.ps1") -EnvPath (Join-Path $Root ".env")
 $env:GOLDENSHIELD_OFFICIAL_ROOT = $Root
 $env:PYTHONPATH = $Root
 

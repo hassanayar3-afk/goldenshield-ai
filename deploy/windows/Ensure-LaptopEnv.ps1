@@ -1,6 +1,7 @@
 # التحقق من .env للابتوب — إنشاء من القالب + تحذير بالقيم الناقصة
 param(
-    [string]$Root = ""
+    [string]$Root = "",
+    [switch]$SkipContaboSyncCheck
 )
 $ErrorActionPreference = "Stop"
 if (-not $Root) { $Root = (Get-Location).Path }
@@ -56,14 +57,20 @@ foreach ($k in $defaults.Keys) {
 }
 
 $map = Get-EnvMap $envFile
-$required = @("BINANCE_API_KEY", "BINANCE_API_SECRET", "WIN_HOST", "WIN_USER")
+$skipSync = $SkipContaboSyncCheck -or ($map["GS_SKIP_RUNTIME_SYNC"] -eq "true")
+$required = @("BINANCE_API_KEY", "BINANCE_API_SECRET")
+if (-not $skipSync) {
+    $required += @("WIN_HOST", "WIN_USER")
+}
 $missing = @()
 foreach ($k in $required) {
     $v = $map[$k]
     if (-not $v -or $v -eq "") { $missing += $k }
 }
-$hasAuth = ($map["WIN_PASSWORD"] -and $map["WIN_PASSWORD"] -ne "") -or ($map["WIN_SSH_PRIVATE_KEY"] -and $map["WIN_SSH_PRIVATE_KEY"] -ne "")
-if (-not $hasAuth) { $missing += "WIN_PASSWORD or WIN_SSH_PRIVATE_KEY" }
+if (-not $skipSync) {
+    $hasAuth = ($map["WIN_PASSWORD"] -and $map["WIN_PASSWORD"] -ne "") -or ($map["WIN_SSH_PRIVATE_KEY"] -and $map["WIN_SSH_PRIVATE_KEY"] -ne "")
+    if (-not $hasAuth) { $missing += "WIN_PASSWORD or WIN_SSH_PRIVATE_KEY" }
+}
 
 $badProxy = @("your_proxy", "USERNAME:PASSWORD", "USER:PASS@IP", "your_proxy_ip")
 if ($map["PROXY_URL"]) {
