@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload one file to VPS with MD5 verification."""
+"""Upload one file to Windows VPS with MD5 verification (binary-chunk WinRM)."""
 
 from __future__ import annotations
 
@@ -39,29 +39,25 @@ def upload(rel: str) -> None:
     if not local.is_file():
         raise SystemExit(f"missing {local}")
     remote = REMOTE_ROOT + "\\" + rel.replace("/", "\\")
-    digest = hashlib.md5(local.read_bytes()).hexdigest()
     data = local.read_bytes()
-    b64 = base64.b64encode(data).decode("ascii")
+    digest = hashlib.md5(data).hexdigest()
     s = session()
     parent = str(Path(remote).parent)
     s.run_ps(f"New-Item -ItemType Directory -Force -Path '{parent}' | Out-Null")
-    rb = remote + ".b64"
-    s.run_ps(f"Remove-Item '{rb}' -Force -EA SilentlyContinue")
-    # single write via Set-Content on remote decoded in one shot if small enough; else chunks
-    chunk = 3500
-    for i in range(0, len(b64), chunk):
-        part = b64[i : i + chunk].replace("'", "''")
+    s.run_ps(f"Remove-Item '{remote}' -Force -EA SilentlyContinue")
+    first = True
+    for i in range(0, len(data), 1800):
+        chunk = base64.b64encode(data[i : i + 1800]).decode("ascii").replace('"', '`"')
+        mode = "Create" if first else "Append"
+        first = False
         s.run_ps(
-            f"Add-Content -Path '{rb}' -Value '{part}' -Encoding ASCII -NoNewline"
+            f'$b=[Convert]::FromBase64String("{chunk}"); '
+            f'$fs=[IO.File]::Open("{remote}", [IO.FileMode]::{mode}, [IO.FileAccess]::Write); '
+            f"$fs.Write($b,0,$b.Length); $fs.Close()"
         )
-    verify_ps = f"""
-$bytes = [Convert]::FromBase64String((Get-Content '{rb}' -Raw -Encoding ASCII))
-[IO.File]::WriteAllBytes('{remote}', $bytes)
-Remove-Item '{rb}' -Force
-$md = (Get-FileHash '{remote}' -Algorithm MD5).Hash.ToLower()
-Write-Output $md
-"""
-    r = s.run_ps(verify_ps)
+    r = s.run_ps(
+        f"Write-Output ((Get-FileHash '{remote}' -Algorithm MD5).Hash.ToLower())"
+    )
     remote_md = (r.std_out or b"").decode().strip().splitlines()[-1].lower()
     if remote_md != digest:
         raise SystemExit(f"MD5 mismatch {rel}: local={digest} remote={remote_md}")

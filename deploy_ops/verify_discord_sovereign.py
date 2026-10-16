@@ -17,7 +17,14 @@ def check_health() -> tuple[bool, str]:
     try:
         with urllib.request.urlopen(url, timeout=12) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-            ok = resp.status == 200 and '"ok": true' in body.replace(" ", "")
+            ok = resp.status == 200
+            if ok:
+                import json
+
+                try:
+                    ok = bool(json.loads(body).get("ok"))
+                except Exception:
+                    ok = '"ok":true' in body.replace(" ", "").lower()
             return ok, f"HTTP {resp.status} {body[:200]}"
     except Exception as exc:
         return False, str(exc)
@@ -27,7 +34,7 @@ def scan_telegram_residual() -> list[str]:
     hits: list[str] = []
     skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv"}
     patterns = (
-        re.compile(r"telebot", re.I),
+        re.compile(r"\btelebot\b", re.I),
         re.compile(r"python-telegram-bot", re.I),
         re.compile(r"from operations\.telegram_", re.I),
         re.compile(r"import operations\.telegram_", re.I),
@@ -42,6 +49,10 @@ def scan_telegram_residual() -> list[str]:
             continue
         rel = path.relative_to(ROOT).as_posix()
         if rel.startswith("scripts/") or rel.startswith("docs/") or rel.startswith("tests/"):
+            continue
+        if rel.startswith("storage/runtime/"):
+            continue
+        if rel == "deploy_ops/verify_discord_sovereign.py":
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
@@ -76,6 +87,14 @@ def discord_bot_running() -> bool:
 
 
 def main() -> int:
+    env_path = ROOT / ".env"
+    if env_path.is_file():
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(env_path, override=True)
+        except Exception:
+            pass
     print(f"ROOT={ROOT}")
     health_ok, health_detail = check_health()
     print(f"HEALTH_OK={health_ok} detail={health_detail}")
