@@ -106,8 +106,14 @@ def main() -> int:
     try:
         return sync_once(include_db=args.include_db, root=root)
     except Exception as exc:
-        print(f"SYNC_FAIL {type(exc).__name__}: {exc}", file=sys.stderr)
-        return 1
+        print(f"SFTP_SYNC_FAIL {type(exc).__name__}: {exc}", file=sys.stderr)
+        try:
+            from scripts.sync_runtime_winrm import sync_once as winrm_sync
+
+            return winrm_sync(include_db=args.include_db, root=root)
+        except Exception as exc2:
+            print(f"SYNC_FAIL {type(exc2).__name__}: {exc2}", file=sys.stderr)
+            return 1
 
 
 if __name__ == "__main__":
