@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from operations.message_templates import format_infrastructure_alert
-from operations.telegram_bot import TelegramBot
 
 STATE_PATH = Path("storage/logs/infrastructure_watchdog_state.json")
 
@@ -400,13 +399,16 @@ def send_infrastructure_alert(
     report: WatchdogReport,
     *,
     reason: str,
-    telegram: TelegramBot | None = None,
+    telegram=None,
 ) -> bool:
-    bot = telegram or TelegramBot(
-        chat_id=os.getenv("WATCHDOG_CHAT_ID") or os.getenv("TELEGRAM_CHAT_ID")
-    )
-    if not bot.configured:
-        print("WATCHDOG: Telegram غير مُعدّ")
+    try:
+        from bridges.discord.discord_notify import discord_enabled, send_discord
+
+        if not discord_enabled():
+            print("WATCHDOG: Discord غير مُعدّ")
+            return False
+    except Exception:
+        print("WATCHDOG: Discord notify unavailable")
         return False
 
     if reason == "recovery":
@@ -434,7 +436,7 @@ def send_infrastructure_alert(
         footer=footer,
     )
 
-    sent = bot.send_message(text) is not None
+    sent = bool(send_discord(text[:1900]))
     if sent:
         state = _load_state()
         state["failure_key"] = _failure_key(report)

@@ -42,7 +42,6 @@ from data.ticker_fetcher import TickerFetcher
 from database.backup_manager import BackupManager, BackupScheduler
 from database.connection import init_database
 from database.gdrive_uploader import upload_backup
-from database.telegram_backup import upload_backup_to_telegram
 from database.repositories.config_repo import ConfigRepository
 from database.repositories.operations_repo import OperationsRepository
 from database.repositories.snapshot_repo import SnapshotRepository
@@ -50,7 +49,7 @@ from database.repositories.trade_repo import TradeRepository
 from execution.trade_executor import TradeExecutor
 from operations.alert_dispatcher import AlertDispatcher
 from operations.api_watchdog import ApiWatchdog
-from operations.daily_report import format_daily_report, format_daily_report_telegram
+from operations.daily_report import format_daily_report
 from operations.message_templates import format_cycle_signals_message, format_startup_message
 from operations.error_logger import set_db_log_sink, setup_operations_logging
 from operations.signal_filter import is_premium_trade_signal
@@ -60,7 +59,6 @@ from operations.runtime_state import OperationsRuntime
 from operations.symbol_registry import get_symbol_registry
 from operations.shutdown_guard import clear_user_stop, is_user_stopped, should_block_signals
 from operations.scheduler import DailyReportScheduler
-from operations.telegram_commands import TelegramCommandHandler
 from audit.execution_events import log_execution_event
 from risk.emergency_protocols import run_capital_protection_watchdog
 from risk.halt_policy import evaluate_trading_halt
@@ -91,7 +89,6 @@ _kill_switch_notified = False
 _watchdog_cycle = 0
 _watchlist_sent = False
 _last_alive_pulse = 0.0
-_telegram_handler: TelegramCommandHandler | None = None
 _cycle_opened_trades: list[dict] = []
 
 
@@ -203,7 +200,7 @@ def _init_persistence(settings) -> None:
 
     set_db_log_sink(_operations_repo.save_operation_log)
     config_repo.set("last_startup_env", settings.env)
-    config_repo.set("telegram_chat_id", settings.telegram_chat_id or "")
+    config_repo.set("discord_control", "sovereign_bot")
     logger.info("Database ready: %s", settings.db_path)
     try:
         from operations.report_archive import ensure_archive_started
@@ -299,15 +296,8 @@ def _maybe_send_daily_report() -> None:
     from datetime import date
 
     report = format_daily_report(risk=_risk, executor=_executor, audit=_audit)
-    report_html = format_daily_report_telegram(risk=_risk, executor=_executor, audit=_audit)
     print(report)
-    # في وضع الإشارات فقط: يبقى التقرير في السجل/قاعدة البيانات دون إزعاج تيليجرام
-    if not get_settings().telegram_signals_only:
-        _alerts.send_formatted(report_html, plain_log=f"[INFO] تقرير يومي\n{report}")
-    else:
-        from operations.error_logger import log_operation
-
-        log_operation(f"[INFO] تقرير يومي (صامت على تيليجرام)\n{report}")
+    _alerts.send_formatted(report, plain_log=f"[INFO] تقرير يومي\n{report}")
     if _operations_repo is not None:
         _operations_repo.save_daily_report(date.today().isoformat(), report)
     _report_scheduler.mark_daily_report_sent()
@@ -319,11 +309,6 @@ def _maybe_run_daily_backup() -> None:
     result = _backup_manager.create_backup()
     if result.success:
         logger.info(result.message)
-        vault = upload_backup_to_telegram(result.path or "")
-        if vault.uploaded:
-            logger.info(vault.message)
-        else:
-            logger.info("Telegram Vault: %s", vault.message)
         gdrive = upload_backup(result.path or "")
         if not gdrive.uploaded:
             logger.info("GDrive: %s", gdrive.message)
@@ -354,24 +339,7 @@ def _flush_opened_trades_list() -> None:
     _alerts.trades_opened_batch(batch)
 
 
-def _maybe_send_qualified_signals_list(
-    telegram_handler: TelegramCommandHandler,
-    entries: list[dict],
-) -> None:
-    """قائمة إشارات موحّدة بعد الدورة — بدل رسالة لكل زوج."""
-    if should_block_signals() or _runtime.user_stopped:
-        return
-    if not telegram_handler.enabled:
-        return
-    telegram_handler.send_qualified_signals_list(entries)
-
-
-def _maybe_send_watchlist_digest(telegram_handler: TelegramCommandHandler, entries: list[dict]) -> None:
-    # أُلغي إرسال قوائم الانتظار — الإشارات فقط عبر القائمة الموحّدة الجاهزة
-    return
-
-
-def _maybe_send_alive_pulse(telegram_handler: TelegramCommandHandler, entries: list[dict]) -> None:
+def _maybe_send_alive_pulse(entries: list[dict]) -> None:
     """نبضة صحة ساعية — اتصال، ذاكرة، مراكز."""
     global _last_alive_pulse
     try:
@@ -387,9 +355,6 @@ def _maybe_send_alive_pulse(telegram_handler: TelegramCommandHandler, entries: l
         _last_alive_pulse = now
         if should_block_signals() or _runtime.user_stopped:
             return
-        if not telegram_handler.enabled:
-            return
-
         mem_mb = 0.0
         try:
             import psutil  # type: ignore
@@ -425,20 +390,7 @@ def _maybe_send_alive_pulse(telegram_handler: TelegramCommandHandler, entries: l
             f"ذاكرة≈ {mem_mb:.0f} MB\n"
             f"آخر خطأ: {err}"
         )
-        if not get_settings().telegram_signals_only:
-            _alerts.send_formatted(msg.replace("\n", "\n"), plain_log=f"[INFO] {msg}")
-        else:
-            from operations.error_logger import log_operation
-
-            log_operation(f"[INFO] {msg}")
-            # حتى في signals_only نرسل نبضة صحة خفيفة للطوارئ التشغيلية
-            try:
-                _alerts.send_formatted(
-                    f"<b>Health</b>\nPing {ping_ms}ms | Pos {open_n} | RAM {mem_mb:.0f}MB",
-                    plain_log=f"[INFO] {msg}",
-                )
-            except Exception:
-                pass
+        _alerts.send_formatted(msg, plain_log=f"[INFO] {msg}")
     except Exception as exc:  # noqa: BLE001
         logger.warning("hourly health pulse failed: %s", exc)
 
@@ -806,7 +758,6 @@ def _loop_sleep_seconds(settings) -> int:
 
 
 async def run_bot() -> None:
-    global _telegram_handler
     _force_official_workdir()
     # أعد تحميل الإعدادات بعد تثبيت المسار — نفس DB دائماً
     from config.settings import load_settings
@@ -864,18 +815,6 @@ async def run_bot() -> None:
     ]
     print(f"📋 وضع Binance فقط: {len(active_symbols)} رمز كريبتو ({profile.label})")
 
-    telegram_handler = TelegramCommandHandler(
-        runtime=_runtime,
-        executor=_executor,
-        risk=_risk,
-        panic=_panic,
-        audit=_audit,
-        price_fetcher=_fetch_prices,
-    )
-    _telegram_handler = telegram_handler
-    if telegram_handler.enabled:
-        telegram_handler.start_background_polling()
-
     mode = settings.execution_mode.upper()
     startup_plain = (
         f"GoldenShield AI [{settings.env}/{mode}/{profile.label}] — "
@@ -884,44 +823,13 @@ async def run_bot() -> None:
         f"max_pos:{settings.max_concurrent_positions} | build:{BUILD_TAG}"
     )
     print(f"--- 🛡️ {startup_plain} ---")
-    if telegram_handler.enabled:
-        # دائماً نفس لوحة التحكم + المراكز بعد الإقلاع (لا بوت «فارغ»)
-        try:
-            open_n = _executor.position_manager.count()
-            telegram_handler.telegram.send_message(
-                (
-                    f"<b>✅ نفس البوت — استعادة الحالة</b>\n"
-                    f"المراكز المفتوحة: <b>{open_n}</b>\n"
-                    f"قاعدة البيانات ثابتة — ليست نسخة جديدة."
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("إشعار الاستعادة: %s", exc)
-        try:
-            telegram_handler.dashboard.send_main_menu()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("send_main_menu عند الإقلاع: %s", exc)
-        try:
-            view = telegram_handler.dashboard.render_positions(live=True)
-            mid = telegram_handler.telegram.send_message(
-                view.text, reply_markup=view.keyboard
-            )
-            if isinstance(mid, int):
-                telegram_handler.dashboard.enable_live_positions(mid)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("عرض المراكز عند الإقلاع: %s", exc)
-        try:
-            telegram_handler.dashboard.ensure_live_signals()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("ensure_live_signals عند الإقلاع: %s", exc)
-    else:
-        startup_html = format_startup_message(
-            env=settings.env,
-            mode=mode,
-            pairs=active_symbols,
-            db_path=settings.db_path,
-        )
-        _alerts.send_formatted(startup_html, plain_log=f"[INFO] بدء التشغيل\n{startup_plain}")
+    startup_html = format_startup_message(
+        env=settings.env,
+        mode=mode,
+        pairs=active_symbols,
+        db_path=settings.db_path,
+    )
+    _alerts.send_formatted(startup_html, plain_log=f"[INFO] بدء التشغيل\n{startup_plain}")
     _maybe_send_daily_report()
     _maybe_run_daily_backup()
 
@@ -1085,15 +993,6 @@ async def run_bot() -> None:
         # تحديث أسعار الدورة (قد تتغير بعد Priority-0)
         prices = _fetch_prices(symbols)
         if cycle_entries:
-            reasons_map = {
-                entry["symbol"]: entry.get("reasons", ())
-                for entry in cycle_entries
-            }
-            telegram_handler.update_market_snapshot(
-                cycle_entries,
-                prices,
-                reasons=reasons_map,
-            )
             try:
                 from datetime import datetime, timezone
 
@@ -1107,16 +1006,9 @@ async def run_bot() -> None:
                 )
             except Exception as board_exc:  # noqa: BLE001
                 logger.debug("signals_board write: %s", board_exc)
-            _maybe_send_qualified_signals_list(telegram_handler, cycle_entries)
-            _maybe_send_watchlist_digest(telegram_handler, cycle_entries)
-            _maybe_send_alive_pulse(telegram_handler, cycle_entries)
-            # بث حي لكل الأزواج (بما فيها WAIT) — تحديث الرسالة كل ~4 ثوانٍ
-            try:
-                telegram_handler.dashboard.publish_live_signals(force=True)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("publish_live_signals فشل: %s", exc)
+            _maybe_send_alive_pulse(cycle_entries)
         else:
-            _maybe_send_alive_pulse(telegram_handler, [])
+            _maybe_send_alive_pulse([])
         try:
             from operations.console_pulse import print_console_signals_board
 
@@ -1127,7 +1019,12 @@ async def run_bot() -> None:
         except Exception as pulse_exc:  # noqa: BLE001
             logger.debug("console pulse board: %s", pulse_exc)
         _flush_opened_trades_list()
-        if settings.telegram_send_cycle_signals:
+        if os.getenv("DISCORD_SEND_CYCLE_SIGNALS", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             _send_cycle_signals(cycle_entries)
 
         _run_open_position_management(prices)

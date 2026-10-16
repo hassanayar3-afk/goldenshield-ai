@@ -35,6 +35,8 @@ def handle_download_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
         if not apk.exists():
             apk = ROOT / "downloads" / "GoldenShield-Control.apk"
         if not apk.exists():
+            apk = ROOT / "storage" / "mobile" / "GoldenShield-Control.apk"
+        if not apk.exists():
             send_json(handler, 404, {"ok": False, "error": "apk not found"})
             return True
         raw = apk.read_bytes()

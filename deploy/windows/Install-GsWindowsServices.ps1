@@ -75,6 +75,15 @@ Install-GsService -Name "GoldenShieldBotDaemon" `
     -StdoutLog (Join-Path $logDir "svc_bot_daemon.log") `
     -StderrLog (Join-Path $logDir "svc_bot_daemon.err.log")
 
+$discordBot = Join-Path $Root "gs_discord_bot.py"
+if ((Test-Path $discordBot) -and $env:DISCORD_BOT_TOKEN) {
+    Install-GsService -Name "GoldenShieldDiscordBot" `
+        -Exe $py `
+        -Args "`"$discordBot`"" `
+        -StdoutLog (Join-Path $logDir "svc_discord_bot.log") `
+        -StderrLog (Join-Path $logDir "svc_discord_bot.err.log")
+}
+
 $staticUrl = $env:MOBILE_PUBLIC_BASE_URL -match "^https?://"
 $namedToken = [bool]($env:CLOUDFLARE_TUNNEL_TOKEN -and $env:CLOUDFLARE_TUNNEL_TOKEN.Trim())
 if ($staticUrl) {

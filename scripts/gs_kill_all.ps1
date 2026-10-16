@@ -28,6 +28,7 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         ($_.CommandLine -match '00_LIVE_CONSOLE') -or
         ($KillMobileApi -and $_.CommandLine -match 'terminal_app\.server') -or
         ($KillDiscord -and $_.CommandLine -match 'discord_bridge\.py') -or
+        ($KillDiscord -and $_.CommandLine -match 'gs_discord_bot\.py') -or
         ($KillCloudflared -and $_.CommandLine -match 'cloudflared')
     )
 } | ForEach-Object {
