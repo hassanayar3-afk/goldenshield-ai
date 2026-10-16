@@ -97,27 +97,10 @@ class ApiWatchdog:
     @staticmethod
     def _verify_binance_auth(settings) -> bool:
         try:
-            import ccxt
+            from data.exchange_client import get_exchange, reset_exchange
 
-            exchange = ccxt.binance(
-                {
-                    "apiKey": settings.binance_api_key,
-                    "secret": settings.binance_api_secret,
-                    "enableRateLimit": True,
-                    "options": {"defaultType": "spot"},
-                }
-            )
-            # مفاتيح Demo Trading تعمل فقط على demo-api
-            if bool(getattr(settings, "binance_demo_trading", False)):
-                try:
-                    exchange.enable_demo_trading(True)
-                except Exception:
-                    try:
-                        exchange.urls["api"] = dict(exchange.urls.get("api") or {})
-                        exchange.urls["api"]["public"] = "https://demo-api.binance.com/api/v3"
-                        exchange.urls["api"]["private"] = "https://demo-api.binance.com/api/v3"
-                    except Exception:
-                        pass
+            reset_exchange()
+            exchange = get_exchange()
             exchange.fetch_balance()
             return True
         except Exception:
