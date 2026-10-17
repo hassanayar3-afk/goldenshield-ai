@@ -14,6 +14,7 @@ from database.db_manager import DatabaseManager, PositionRow
 from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
+from utils.runtime_env import loop_interval_seconds, no_sleep_mode
 
 if TYPE_CHECKING:
     from gateway.binance_client import BinanceClient
