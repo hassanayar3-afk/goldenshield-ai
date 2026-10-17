@@ -44,7 +44,7 @@ from utils.crash_wrapper import (  # noqa: E402
     touch_event_loop_heartbeat,
 )
 from utils.logger_config import setup_logger  # noqa: E402
-from utils.runtime_env import service_port, watchdog_enabled  # noqa: E402
+from utils.runtime_env import bind_host, service_port, watchdog_enabled  # noqa: E402
 
 logger = setup_logger("saqr.gateway")
 
@@ -158,6 +158,8 @@ async def health() -> Dict[str, Any]:
     return {
         "status": "ok",
         "paper_trading": client.paper_trading,
+        "bind_host": bind_host(),
+        "port": service_port(8000),
         "hub": hub.snapshot(),
         "stream": stream.snapshot(),
         "user_stream": user_stream.snapshot(),
@@ -205,9 +207,18 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 def main() -> None:
     import uvicorn
 
-    host = "0.0.0.0" if os.getenv("MOBILE_WEB_DIRECT_ACCESS", "").lower() in ("1", "true", "yes") else "127.0.0.1"
+    host = bind_host()
     port = service_port(8000)
-    logger.info("Starting Saqr gateway on http://%s:%s", host, port)
+    logger.info(
+        "Starting Saqr gateway (HTTP + WebSocket /ws) on http://%s:%s",
+        host,
+        port,
+    )
+    if host == "0.0.0.0":
+        logger.info(
+            "LAN access enabled — open http://<your-laptop-ip>:%s from phone on same Wi-Fi",
+            port,
+        )
     uvicorn.run(
         "gateway.main:app",
         host=host,

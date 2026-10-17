@@ -18,7 +18,8 @@ pip install -r requirements.txt
 
 if not exist "logs" mkdir logs
 
-echo [Saqr] Starting gateway on http://127.0.0.1:8000
+echo [Saqr] Starting gateway (HTTP + WebSocket on port 8000)
+echo [Saqr] Local: http://127.0.0.1:8000  ^|  LAN: http://YOUR_LAPTOP_IP:8000
 start "" http://127.0.0.1:8000/
 python -m gateway.main
 

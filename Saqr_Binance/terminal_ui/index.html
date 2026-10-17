@@ -108,9 +108,11 @@
     WebSocket: <code id="wsUrl"></code> — إعادة اتصال تلقائية كل ثانية عند الانقطاع.
   </footer>
   <script>
-    const host = location.hostname || "127.0.0.1";
-    const port = location.port || "8000";
-    const wsEndpoint = `ws://${host}:${port}/ws`;
+    // Same host/port as the page (127.0.0.1, localhost, or laptop LAN IP e.g. 192.168.1.x)
+    const host = window.location.hostname || "127.0.0.1";
+    const port = window.location.port || "8000";
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsEndpoint = `${wsScheme}://${host}:${port}/ws`;
     document.getElementById("wsUrl").textContent = wsEndpoint;
 
     const liveDot = document.getElementById("liveDot");
