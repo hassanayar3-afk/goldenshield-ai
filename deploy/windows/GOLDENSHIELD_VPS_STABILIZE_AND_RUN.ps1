@@ -31,7 +31,9 @@ foreach ($line in @(
     "GS_PANEL_REMOTE_SNAPSHOT_ONLY=false",
     "BOT_FORCE_ACTIVE=true",
     "GOLDENSHIELD_ENFORCE_OFFICIAL_ROOT=true",
-    "GOLDENSHIELD_LOCK_FAIL_CLOSED=true"
+    "GOLDENSHIELD_LOCK_FAIL_CLOSED=true",
+    "PRE_FLIGHT_SKIP_BINANCE_PING=true",
+    "GS_VPS_SOFT_BINANCE=true"
 )) {
     $k = ($line -split "=", 2)[0]
     if ($c -match ('(?m)^' + [regex]::Escape($k) + '=')) {

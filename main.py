@@ -837,7 +837,14 @@ async def run_bot() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("single instance lock: %s", exc)
 
-    preflight = run_pre_flight(connection_monitor=_connection_monitor)
+    skip_binance_ping = (
+        os.getenv("PRE_FLIGHT_SKIP_BINANCE_PING", "").strip().lower() in {"1", "true", "yes", "on"}
+        or os.getenv("GS_VPS_SOFT_BINANCE", "").strip().lower() in {"1", "true", "yes", "on"}
+    )
+    preflight = run_pre_flight(
+        connection_monitor=None if skip_binance_ping else _connection_monitor,
+        skip_binance_ping=skip_binance_ping,
+    )
     for check in preflight.checks:
         icon = "✅" if check.passed else "❌"
         print(f"{icon} Pre-Flight | {check.name}: {check.detail}")
