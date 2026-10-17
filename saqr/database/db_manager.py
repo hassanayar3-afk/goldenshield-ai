@@ -311,6 +311,33 @@ class DatabaseManager:
     async def delete_position_async(self, symbol: str) -> None:
         await self.run_dao(self.delete_position, symbol)
 
+    def closed_trade_counts(self) -> tuple[int, int]:
+        with self.dao() as conn:
+            wins = conn.execute(
+                "SELECT COUNT(*) AS c FROM closed_trades WHERE pnl > 0"
+            ).fetchone()["c"]
+            losses = conn.execute(
+                "SELECT COUNT(*) AS c FROM closed_trades WHERE pnl < 0"
+            ).fetchone()["c"]
+        return int(wins), int(losses)
+
+    async def closed_trade_counts_async(self) -> tuple[int, int]:
+        return await self.run_dao(self.closed_trade_counts)
+
+    def list_closed_trades(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with self.dao() as conn:
+            rows = conn.execute(
+                """
+                SELECT symbol, side, quantity, entry_price, exit_price, pnl, engine, closed_at
+                FROM closed_trades ORDER BY id DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    async def list_closed_trades_async(self, limit: int = 100) -> List[Dict[str, Any]]:
+        return await self.run_dao(self.list_closed_trades, limit)
+
     def set_runtime_state(self, key: str, value: str, updated_at: str) -> None:
         with self.dao() as conn:
             conn.execute(

@@ -539,9 +539,9 @@
     let notifyCount = 0;
     let tradeJournal = [];
     let reportRange = "day";
-    let winsCount = 0;
-    let lossesCount = 0;
     let dayStartBalance = null;
+    let bootstrapOnce = false;
+    const NUM = "en-US";
 
     function setLive(on) {
       liveDot.classList.toggle("on", on);
@@ -567,7 +567,33 @@
 
     function formatNum(n, digits = 2) {
       if (n == null || Number.isNaN(n)) return "—";
-      return Number(n).toLocaleString("ar-EG", { maximumFractionDigits: digits });
+      return Number(n).toLocaleString(NUM, { maximumFractionDigits: digits });
+    }
+
+    function formatTime(ts) {
+      return new Date(ts).toLocaleTimeString(NUM);
+    }
+
+    function formatDateTime(ts) {
+      return new Date(ts).toLocaleString(NUM);
+    }
+
+    function applyPausedUI(paused) {
+      systemPaused = !!paused;
+      document.body.classList.toggle("system-paused", systemPaused);
+      const btn = document.getElementById("btnToggleRun");
+      btn.textContent = systemPaused ? "▶️ تشغيل النظام" : "⏸️ إيقاف النظام";
+      btn.classList.toggle("paused", systemPaused);
+      chipRunning.textContent = systemPaused ? "⏸ متوقف" : "● يعمل";
+    }
+
+    async function postControl(action) {
+      const res = await fetch(`/api/control/${action}`, { method: "POST" });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      return res.json();
     }
 
     function applySync(msg) {
@@ -584,6 +610,9 @@
       }
       const positions = msg.positions || [];
       metricOpen.textContent = String(positions.length);
+      if (typeof msg.wins === "number") metricWins.textContent = String(msg.wins);
+      if (typeof msg.losses === "number") metricLosses.textContent = String(msg.losses);
+      if (typeof msg.engines_paused === "boolean") applyPausedUI(msg.engines_paused);
       renderPositions(positions);
 
       let minSpread = 9999;
@@ -640,7 +669,7 @@
       tradeJournal.unshift({ ts: Date.now(), line });
       if (tradeJournal.length > 500) tradeJournal.pop();
       tradesLog.innerHTML = tradeJournal.slice(0, 40).map((t) =>
-        `<div>${new Date(t.ts).toLocaleTimeString("ar-EG")} — ${t.line}</div>`
+        `<div>${formatTime(t.ts)} — ${t.line}</div>`
       ).join("") || "—";
       renderReport();
     }
@@ -652,7 +681,7 @@
       const syncLine = lastSync ? `آخر مزامنة: ${lastSync.synced_at || "—"}\n` : "";
       reportBox.textContent = syncLine +
         `أحداث الفترة (${filtered.length}):\n` +
-        filtered.slice(0, 25).map((t) => new Date(t.ts).toLocaleString("ar-EG") + " " + t.line).join("\n");
+        filtered.slice(0, 25).map((t) => formatDateTime(t.ts) + " " + t.line).join("\n");
     }
 
     function handleMessage(raw) {
@@ -688,8 +717,19 @@
         pushTrade(`${msg.type} ${msg.status || msg.event || ""}`);
         return;
       }
+      if (msg.type === "control") {
+        if (typeof msg.paused === "boolean") applyPausedUI(msg.paused);
+        if (typeof msg.engines_paused === "boolean") applyPausedUI(msg.engines_paused);
+        if (typeof msg.wins === "number") metricWins.textContent = String(msg.wins);
+        if (typeof msg.losses === "number") metricLosses.textContent = String(msg.losses);
+        if (msg.closed_count != null) {
+          pushTrade(`تحكم: أُغلقت ${msg.closed_count} مراكز`);
+        }
+        if (msg.error) pushTrade("خطأ تحكم: " + msg.error);
+        return;
+      }
       if (msg.type === "system") {
-        chipRunning.textContent = msg.paper_trading ? "● يعمل (ورقي)" : "● يعمل";
+        chipRunning.textContent = msg.paper_trading ? "● يعمل (paper)" : "● يعمل";
         return;
       }
       if (msg.type === "watchdog") {
@@ -723,6 +763,17 @@
         if (!res.ok) return;
         const data = await res.json();
         if (data.sync) applySync(data.sync);
+        else if (data.wins != null) {
+          metricWins.textContent = String(data.wins);
+          metricLosses.textContent = String(data.losses);
+        }
+        if (typeof data.engines_paused === "boolean") applyPausedUI(data.engines_paused);
+        if (!bootstrapOnce) {
+          bootstrapOnce = true;
+          (data.closed_trades || []).slice().reverse().forEach((t) => {
+            pushTrade(`إغلاق ${t.symbol} PnL=${formatNum(t.pnl, 4)}`);
+          });
+        }
       } catch (_) { /* offline bootstrap */ }
     }
 
@@ -748,38 +799,41 @@
       });
     });
 
-    document.getElementById("btnToggleRun").addEventListener("click", () => {
-      systemPaused = !systemPaused;
-      document.body.classList.toggle("system-paused", systemPaused);
-      const btn = document.getElementById("btnToggleRun");
-      btn.textContent = systemPaused ? "▶️ تشغيل النظام" : "⏸️ إيقاف النظام";
-      btn.classList.toggle("paused", systemPaused);
-      chipRunning.textContent = systemPaused ? "⏸ متوقف (واجهة)" : "● يعمل";
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "ui", action: systemPaused ? "pause" : "resume" }));
+    document.getElementById("btnToggleRun").addEventListener("click", async () => {
+      try {
+        const out = await postControl("toggle");
+        if (typeof out.paused === "boolean") applyPausedUI(out.paused);
+        pushTrade(out.paused ? "إيقاف المحركات" : "تشغيل المحركات");
+      } catch (e) {
+        pushTrade("فشل التحكم: " + e.message);
       }
     });
 
-    document.getElementById("btnCloseAll").addEventListener("click", () => {
-      if (!confirm("إغلاق جميع الصفقات؟ (طلب واجهة — يتطلب دعم الخادم لاحقاً)")) return;
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "ui", action: "close_all" }));
-      }
-      pushTrade("طلب إغلاق جميع الصفقات من الواجهة");
-    });
-
-    document.getElementById("btnCloseWin").addEventListener("click", () => {
-      winsCount = Math.max(0, winsCount);
-      pushTrade("طلب إغلاق الصفقات الرابحة");
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "ui", action: "close_winners" }));
+    document.getElementById("btnCloseAll").addEventListener("click", async () => {
+      if (!confirm("إغلاق جميع المراكز المفتوحة؟")) return;
+      try {
+        const out = await postControl("close-all");
+        pushTrade(`إغلاق الكل: ${out.closed_count ?? 0} مركز`);
+      } catch (e) {
+        pushTrade("فشل إغلاق الكل: " + e.message);
       }
     });
 
-    document.getElementById("btnCloseLoss").addEventListener("click", () => {
-      pushTrade("طلب إغلاق الصفقات الخاسرة");
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "ui", action: "close_losers" }));
+    document.getElementById("btnCloseWin").addEventListener("click", async () => {
+      try {
+        const out = await postControl("close-winners");
+        pushTrade(`إغلاق الرابحة: ${out.closed_count ?? 0}`);
+      } catch (e) {
+        pushTrade("فشل: " + e.message);
+      }
+    });
+
+    document.getElementById("btnCloseLoss").addEventListener("click", async () => {
+      try {
+        const out = await postControl("close-losers");
+        pushTrade(`إغلاق الخاسرة: ${out.closed_count ?? 0}`);
+      } catch (e) {
+        pushTrade("فشل: " + e.message);
       }
     });
 

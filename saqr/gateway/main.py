@@ -18,6 +18,7 @@ os.chdir(ROOT)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.control_state import engines_paused
 from utils.runtime_env import (
     bind_host,
     bootstrap_environment,
@@ -40,6 +41,7 @@ from engines.momentum import MomentumEngine
 from engines.smc_macro import SmcMacroEngine
 from gateway.binance_client import BinanceClient
 from gateway.connection_manager import get_connection_manager_sync
+from gateway.control_service import ControlService
 from gateway.recovery_service import RecoveryService
 from gateway.stream_service import StreamService
 from gateway.sync_service import SyncService
@@ -59,6 +61,7 @@ hub = get_connection_manager_sync()
 client = BinanceClient()
 stream = StreamService(hub=hub)
 sync = SyncService(db, client, hub)
+control = ControlService(db, client, stream, hub, sync=sync)
 recovery = RecoveryService(db, client, hub, stream)
 user_stream = UserStreamService(db, client, hub)
 
@@ -82,6 +85,7 @@ async def _start_background_services() -> None:
     logger.info("Binance connectivity: %s (paper=%s)", ok, client.paper_trading)
     await hub.start_heartbeat(interval=1.0)
     await recovery.run_boot_recovery()
+    await control.load_runtime_flags()
 
     _stream_task = asyncio.create_task(
         run_supervised("stream_service", stream.run_forever),
@@ -184,9 +188,14 @@ async def health() -> Dict[str, Any]:
 @app.get("/api/state")
 async def api_state() -> Dict[str, Any]:
     positions = await db.list_positions_async()
+    wins, losses = await db.closed_trade_counts_async()
     return {
         "positions": [p.__dict__ for p in positions],
         "protection_orders": await db.list_protection_orders_async(),
+        "closed_trades": await db.list_closed_trades_async(50),
+        "wins": wins,
+        "losses": losses,
+        "engines_paused": engines_paused(),
         "sync": sync.last_snapshot,
         "recovery": recovery.last_report,
         "hub": hub.snapshot(),
@@ -201,6 +210,12 @@ async def api_recovery_run() -> Dict[str, Any]:
     return await recovery.run_boot_recovery()
 
 
+@app.post("/api/control/{action}")
+async def api_control(action: str) -> Dict[str, Any]:
+    touch_event_loop_heartbeat()
+    return await control.handle_ui_action(action.replace("-", "_"))
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await hub.connect(websocket)
@@ -208,8 +223,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         while True:
             touch_event_loop_heartbeat()
             msg = await websocket.receive_text()
-            if msg.strip().lower() == "ping":
-                await hub.publish({"type": "pong"})
+            await control.handle_ws_message(msg)
     except WebSocketDisconnect:
         await hub.disconnect(websocket)
     except Exception as exc:

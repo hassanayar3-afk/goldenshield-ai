@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from database.db_manager import PositionRow
+from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
 from utils.runtime_env import loop_interval_seconds, stop_market_enabled
@@ -89,6 +90,8 @@ class SmcMacroEngine:
         await self._hub.publish({"type": "engine", "engine": self.name, "data": payload})
 
         if bias != "LONG" or entry is None:
+            return
+        if engines_paused():
             return
 
         open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)

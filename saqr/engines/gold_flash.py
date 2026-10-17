@@ -10,6 +10,7 @@ import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List
 
+from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
 from utils.runtime_env import loop_interval_seconds
@@ -77,6 +78,8 @@ class GoldFlashEngine:
         await self._hub.publish({"type": "engine", "engine": self.name, "data": payload})
 
         if signal == "NEUTRAL" or last is None:
+            return
+        if engines_paused():
             return
 
         try:

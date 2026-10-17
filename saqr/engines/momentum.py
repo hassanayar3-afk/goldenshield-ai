@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
 from utils.runtime_env import loop_interval_seconds, portfolio_heat_cap_fraction
@@ -79,6 +80,8 @@ class MomentumEngine:
         if abs(momentum_score) < 0.35 or last is None:
             return
         if heat_cap <= 0:
+            return
+        if engines_paused():
             return
 
         try:

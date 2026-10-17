@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List
 
 from database.db_manager import DatabaseManager, PositionRow
+from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
 
@@ -75,6 +76,7 @@ class SyncService:
         positions = await self._db.list_positions_async()
         open_orders = await self._client.open_orders()
 
+        wins, losses = await self._db.closed_trade_counts_async()
         snapshot = {
             "type": "sync",
             "balances": balances,
@@ -82,6 +84,9 @@ class SyncService:
             "open_orders": open_orders,
             "paper": self._client.paper_trading,
             "synced_at": now,
+            "wins": wins,
+            "losses": losses,
+            "engines_paused": engines_paused(),
         }
         self._last_snapshot = snapshot
         await self._hub.publish(snapshot)
