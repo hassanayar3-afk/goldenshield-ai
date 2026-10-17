@@ -20,7 +20,7 @@
 
 | مجلد | الدور |
 |------|--------|
-| `gateway/` | FastAPI، Binance client، WebSocket hub، مزامنة الحالة |
+| `gateway/` | FastAPI، Binance client، **stream_service** (klines حية)، WebSocket hub، مزامنة الحالة |
 | `engines/` | SMC macro، Gold Flash، Momentum |
 | `database/` | SQLite WAL + DAO locks |
 | `terminal_ui/` | لوحة محلية مع مؤشر ● LIVE |

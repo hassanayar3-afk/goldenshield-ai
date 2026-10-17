@@ -69,10 +69,10 @@ class SyncService:
             if free + locked <= 0:
                 continue
             asset = str(b.get("asset", ""))
-            self._db.upsert_balance(asset, free, locked, now)
+            await self._db.run_dao(self._db.upsert_balance, asset, free, locked, now)
             balances.append({"asset": asset, "free": free, "locked": locked})
 
-        positions = self._db.list_positions()
+        positions = await self._db.list_positions_async()
         open_orders = await self._client.open_orders()
 
         snapshot = {

@@ -92,6 +92,10 @@
       <pre id="syncBox">في انتظار الاتصال…</pre>
     </section>
     <section>
+      <h2>بث الشموع الحي</h2>
+      <pre id="klineBox">في انتظار kline…</pre>
+    </section>
+    <section>
       <h2>محركات القادة</h2>
       <pre id="engineBox">—</pre>
     </section>
@@ -112,6 +116,7 @@
     const liveDot = document.getElementById("liveDot");
     const liveLabel = document.getElementById("liveLabel");
     const syncBox = document.getElementById("syncBox");
+    const klineBox = document.getElementById("klineBox");
     const engineBox = document.getElementById("engineBox");
     const eventLog = document.getElementById("eventLog");
     const engineState = {};
@@ -142,6 +147,15 @@
       if (msg.type === "sync") {
         syncBox.textContent = JSON.stringify(msg, null, 2);
         appendLog("sync " + (msg.synced_at || ""));
+        return;
+      }
+      if (msg.type === "kline") {
+        klineBox.textContent = JSON.stringify(msg, null, 2);
+        appendLog(`kline ${msg.symbol} ${msg.interval} ${msg.close}`);
+        return;
+      }
+      if (msg.type === "stream") {
+        appendLog("stream " + (msg.status || ""));
         return;
       }
       if (msg.type === "engine") {

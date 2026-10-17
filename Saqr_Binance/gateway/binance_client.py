@@ -1,5 +1,6 @@
 """
-Binance REST abstraction: exponential backoff, circuit breaker, paper/live modes.
+Binance REST abstraction: jittered exponential backoff, circuit breaker,
+Min Notional / spread guards, paper execution with optional live market reads.
 """
 
 from __future__ import annotations
@@ -8,10 +9,11 @@ import asyncio
 import hashlib
 import hmac
 import os
+import random
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import aiohttp
@@ -26,6 +28,14 @@ def _env_bool(key: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+@dataclass
+class SymbolRules:
+    min_notional: float = 5.0
+    min_qty: float = 0.001
+    step_size: float = 0.001
+    tick_size: float = 0.01
 
 
 @dataclass
@@ -62,14 +72,15 @@ class BinanceClient:
     base_url: str = field(
         default_factory=lambda: os.getenv("BINANCE_BASE_URL", "https://demo-api.binance.com")
     )
-    paper_trading: bool = field(
-        default_factory=lambda: _env_bool("PAPER_TRADING", True)
-        or _env_bool("BINANCE_DEMO_TRADING", True)
+    market_rest_url: str = field(
+        default_factory=lambda: os.getenv("BINANCE_MARKET_REST_URL", "https://api.binance.com")
     )
+    paper_trading: bool = field(default_factory=lambda: _env_bool("PAPER_TRADING", True))
     max_retries: int = 5
     base_backoff: float = 0.5
     _session: Optional[aiohttp.ClientSession] = field(default=None, init=False, repr=False)
     _breaker: CircuitBreaker = field(default_factory=CircuitBreaker, init=False)
+    _rules_cache: Dict[str, SymbolRules] = field(default_factory=dict, init=False)
 
     async def start(self) -> None:
         if self._session is None or self._session.closed:
@@ -79,6 +90,11 @@ class BinanceClient:
     async def close(self) -> None:
         if self._session and not self._session.closed:
             await self._session.close()
+
+    async def _sleep_backoff(self, attempt: int) -> None:
+        jitter = random.uniform(0, self.base_backoff)
+        delay = min(self.base_backoff * (2**attempt) + jitter, 30.0)
+        await asyncio.sleep(delay)
 
     def _sign(self, params: Dict[str, Any]) -> Dict[str, Any]:
         params = dict(params)
@@ -92,6 +108,58 @@ class BinanceClient:
         params["signature"] = signature
         return params
 
+    async def _request_url(
+        self,
+        base: str,
+        method: str,
+        path: str,
+        *,
+        signed: bool = False,
+        params: Optional[Dict[str, Any]] = None,
+        use_breaker: bool = True,
+        max_retries: Optional[int] = None,
+    ) -> Any:
+        if use_breaker and not self._breaker.allow():
+            raise RuntimeError("Binance circuit breaker is open")
+
+        await self.start()
+        assert self._session is not None
+        params = params or {}
+        headers = {"X-MBX-APIKEY": self.api_key} if signed else {}
+        attempts = max_retries if max_retries is not None else self.max_retries
+
+        last_error: Optional[Exception] = None
+        for attempt in range(attempts):
+            try:
+                req_params = self._sign(params) if signed else params
+                url = f"{base.rstrip('/')}{path}"
+                async with self._session.request(
+                    method, url, params=req_params, headers=headers
+                ) as resp:
+                    body = await resp.json(content_type=None)
+                    if resp.status >= 400:
+                        raise RuntimeError(f"HTTP {resp.status}: {body}")
+                if use_breaker:
+                    self._breaker.record_success()
+                return body
+            except Exception as exc:
+                last_error = exc
+                if use_breaker:
+                    self._breaker.record_failure()
+                logger.warning(
+                    "Binance request failed (%s %s) attempt %s/%s: %s",
+                    method,
+                    path,
+                    attempt + 1,
+                    attempts,
+                    exc,
+                )
+                if "HTTP 451" in str(exc):
+                    break
+                await self._sleep_backoff(attempt)
+
+        raise RuntimeError(f"Binance request exhausted retries: {last_error}")
+
     async def _request(
         self,
         method: str,
@@ -100,41 +168,32 @@ class BinanceClient:
         signed: bool = False,
         params: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        if not self._breaker.allow():
-            raise RuntimeError("Binance circuit breaker is open")
+        return await self._request_url(
+            self.base_url,
+            method,
+            path,
+            signed=signed,
+            params=params,
+            use_breaker=True,
+        )
 
-        await self.start()
-        assert self._session is not None
-        params = params or {}
-        headers = {"X-MBX-APIKEY": self.api_key} if signed else {}
-
-        last_error: Optional[Exception] = None
-        for attempt in range(self.max_retries):
-            try:
-                if signed:
-                    params = self._sign(params)
-                url = f"{self.base_url}{path}"
-                async with self._session.request(method, url, params=params, headers=headers) as resp:
-                    body = await resp.json(content_type=None)
-                    if resp.status >= 400:
-                        raise RuntimeError(f"HTTP {resp.status}: {body}")
-                self._breaker.record_success()
-                return body
-            except Exception as exc:
-                last_error = exc
-                self._breaker.record_failure()
-                delay = self.base_backoff * (2**attempt)
-                logger.warning(
-                    "Binance request failed (%s %s) attempt %s/%s: %s",
-                    method,
-                    path,
-                    attempt + 1,
-                    self.max_retries,
-                    exc,
-                )
-                await asyncio.sleep(delay)
-
-        raise RuntimeError(f"Binance request exhausted retries: {last_error}")
+    async def _market_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Public market REST (live candles/book), independent of paper execution."""
+        return await self._request_url(
+            self.market_rest_url,
+            method,
+            path,
+            signed=False,
+            params=params,
+            use_breaker=False,
+            max_retries=2,
+        )
 
     async def ping(self) -> bool:
         if self.paper_trading:
@@ -146,24 +205,238 @@ class BinanceClient:
             logger.error("Binance ping failed: %s", exc)
             return False
 
-    async def exchange_info(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+    def _parse_rules(self, symbol_info: Dict[str, Any]) -> SymbolRules:
+        rules = SymbolRules()
+        for f in symbol_info.get("filters", []):
+            ftype = f.get("filterType")
+            if ftype in ("MIN_NOTIONAL", "NOTIONAL"):
+                rules.min_notional = float(f.get("minNotional", f.get("notional", rules.min_notional)))
+            elif ftype == "LOT_SIZE":
+                rules.min_qty = float(f.get("minQty", rules.min_qty))
+                rules.step_size = float(f.get("stepSize", rules.step_size))
+            elif ftype == "PRICE_FILTER":
+                rules.tick_size = float(f.get("tickSize", rules.tick_size))
+        return rules
+
+    async def get_symbol_rules(self, symbol: str) -> SymbolRules:
+        symbol = symbol.upper()
+        if symbol in self._rules_cache:
+            return self._rules_cache[symbol]
+        try:
+            info = await self._market_request("GET", "/api/v3/exchangeInfo", params={"symbol": symbol})
+            symbols = info.get("symbols") or []
+            if symbols:
+                rules = self._parse_rules(symbols[0])
+                self._rules_cache[symbol] = rules
+                return rules
+        except Exception as exc:
+            logger.warning("Live exchangeInfo failed for %s: %s — using defaults", symbol, exc)
+        rules = SymbolRules()
+        self._rules_cache[symbol] = rules
+        return rules
+
+    async def fetch_book_ticker(self, symbol: str) -> Dict[str, float]:
+        try:
+            data = await self._market_request(
+                "GET",
+                "/api/v3/ticker/bookTicker",
+                params={"symbol": symbol.upper()},
+            )
+            return {
+                "bid": float(data.get("bidPrice", 0)),
+                "ask": float(data.get("askPrice", 0)),
+                "bid_qty": float(data.get("bidQty", 0)),
+                "ask_qty": float(data.get("askQty", 0)),
+            }
+        except Exception as exc:
+            logger.warning("bookTicker unavailable for %s: %s", symbol, exc)
+            return {"bid": 0.0, "ask": 0.0, "bid_qty": 0.0, "ask_qty": 0.0}
+
+    @staticmethod
+    def spread_bps(bid: float, ask: float) -> float:
+        if bid <= 0 or ask <= 0:
+            return 9999.0
+        mid = (bid + ask) / 2.0
+        return ((ask - bid) / mid) * 10_000.0
+
+    def _quantize_qty(self, qty: float, step: float) -> float:
+        if step <= 0:
+            return qty
+        precision = max(0, len(str(step).split(".")[-1].rstrip("0")))
+        steps = int(qty / step)
+        return round(steps * step, precision)
+
+    async def validate_order(
+        self,
+        symbol: str,
+        quantity: float,
+        price: float,
+        *,
+        spread_bps_override: Optional[float] = None,
+    ) -> Tuple[bool, str, float]:
+        """
+        Returns (allowed, reason, adjusted_qty).
+        """
+        rules = await self.get_symbol_rules(symbol)
+        qty = max(quantity, rules.min_qty)
+        qty = self._quantize_qty(qty, rules.step_size)
+        notional = qty * price
+        if notional < rules.min_notional:
+            return False, f"min_notional<{rules.min_notional}", qty
+
+        max_spread = float(os.getenv("MAX_SPREAD_BPS", "15"))
+        spread = spread_bps_override
+        if spread is None:
+            book = await self.fetch_book_ticker(symbol)
+            spread = self.spread_bps(book["bid"], book["ask"])
+        if spread > max_spread:
+            return False, f"spread_bps={spread:.2f}>{max_spread}", qty
+
+        return True, "ok", qty
+
+    async def place_market_order(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+    ) -> Dict[str, Any]:
         if self.paper_trading:
+            return {
+                "symbol": symbol,
+                "orderId": int(time.time()),
+                "clientOrderId": f"paper_{uuid.uuid4().hex[:12]}",
+                "status": "FILLED",
+                "side": side,
+                "type": "MARKET",
+                "executedQty": str(quantity),
+                "paper": True,
+            }
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": "MARKET",
+            "quantity": f"{quantity:.8f}".rstrip("0").rstrip("."),
+        }
+        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+
+    async def place_market_guarded(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        reference_price: float,
+        *,
+        spread_bps_override: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        allowed, reason, qty = await self.validate_order(
+            symbol,
+            quantity,
+            reference_price,
+            spread_bps_override=spread_bps_override,
+        )
+        if not allowed:
+            logger.info("Order blocked %s %s: %s", side, symbol, reason)
+            return None
+        return await self.place_market_order(symbol, side, qty)
+
+    async def place_stop_market(
+        self,
+        symbol: str,
+        side: str,
+        stop_price: float,
+        quantity: float,
+        *,
+        reference_price: float,
+        spread_bps_override: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        allowed, reason, qty = await self.validate_order(
+            symbol,
+            quantity,
+            reference_price,
+            spread_bps_override=spread_bps_override,
+        )
+        if not allowed:
+            logger.info("STOP_MARKET blocked %s: %s", symbol, reason)
+            return None
+
+        client_id = f"saqr_stop_{uuid.uuid4().hex[:16]}"
+        if self.paper_trading:
+            return {
+                "symbol": symbol,
+                "clientOrderId": client_id,
+                "type": "STOP_MARKET",
+                "status": "NEW",
+                "stopPrice": str(stop_price),
+                "paper": True,
+            }
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": "STOP_MARKET",
+            "stopPrice": f"{stop_price:.8f}".rstrip("0").rstrip("."),
+            "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
+            "newClientOrderId": client_id,
+        }
+        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+
+    async def place_ioc_limit(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        price: float,
+        *,
+        spread_bps_override: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        allowed, reason, qty = await self.validate_order(
+            symbol,
+            quantity,
+            price,
+            spread_bps_override=spread_bps_override,
+        )
+        if not allowed:
+            logger.info("IOC blocked %s %s: %s", side, symbol, reason)
+            return None
+
+        if self.paper_trading:
+            return {
+                "symbol": symbol,
+                "status": "FILLED",
+                "type": "LIMIT",
+                "timeInForce": "IOC",
+                "executedQty": str(qty),
+                "paper": True,
+            }
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": "LIMIT",
+            "timeInForce": "IOC",
+            "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
+            "price": f"{price:.8f}".rstrip("0").rstrip("."),
+        }
+        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+
+    async def exchange_info(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        params: Dict[str, Any] = {}
+        if symbol:
+            params["symbol"] = symbol.upper()
+        try:
+            return await self._market_request("GET", "/api/v3/exchangeInfo", params=params or None)
+        except Exception:
             filters = [
                 {"filterType": "MIN_NOTIONAL", "minNotional": "5"},
                 {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001"},
             ]
-            symbols = [
-                {
-                    "symbol": symbol or "BTCUSDT",
-                    "status": "TRADING",
-                    "filters": filters,
-                }
-            ]
-            return {"symbols": symbols}
-        params: Dict[str, Any] = {}
-        if symbol:
-            params["symbol"] = symbol
-        return await self._request("GET", "/api/v3/exchangeInfo", params=params)
+            return {
+                "symbols": [
+                    {
+                        "symbol": symbol or "BTCUSDT",
+                        "status": "TRADING",
+                        "filters": filters,
+                    }
+                ]
+            }
 
     async def account_balances(self) -> List[Dict[str, Any]]:
         if self.paper_trading:
@@ -181,83 +454,3 @@ class BinanceClient:
         if symbol:
             params["symbol"] = symbol
         return await self._request("GET", "/api/v3/openOrders", signed=True, params=params)
-
-    async def place_market_order(
-        self,
-        symbol: str,
-        side: str,
-        quantity: float,
-        *,
-        time_in_force: str = "GTC",
-    ) -> Dict[str, Any]:
-        if self.paper_trading:
-            return {
-                "symbol": symbol,
-                "orderId": int(time.time()),
-                "clientOrderId": f"paper_{uuid.uuid4().hex[:12]}",
-                "status": "FILLED",
-                "side": side,
-                "type": "MARKET",
-                "executedQty": str(quantity),
-            }
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "type": "MARKET",
-            "quantity": f"{quantity:.8f}".rstrip("0").rstrip("."),
-        }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)
-
-    async def place_stop_market(
-        self,
-        symbol: str,
-        side: str,
-        stop_price: float,
-        quantity: float,
-    ) -> Dict[str, Any]:
-        """
-        Exchange-side STOP_MARKET protection — survives local process shutdown.
-        """
-        client_id = f"saqr_stop_{uuid.uuid4().hex[:16]}"
-        if self.paper_trading:
-            return {
-                "symbol": symbol,
-                "clientOrderId": client_id,
-                "type": "STOP_MARKET",
-                "status": "NEW",
-                "stopPrice": str(stop_price),
-            }
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "type": "STOP_MARKET",
-            "stopPrice": f"{stop_price:.8f}".rstrip("0").rstrip("."),
-            "quantity": f"{quantity:.8f}".rstrip("0").rstrip("."),
-            "newClientOrderId": client_id,
-        }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)
-
-    async def place_ioc_limit(
-        self,
-        symbol: str,
-        side: str,
-        quantity: float,
-        price: float,
-    ) -> Dict[str, Any]:
-        if self.paper_trading:
-            return {
-                "symbol": symbol,
-                "status": "FILLED",
-                "type": "LIMIT",
-                "timeInForce": "IOC",
-                "executedQty": str(quantity),
-            }
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "type": "LIMIT",
-            "timeInForce": "IOC",
-            "quantity": f"{quantity:.8f}".rstrip("0").rstrip("."),
-            "price": f"{price:.8f}".rstrip("0").rstrip("."),
-        }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)

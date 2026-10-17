@@ -1,9 +1,10 @@
 """
-SQLite persistence with WAL mode and DAO-level threading locks.
+SQLite persistence with WAL mode, threading RLock, and asyncio.Lock for async callers.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -11,11 +12,12 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, TypeVar
 
 from utils.logger_config import setup_logger
 
 logger = setup_logger("saqr.database")
+R = TypeVar("R")
 
 
 @dataclass
@@ -30,11 +32,12 @@ class PositionRow:
 
 
 class DatabaseManager:
-    """Thread-safe DAO over saqr_local.db."""
+    """Thread-safe + async-serialized DAO over saqr_local.db."""
 
     def __init__(self, db_path: Optional[str] = None) -> None:
         self._db_path = db_path or os.getenv("DB_PATH", "saqr_local.db")
         self._lock = threading.RLock()
+        self._async_lock = asyncio.Lock()
         self._conn: Optional[sqlite3.Connection] = None
 
     @property
@@ -55,6 +58,7 @@ class DatabaseManager:
             self._conn.execute("PRAGMA journal_mode=WAL;")
             self._conn.execute("PRAGMA synchronous=NORMAL;")
             self._conn.execute("PRAGMA foreign_keys=ON;")
+            self._conn.execute("PRAGMA busy_timeout=5000;")
             self._init_schema()
             logger.info("Database ready at %s (WAL enabled)", self.path)
 
@@ -78,6 +82,15 @@ class DatabaseManager:
             except Exception:
                 self._conn.execute("ROLLBACK;")
                 raise
+
+    async def run_dao(self, fn: Callable[..., R], *args: Any, **kwargs: Any) -> R:
+        """Serialize async DB access to avoid 'database is locked' under load."""
+
+        async def _call() -> R:
+            return fn(*args, **kwargs)
+
+        async with self._async_lock:
+            return await asyncio.to_thread(_call)
 
     def _init_schema(self) -> None:
         assert self._conn is not None
@@ -153,6 +166,9 @@ class DatabaseManager:
                 ),
             )
 
+    async def upsert_position_async(self, row: PositionRow) -> None:
+        await self.run_dao(self.upsert_position, row)
+
     def delete_position(self, symbol: str) -> None:
         with self.dao() as conn:
             conn.execute("DELETE FROM positions WHERE symbol = ?", (symbol,))
@@ -172,6 +188,9 @@ class DatabaseManager:
             )
             for r in rows
         ]
+
+    async def list_positions_async(self) -> List[PositionRow]:
+        return await self.run_dao(self.list_positions)
 
     def upsert_balance(self, asset: str, free: float, locked: float, updated_at: str) -> None:
         with self.dao() as conn:
@@ -199,6 +218,11 @@ class DatabaseManager:
                 """,
                 (engine, json.dumps(payload), updated_at),
             )
+
+    async def save_engine_state_async(
+        self, engine: str, payload: Dict[str, Any], updated_at: str
+    ) -> None:
+        await self.run_dao(self.save_engine_state, engine, payload, updated_at)
 
     def record_closed_trade(
         self,
@@ -240,3 +264,20 @@ class DatabaseManager:
                 """,
                 (client_order_id, symbol, stop_price, status, created_at),
             )
+
+    async def register_protection_order_async(
+        self,
+        client_order_id: str,
+        symbol: str,
+        stop_price: float,
+        status: str,
+        created_at: str,
+    ) -> None:
+        await self.run_dao(
+            self.register_protection_order,
+            client_order_id,
+            symbol,
+            stop_price,
+            status,
+            created_at,
+        )

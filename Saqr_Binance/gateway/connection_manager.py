@@ -1,5 +1,5 @@
 """
-Central WebSocket pub/sub hub for terminal UI and internal subscribers.
+Central WebSocket pub/sub hub (singleton) for terminal UI and internal subscribers.
 """
 
 from __future__ import annotations
@@ -9,13 +9,16 @@ import json
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Set
+from typing import Any, Deque, Dict, List, Optional, Set
 
 from fastapi import WebSocket
 
 from utils.logger_config import setup_logger
 
 logger = setup_logger("saqr.hub")
+
+_singleton: Optional["ConnectionManager"] = None
+_singleton_lock = asyncio.Lock()
 
 
 @dataclass
@@ -85,3 +88,22 @@ class ConnectionManager:
             "clients": len(self.clients),
             "recent_events": len(self._recent),
         }
+
+
+async def get_connection_manager() -> ConnectionManager:
+    """Process-wide singleton hub instance."""
+    global _singleton
+    if _singleton is not None:
+        return _singleton
+    async with _singleton_lock:
+        if _singleton is None:
+            _singleton = ConnectionManager()
+    return _singleton
+
+
+def get_connection_manager_sync() -> ConnectionManager:
+    """Sync accessor for module import time (creates singleton if needed)."""
+    global _singleton
+    if _singleton is None:
+        _singleton = ConnectionManager()
+    return _singleton
