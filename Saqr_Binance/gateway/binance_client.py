@@ -75,6 +75,12 @@ class BinanceClient:
     market_rest_url: str = field(
         default_factory=lambda: os.getenv("BINANCE_MARKET_REST_URL", "https://api.binance.com")
     )
+    user_ws_base: str = field(
+        default_factory=lambda: os.getenv(
+            "BINANCE_USER_WS_BASE",
+            os.getenv("BINANCE_WS_URL", "wss://stream.binance.com:9443/ws"),
+        ).rstrip("/")
+    )
     paper_trading: bool = field(default_factory=lambda: _env_bool("PAPER_TRADING", True))
     max_retries: int = 5
     base_backoff: float = 0.5
@@ -454,3 +460,56 @@ class BinanceClient:
         if symbol:
             params["symbol"] = symbol
         return await self._request("GET", "/api/v3/openOrders", signed=True, params=params)
+
+    async def _listen_key_request(
+        self,
+        method: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """User data stream REST endpoints require API key header without signature."""
+        await self.start()
+        assert self._session is not None
+        headers = {"X-MBX-APIKEY": self.api_key}
+        url = f"{self.base_url.rstrip('/')}/api/v3/userDataStream"
+        async with self._session.request(method, url, params=params or {}, headers=headers) as resp:
+            body = await resp.json(content_type=None)
+            if resp.status >= 400:
+                raise RuntimeError(f"HTTP {resp.status}: {body}")
+        return body
+
+    async def create_listen_key(self) -> str:
+        if self.paper_trading or not self.api_key:
+            return f"paper_listen_{uuid.uuid4().hex[:24]}"
+        data = await self._listen_key_request("POST")
+        key = str(data.get("listenKey", ""))
+        if not key:
+            raise RuntimeError("Binance did not return listenKey")
+        return key
+
+    async def keepalive_listen_key(self, listen_key: str) -> None:
+        if self.paper_trading or listen_key.startswith("paper_listen_"):
+            return
+        await self._listen_key_request("PUT", params={"listenKey": listen_key})
+
+    async def close_listen_key(self, listen_key: str) -> None:
+        if self.paper_trading or listen_key.startswith("paper_listen_"):
+            return
+        await self._listen_key_request("DELETE", params={"listenKey": listen_key})
+
+    def user_stream_url(self, listen_key: str) -> str:
+        base = self.user_ws_base.rstrip("/")
+        if base.endswith("/ws"):
+            return f"{base}/{listen_key}"
+        return f"{base}/ws/{listen_key}"
+
+    async def query_order(self, symbol: str, client_order_id: str) -> Dict[str, Any]:
+        if self.paper_trading:
+            return {
+                "symbol": symbol,
+                "clientOrderId": client_order_id,
+                "status": "NEW",
+                "paper": True,
+            }
+        params = {"symbol": symbol.upper(), "origClientOrderId": client_order_id}
+        return await self._request("GET", "/api/v3/order", signed=True, params=params)

@@ -86,7 +86,7 @@ class DatabaseManager:
     async def run_dao(self, fn: Callable[..., R], *args: Any, **kwargs: Any) -> R:
         """Serialize async DB access to avoid 'database is locked' under load."""
 
-        async def _call() -> R:
+        def _call() -> R:
             return fn(*args, **kwargs)
 
         async with self._async_lock:
@@ -137,6 +137,12 @@ class DatabaseManager:
                 stop_price REAL NOT NULL,
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS runtime_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
             """
         )
@@ -281,3 +287,51 @@ class DatabaseManager:
             status,
             created_at,
         )
+
+    def list_protection_orders(self) -> List[Dict[str, Any]]:
+        with self.dao() as conn:
+            rows = conn.execute(
+                "SELECT * FROM protection_orders ORDER BY created_at DESC"
+            ).fetchall()
+        return [
+            {
+                "client_order_id": r["client_order_id"],
+                "symbol": r["symbol"],
+                "stop_price": float(r["stop_price"]),
+                "status": r["status"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    async def list_protection_orders_async(self) -> List[Dict[str, Any]]:
+        return await self.run_dao(self.list_protection_orders)
+
+    async def delete_position_async(self, symbol: str) -> None:
+        await self.run_dao(self.delete_position, symbol)
+
+    def set_runtime_state(self, key: str, value: str, updated_at: str) -> None:
+        with self.dao() as conn:
+            conn.execute(
+                """
+                INSERT INTO runtime_state (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value=excluded.value,
+                    updated_at=excluded.updated_at
+                """,
+                (key, value, updated_at),
+            )
+
+    def get_runtime_state(self, key: str) -> Optional[str]:
+        with self.dao() as conn:
+            row = conn.execute(
+                "SELECT value FROM runtime_state WHERE key = ?", (key,)
+            ).fetchone()
+        return str(row["value"]) if row else None
+
+    async def set_runtime_state_async(self, key: str, value: str, updated_at: str) -> None:
+        await self.run_dao(self.set_runtime_state, key, value, updated_at)
+
+    async def get_runtime_state_async(self, key: str) -> Optional[str]:
+        return await self.run_dao(self.get_runtime_state, key)

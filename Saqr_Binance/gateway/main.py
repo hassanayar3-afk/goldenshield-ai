@@ -29,8 +29,10 @@ from engines.momentum import MomentumEngine  # noqa: E402
 from engines.smc_macro import SmcMacroEngine  # noqa: E402
 from gateway.binance_client import BinanceClient  # noqa: E402
 from gateway.connection_manager import get_connection_manager_sync  # noqa: E402
+from gateway.recovery_service import RecoveryService  # noqa: E402
 from gateway.stream_service import StreamService  # noqa: E402
 from gateway.sync_service import SyncService  # noqa: E402
+from gateway.user_stream import UserStreamService  # noqa: E402
 from utils.crash_wrapper import (  # noqa: E402
     register_restart_hook,
     run_supervised,
@@ -47,29 +49,39 @@ hub = get_connection_manager_sync()
 client = BinanceClient()
 stream = StreamService(hub=hub)
 sync = SyncService(db, client, hub)
+recovery = RecoveryService(db, client, hub, stream)
+user_stream = UserStreamService(db, client, hub)
 
 _engine_tasks: List[asyncio.Task] = []
 _stream_task: Optional[asyncio.Task] = None
+_user_stream_task: Optional[asyncio.Task] = None
 
 
 async def _graceful_restart() -> None:
     """Watchdog recovery: persist state, keep DB open, nudge live services."""
     touch_event_loop_heartbeat()
+    await recovery.run_boot_recovery()
     await hub.publish({"type": "watchdog", "action": "graceful_restart"})
-    logger.warning("Graceful restart signal emitted — event loop nudged")
+    logger.warning("Graceful restart completed with recovery pass")
 
 
 async def _start_background_services() -> None:
-    global _engine_tasks, _stream_task
+    global _engine_tasks, _stream_task, _user_stream_task
     db.connect()
     await client.start()
     ok = await client.ping()
     logger.info("Binance connectivity: %s (paper=%s)", ok, client.paper_trading)
     await hub.start_heartbeat(interval=1.0)
 
+    await recovery.run_boot_recovery()
+
     _stream_task = asyncio.create_task(
         run_supervised("stream_service", stream.run_forever),
         name="stream",
+    )
+    _user_stream_task = asyncio.create_task(
+        run_supervised("user_stream", user_stream.run_forever),
+        name="user-stream",
     )
 
     engines = [
@@ -91,18 +103,23 @@ async def _start_background_services() -> None:
 
 
 async def _stop_background_services() -> None:
-    global _engine_tasks, _stream_task
+    global _engine_tasks, _stream_task, _user_stream_task
     sync.stop()
     stream.stop()
-    for task in [*_engine_tasks, *([_stream_task] if _stream_task else [])]:
+    user_stream.stop()
+    await user_stream.shutdown()
+    tasks = [*_engine_tasks]
+    if _stream_task:
+        tasks.append(_stream_task)
+    if _user_stream_task:
+        tasks.append(_user_stream_task)
+    for task in tasks:
         task.cancel()
-    if _engine_tasks or _stream_task:
-        await asyncio.gather(
-            *(_engine_tasks + ([_stream_task] if _stream_task else [])),
-            return_exceptions=True,
-        )
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
     _engine_tasks = []
     _stream_task = None
+    _user_stream_task = None
     await hub.stop_heartbeat()
     stop_watchdog()
     await client.close()
@@ -118,7 +135,7 @@ async def lifespan(app: FastAPI):
         await _stop_background_services()
 
 
-app = FastAPI(title="Saqr AI Local Gateway", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="Saqr AI Local Gateway", version="1.2.0", lifespan=lifespan)
 
 UI_DIR = ROOT / "terminal_ui"
 if UI_DIR.is_dir():
@@ -138,6 +155,8 @@ async def health() -> Dict[str, Any]:
         "paper_trading": client.paper_trading,
         "hub": hub.snapshot(),
         "stream": stream.snapshot(),
+        "user_stream": user_stream.snapshot(),
+        "recovery": recovery.last_report.get("recovered_at"),
         "sync": sync.last_snapshot.get("synced_at"),
     }
 
@@ -147,10 +166,19 @@ async def api_state() -> Dict[str, Any]:
     positions = await db.list_positions_async()
     return {
         "positions": [p.__dict__ for p in positions],
+        "protection_orders": await db.list_protection_orders_async(),
         "sync": sync.last_snapshot,
+        "recovery": recovery.last_report,
         "hub": hub.snapshot(),
         "stream": stream.snapshot(),
+        "user_stream": user_stream.snapshot(),
     }
+
+
+@app.post("/api/recovery/run")
+async def api_recovery_run() -> Dict[str, Any]:
+    touch_event_loop_heartbeat()
+    return await recovery.run_boot_recovery()
 
 
 @app.websocket("/ws")

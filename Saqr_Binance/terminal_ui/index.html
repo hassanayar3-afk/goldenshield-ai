@@ -158,6 +158,14 @@
         appendLog("stream " + (msg.status || ""));
         return;
       }
+      if (msg.type === "recovery") {
+        appendLog(`recovery positions=${msg.positions} rebound=${msg.rebound_stops}`);
+        return;
+      }
+      if (msg.type === "user_stream" || msg.type === "user_event") {
+        appendLog(msg.type + " " + (msg.status || msg.event || ""));
+        return;
+      }
       if (msg.type === "engine") {
         engineState[msg.engine] = msg.data;
         engineBox.textContent = JSON.stringify(engineState, null, 2);
