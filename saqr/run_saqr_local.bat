@@ -55,6 +55,15 @@ set PYTHONNOUSERSITE=1
 set "SAQR_ROOT=%CD%"
 
 echo [Saqr] Working directory: %CD%
+
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":8000 .*LISTENING"') do (
+  echo [Saqr] WARNING: Port 8000 is already in use ^(PID %%P^).
+  echo [Saqr] Close the other Saqr/Python window or run: taskkill /PID %%P /F
+  echo [Saqr] Or change MOBILE_API_PORT and TERMINAL_WS_PORT in .env
+  pause
+  exit /b 3
+)
+
 echo [Saqr] Starting: python gateway\main.py
 echo [Saqr] Local UI: http://127.0.0.1:8000
 start "" http://127.0.0.1:8000/
