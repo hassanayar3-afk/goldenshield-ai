@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>صقر — لوحة التحكم المحلية</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121922;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --live: #3fb950;
+      --warn: #d29922;
+      --accent: #58a6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      background: var(--panel);
+      border-bottom: 1px solid #1f2937;
+    }
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #555;
+    }
+    .dot.on { background: var(--live); box-shadow: 0 0 8px var(--live); }
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      padding: 1rem;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 1rem;
+      min-height: 220px;
+    }
+    h2 { margin: 0 0 0.75rem; font-size: 1rem; color: var(--accent); }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-height: 360px;
+      overflow: auto;
+    }
+    footer {
+      padding: 0.75rem 1.25rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>صقر Saqr AI</strong>
+      <span style="color:var(--muted)"> — تشغيل محلي</span>
+    </div>
+    <div class="live">
+      <span id="liveDot" class="dot"></span>
+      <span id="liveLabel">OFFLINE</span>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>مزامنة الحالة</h2>
+      <pre id="syncBox">في انتظار الاتصال…</pre>
+    </section>
+    <section>
+      <h2>محركات القادة</h2>
+      <pre id="engineBox">—</pre>
+    </section>
+    <section style="grid-column: 1 / -1;">
+      <h2>سجل الأحداث الحي</h2>
+      <pre id="eventLog"></pre>
+    </section>
+  </main>
+  <footer>
+    WebSocket: <code id="wsUrl"></code> — إعادة اتصال تلقائية كل ثانية عند الانقطاع.
+  </footer>
+  <script>
+    const host = location.hostname || "127.0.0.1";
+    const port = location.port || "8000";
+    const wsEndpoint = `ws://${host}:${port}/ws`;
+    document.getElementById("wsUrl").textContent = wsEndpoint;
+
+    const liveDot = document.getElementById("liveDot");
+    const liveLabel = document.getElementById("liveLabel");
+    const syncBox = document.getElementById("syncBox");
+    const engineBox = document.getElementById("engineBox");
+    const eventLog = document.getElementById("eventLog");
+    const engineState = {};
+    let socket = null;
+    let reconnectTimer = null;
+    let lastBeat = 0;
+
+    function setLive(on) {
+      liveDot.classList.toggle("on", on);
+      liveLabel.textContent = on ? "● LIVE" : "OFFLINE";
+    }
+
+    function appendLog(line) {
+      const ts = new Date().toLocaleTimeString();
+      eventLog.textContent = `[${ts}] ${line}\n` + eventLog.textContent;
+      const lines = eventLog.textContent.split("\n");
+      if (lines.length > 200) eventLog.textContent = lines.slice(0, 200).join("\n");
+    }
+
+    function handleMessage(raw) {
+      let msg;
+      try { msg = JSON.parse(raw); } catch { return; }
+      if (msg.type === "heartbeat") {
+        lastBeat = Date.now();
+        setLive(true);
+        return;
+      }
+      if (msg.type === "sync") {
+        syncBox.textContent = JSON.stringify(msg, null, 2);
+        appendLog("sync " + (msg.synced_at || ""));
+        return;
+      }
+      if (msg.type === "engine") {
+        engineState[msg.engine] = msg.data;
+        engineBox.textContent = JSON.stringify(engineState, null, 2);
+        appendLog(`engine ${msg.engine}`);
+        return;
+      }
+      appendLog(msg.type || "event");
+    }
+
+    function connect() {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+      socket = new WebSocket(wsEndpoint);
+      socket.onopen = () => {
+        setLive(true);
+        appendLog("connected");
+        socket.send("ping");
+      };
+      socket.onmessage = (ev) => handleMessage(ev.data);
+      socket.onclose = () => {
+        setLive(false);
+        appendLog("disconnected — retry in 1s");
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, 1000);
+      };
+      socket.onerror = () => {
+        setLive(false);
+      };
+    }
+
+    setInterval(() => {
+      if (!lastBeat) return;
+      if (Date.now() - lastBeat > 5000) setLive(false);
+    }, 1000);
+
+    connect();
+  </script>
+</body>
+</html>
