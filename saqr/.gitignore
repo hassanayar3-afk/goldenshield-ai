@@ -1,9 +1,10 @@
 .env
+.venv/
+venv/
 logs/
+__pycache__/
+*.py[cod]
 *.db
 *.db-wal
 *.db-shm
-__pycache__/
-*.pyc
-.venv/
-venv/
+saqr_local.db*

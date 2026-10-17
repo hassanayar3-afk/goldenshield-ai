@@ -1,6 +1,6 @@
 """
-Saqr local gateway — FastAPI server, live WebSocket, kline stream, engine orchestration.
-Run: python -m gateway.main  (from C:\\Users\\acer\\saqr)
+Saqr local gateway — FastAPI server, live WebSocket, engine orchestration.
+Run from project root: python gateway/main.py
 """
 
 from __future__ import annotations
@@ -12,39 +12,42 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-
+# --- Bootstrap paths before any saqr package imports ---
 ROOT = Path(__file__).resolve().parent.parent
+os.chdir(ROOT)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 _saqr_root = os.getenv("SAqr_ROOT")
 if _saqr_root:
     load_dotenv(Path(_saqr_root) / ".env", override=True)
 
-from database.db_manager import DatabaseManager  # noqa: E402
-from engines.gold_flash import GoldFlashEngine  # noqa: E402
-from engines.momentum import MomentumEngine  # noqa: E402
-from engines.smc_macro import SmcMacroEngine  # noqa: E402
-from gateway.binance_client import BinanceClient  # noqa: E402
-from gateway.connection_manager import get_connection_manager_sync  # noqa: E402
-from gateway.recovery_service import RecoveryService  # noqa: E402
-from gateway.stream_service import StreamService  # noqa: E402
-from gateway.sync_service import SyncService  # noqa: E402
-from gateway.user_stream import UserStreamService  # noqa: E402
-from utils.crash_wrapper import (  # noqa: E402
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from database.db_manager import DatabaseManager
+from engines.gold_flash import GoldFlashEngine
+from engines.momentum import MomentumEngine
+from engines.smc_macro import SmcMacroEngine
+from gateway.binance_client import BinanceClient
+from gateway.connection_manager import get_connection_manager_sync
+from gateway.recovery_service import RecoveryService
+from gateway.stream_service import StreamService
+from gateway.sync_service import SyncService
+from gateway.user_stream import UserStreamService
+from utils.crash_wrapper import (
     register_restart_hook,
     run_supervised,
     start_watchdog,
     stop_watchdog,
     touch_event_loop_heartbeat,
 )
-from utils.logger_config import setup_logger  # noqa: E402
-from utils.runtime_env import bind_host, service_port, watchdog_enabled  # noqa: E402
+from utils.logger_config import setup_logger
+from utils.runtime_env import bind_host, service_port, watchdog_enabled
 
 logger = setup_logger("saqr.gateway")
 
@@ -62,7 +65,6 @@ _user_stream_task: Optional[asyncio.Task] = None
 
 
 async def _graceful_restart() -> None:
-    """Watchdog recovery: persist state, keep DB open, nudge live services."""
     touch_event_loop_heartbeat()
     await recovery.run_boot_recovery()
     await hub.publish({"type": "watchdog", "action": "graceful_restart"})
@@ -76,7 +78,6 @@ async def _start_background_services() -> None:
     ok = await client.ping()
     logger.info("Binance connectivity: %s (paper=%s)", ok, client.paper_trading)
     await hub.start_heartbeat(interval=1.0)
-
     await recovery.run_boot_recovery()
 
     _stream_task = asyncio.create_task(
@@ -140,7 +141,7 @@ async def lifespan(app: FastAPI):
         await _stop_background_services()
 
 
-app = FastAPI(title="Saqr AI Local Gateway", version="1.2.0", lifespan=lifespan)
+app = FastAPI(title="Saqr AI Local Gateway", version="1.3.0", lifespan=lifespan)
 
 UI_DIR = ROOT / "terminal_ui"
 if UI_DIR.is_dir():
@@ -158,6 +159,7 @@ async def health() -> Dict[str, Any]:
     return {
         "status": "ok",
         "paper_trading": client.paper_trading,
+        "root": str(ROOT),
         "bind_host": bind_host(),
         "port": service_port(8000),
         "hub": hub.snapshot(),
@@ -209,18 +211,12 @@ def main() -> None:
 
     host = bind_host()
     port = service_port(8000)
-    logger.info(
-        "Starting Saqr gateway (HTTP + WebSocket /ws) on http://%s:%s",
-        host,
-        port,
-    )
+    logger.info("Project root: %s", ROOT)
+    logger.info("Starting Saqr (HTTP + WebSocket /ws) on http://%s:%s", host, port)
     if host == "0.0.0.0":
-        logger.info(
-            "LAN access enabled — open http://<your-laptop-ip>:%s from phone on same Wi-Fi",
-            port,
-        )
+        logger.info("LAN: http://<laptop-ip>:%s", port)
     uvicorn.run(
-        "gateway.main:app",
+        app,
         host=host,
         port=port,
         reload=False,
