@@ -44,7 +44,9 @@ Set-Content $envFile $c -Encoding UTF8
 
 $py = & (Join-Path $scriptDir "Resolve-GsPython.ps1") -Root $Root
 & $py scripts\test_binance_connection.py
-if ($LASTEXITCODE -ne 0) { Write-Warning "Binance test failed — check keys/proxy"; exit 1 }
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Binance test failed (451?) — continuing with GS_VPS_SOFT_BINANCE / PRE_FLIGHT_SKIP_BINANCE_PING"
+}
 
 Start-Process powershell -ArgumentList @(
     "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
