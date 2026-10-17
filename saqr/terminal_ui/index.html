@@ -746,7 +746,7 @@
       socket.onopen = () => {
         setLive(true);
         socket.send("ping");
-        fetchBootstrap();
+        refreshDashboard(true);
       };
       socket.onmessage = (ev) => handleMessage(ev.data);
       socket.onclose = () => {
@@ -757,9 +757,9 @@
       socket.onerror = () => setLive(false);
     }
 
-    async function fetchBootstrap() {
+    async function refreshDashboard(includeHistory = false) {
       try {
-        const res = await fetch(`/api/state`);
+        const res = await fetch("/api/state", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.sync) applySync(data.sync);
@@ -768,13 +768,17 @@
           metricLosses.textContent = String(data.losses);
         }
         if (typeof data.engines_paused === "boolean") applyPausedUI(data.engines_paused);
-        if (!bootstrapOnce) {
+        if ((includeHistory || !bootstrapOnce) && data.closed_trades) {
           bootstrapOnce = true;
           (data.closed_trades || []).slice().reverse().forEach((t) => {
             pushTrade(`إغلاق ${t.symbol} PnL=${formatNum(t.pnl, 4)}`);
           });
         }
-      } catch (_) { /* offline bootstrap */ }
+        const el = document.getElementById("lastRefresh");
+        if (el) el.textContent = formatTime(Date.now());
+        renderSignals();
+        renderReport();
+      } catch (_) { /* server starting */ }
     }
 
     document.querySelectorAll(".acc-head").forEach((btn) => {
@@ -844,6 +848,8 @@
       if (lastBeat && Date.now() - lastBeat > 5000) setLive(false);
     }, 1000);
 
+    setInterval(() => refreshDashboard(false), 1000);
+    refreshDashboard(true);
     connect();
   </script>
 </body>

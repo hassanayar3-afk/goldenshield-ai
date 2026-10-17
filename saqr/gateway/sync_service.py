@@ -45,10 +45,9 @@ class SyncService:
         return dict(self._last_snapshot)
 
     def interval_seconds(self) -> float:
-        try:
-            return float(os.getenv("LOOP_INTERVAL_SECONDS", "4"))
-        except ValueError:
-            return 5.0
+        if no_sleep_mode():
+            return 1.0
+        return loop_interval_seconds(4.0)
 
     @crash_proof(component="sync_service", restart_delay=2.0)
     async def run_forever(self) -> None:
