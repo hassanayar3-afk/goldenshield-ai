@@ -1,11 +1,69 @@
 """
-Approved Saqr .env accessors — single source for port, intervals, and flags.
+Approved Saqr .env accessors — single source for port, intervals, paths, and flags.
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Optional
+
+_PROJECT_ROOT: Optional[Path] = None
+
+
+def _norm_path(p: Path) -> str:
+    try:
+        return os.path.normcase(str(p.resolve()))
+    except OSError:
+        return os.path.normcase(str(p))
+
+
+def set_project_root(root: Path) -> Path:
+    """Canonical Saqr install directory (folder containing gateway/, engines/, .env)."""
+    global _PROJECT_ROOT
+    resolved = root.resolve()
+    _PROJECT_ROOT = resolved
+    os.environ["SAqr_ROOT"] = str(resolved)
+    return resolved
+
+
+def get_project_root() -> Path:
+    if _PROJECT_ROOT is not None:
+        return _PROJECT_ROOT
+    env_root = os.getenv("SAqr_ROOT")
+    if env_root:
+        return Path(env_root)
+    return Path.cwd()
+
+
+def bootstrap_environment(project_root: Path) -> Path:
+    """
+    Load .env from the runtime project folder only.
+    SAqr_ROOT always matches the folder you actually run from (no second-path override).
+    Pre-set environment variables (e.g. from run_saqr_local.bat) win over .env file values.
+    """
+    from dotenv import load_dotenv
+
+    root = set_project_root(project_root)
+    env_file = root / ".env"
+    if env_file.is_file():
+        load_dotenv(env_file, override=False)
+    set_project_root(root)
+
+    configured = os.getenv("SAqr_ROOT", "")
+    if configured and _norm_path(Path(configured)) != _norm_path(root):
+        # .env may say C:\\Saqr_Binance while you run from another copy — runtime root wins.
+        set_project_root(root)
+
+    return root
+
+
+def resolve_project_path(relative_or_absolute: str) -> Path:
+    """Resolve DB_PATH and similar entries relative to SAqr_ROOT."""
+    p = Path(relative_or_absolute)
+    if p.is_absolute():
+        return p
+    return (get_project_root() / p).resolve()
 
 
 def env_bool(key: str, default: bool = False) -> bool:
@@ -90,3 +148,15 @@ def stop_market_enabled() -> bool:
 
 def watchdog_enabled(default: bool = True) -> bool:
     return env_bool("WATCHDOG_ENABLED", default)
+
+
+def tri_commander_enabled(default: bool = True) -> bool:
+    return env_bool("TRI_COMMANDER_MODE", default)
+
+
+def bot_force_active(default: bool = True) -> bool:
+    return env_bool("BOT_FORCE_ACTIVE", default)
+
+
+def no_sleep_mode(default: bool = True) -> bool:
+    return env_bool("NO_SLEEP_MODE", default)

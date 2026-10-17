@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-REM === Saqr AI — C:\Saqr_Binance (or your saqr project root) ===
+REM === Saqr AI — single-folder install (e.g. C:\Saqr_Binance) ===
 cd /d "%~dp0"
 if errorlevel 1 (
   echo [Saqr] ERROR: Cannot set working directory.
@@ -10,7 +10,7 @@ if errorlevel 1 (
 
 if not exist "gateway\main.py" (
   echo [Saqr] ERROR: gateway\main.py not found.
-  echo [Saqr] Run this file from project root: C:\Saqr_Binance
+  echo [Saqr] Run this file from Saqr project root ^(folder with gateway, engines, .env^).
   exit /b 1
 )
 
@@ -41,8 +41,8 @@ if errorlevel 1 (
 )
 
 echo [Saqr] Installing / updating dependencies...
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip -q
+pip install -r requirements.txt -q
 if errorlevel 1 (
   echo [Saqr] ERROR: pip install failed.
   exit /b 1
@@ -52,20 +52,17 @@ if not exist "logs" mkdir logs
 if not exist "database" mkdir database
 
 set PYTHONNOUSERSITE=1
-set "SAQR_ROOT=%CD%"
+REM Runtime root wins over SAqr_ROOT inside .env (prevents path mismatch).
+set "SAqr_ROOT=%CD%"
 
 echo [Saqr] Working directory: %CD%
+echo [Saqr] SAqr_ROOT=%SAqr_ROOT%
 
 set "SAQR_PORT=8000"
 for /f "usebackq tokens=2 delims==" %%A in (`findstr /B /I "MOBILE_API_PORT=" ".env" 2^>nul`) do set "SAQR_PORT=%%A"
 
-for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":!SAQR_PORT! .*LISTENING"') do (
-  echo [Saqr] WARNING: Port !SAQR_PORT! is already in use ^(PID %%P^).
-  echo [Saqr] Close the other Saqr/Python window or run: taskkill /PID %%P /F
-  echo [Saqr] Or change MOBILE_API_PORT and TERMINAL_WS_PORT in .env
-  pause
-  exit /b 3
-)
+call :free_port !SAQR_PORT!
+if errorlevel 1 exit /b 3
 
 echo [Saqr] Starting: python gateway\main.py
 echo [Saqr] Local UI: http://127.0.0.1:!SAQR_PORT!
@@ -78,3 +75,22 @@ if not "!EXITCODE!"=="0" (
   pause
 )
 exit /b !EXITCODE!
+
+:free_port
+set "TARGET_PORT=%~1"
+set "BUSY=0"
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%TARGET_PORT% .*LISTENING"') do (
+  set "BUSY=1"
+  echo [Saqr] Port %TARGET_PORT% in use by PID %%P — stopping previous listener...
+  taskkill /PID %%P /F >nul 2>&1
+)
+if "!BUSY!"=="1" (
+  timeout /t 2 /nobreak >nul
+  for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%TARGET_PORT% .*LISTENING"') do (
+    echo [Saqr] ERROR: Port %TARGET_PORT% still busy ^(PID %%P^).
+    echo [Saqr] Close that app manually or set MOBILE_API_PORT and TERMINAL_WS_PORT in .env
+    exit /b 1
+  )
+  echo [Saqr] Port %TARGET_PORT% is free.
+)
+exit /b 0

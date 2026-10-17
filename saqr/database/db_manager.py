@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, TypeVar
 
 from utils.logger_config import setup_logger
+from utils.runtime_env import resolve_project_path
 
 logger = setup_logger("saqr.database")
 R = TypeVar("R")
@@ -42,7 +43,7 @@ class DatabaseManager:
 
     @property
     def path(self) -> Path:
-        return Path(self._db_path)
+        return resolve_project_path(self._db_path)
 
     def connect(self) -> None:
         with self._lock:

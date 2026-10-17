@@ -18,12 +18,17 @@ os.chdir(ROOT)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dotenv import load_dotenv
+from utils.runtime_env import (
+    bind_host,
+    bootstrap_environment,
+    bot_force_active,
+    get_project_root,
+    service_port,
+    tri_commander_enabled,
+    watchdog_enabled,
+)
 
-load_dotenv(ROOT / ".env")
-_saqr_root = os.getenv("SAqr_ROOT")
-if _saqr_root:
-    load_dotenv(Path(_saqr_root) / ".env", override=True)
+bootstrap_environment(ROOT)
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -47,8 +52,6 @@ from utils.crash_wrapper import (
     touch_event_loop_heartbeat,
 )
 from utils.logger_config import setup_logger
-from utils.runtime_env import bind_host, service_port, watchdog_enabled
-
 logger = setup_logger("saqr.gateway")
 
 db = DatabaseManager()
@@ -89,11 +92,18 @@ async def _start_background_services() -> None:
         name="user-stream",
     )
 
-    engines = [
-        SmcMacroEngine(db, client, hub, stream),
-        GoldFlashEngine(db, client, hub, stream),
-        MomentumEngine(db, client, hub, stream),
-    ]
+    engines = []
+    if tri_commander_enabled() and bot_force_active():
+        engines = [
+            SmcMacroEngine(db, client, hub, stream),
+            GoldFlashEngine(db, client, hub, stream),
+            MomentumEngine(db, client, hub, stream),
+        ]
+    elif not bot_force_active():
+        logger.warning("BOT_FORCE_ACTIVE=false — engines idle")
+    else:
+        logger.warning("TRI_COMMANDER_MODE=false — engines idle")
+
     _engine_tasks = [
         asyncio.create_task(run_supervised(e.name, e.run_forever), name=f"engine-{e.name}")
         for e in engines
@@ -159,7 +169,8 @@ async def health() -> Dict[str, Any]:
     return {
         "status": "ok",
         "paper_trading": client.paper_trading,
-        "root": str(ROOT),
+        "root": str(get_project_root()),
+        "saqr_root": os.getenv("SAqr_ROOT"),
         "bind_host": bind_host(),
         "port": service_port(8000),
         "hub": hub.snapshot(),
