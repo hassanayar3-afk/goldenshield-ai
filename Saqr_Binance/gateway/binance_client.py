@@ -72,21 +72,26 @@ class BinanceClient:
     base_url: str = field(
         default_factory=lambda: os.getenv("BINANCE_BASE_URL", "https://demo-api.binance.com")
     )
-    market_rest_url: str = field(
-        default_factory=lambda: os.getenv("BINANCE_MARKET_REST_URL", "https://api.binance.com")
-    )
+    market_rest_url: str = field(default_factory=lambda: "https://api.binance.com")
     user_ws_base: str = field(
-        default_factory=lambda: os.getenv(
-            "BINANCE_USER_WS_BASE",
-            os.getenv("BINANCE_WS_URL", "wss://stream.binance.com:9443/ws"),
-        ).rstrip("/")
+        default_factory=lambda: os.getenv("BINANCE_USER_WS_BASE", "wss://fstream.binance.com/ws").rstrip("/")
     )
-    paper_trading: bool = field(default_factory=lambda: _env_bool("PAPER_TRADING", True))
+    paper_trading: bool = field(
+        default_factory=lambda: _env_bool("PAPER_TRADING", True)
+        or os.getenv("EXECUTION_MODE", "paper").strip().lower() == "paper"
+    )
     max_retries: int = 5
     base_backoff: float = 0.5
     _session: Optional[aiohttp.ClientSession] = field(default=None, init=False, repr=False)
     _breaker: CircuitBreaker = field(default_factory=CircuitBreaker, init=False)
     _rules_cache: Dict[str, SymbolRules] = field(default_factory=dict, init=False)
+
+    @property
+    def is_futures(self) -> bool:
+        return "fapi" in self.base_url.lower()
+
+    def _api_path(self, spot: str, futures: str) -> str:
+        return futures if self.is_futures else spot
 
     async def start(self) -> None:
         if self._session is None or self._session.closed:
@@ -205,7 +210,7 @@ class BinanceClient:
         if self.paper_trading:
             return True
         try:
-            await self._request("GET", "/api/v3/ping")
+            await self._request("GET", self._api_path("/api/v3/ping", "/fapi/v1/ping"))
             return True
         except Exception as exc:
             logger.error("Binance ping failed: %s", exc)
@@ -323,7 +328,12 @@ class BinanceClient:
             "type": "MARKET",
             "quantity": f"{quantity:.8f}".rstrip("0").rstrip("."),
         }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+        return await self._request(
+            "POST",
+            self._api_path("/api/v3/order", "/fapi/v1/order"),
+            signed=True,
+            params=params,
+        )
 
     async def place_market_guarded(
         self,
@@ -383,7 +393,12 @@ class BinanceClient:
             "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
             "newClientOrderId": client_id,
         }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+        return await self._request(
+            "POST",
+            self._api_path("/api/v3/order", "/fapi/v1/order"),
+            signed=True,
+            params=params,
+        )
 
     async def place_ioc_limit(
         self,
@@ -421,7 +436,12 @@ class BinanceClient:
             "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
             "price": f"{price:.8f}".rstrip("0").rstrip("."),
         }
-        return await self._request("POST", "/api/v3/order", signed=True, params=params)
+        return await self._request(
+            "POST",
+            self._api_path("/api/v3/order", "/fapi/v1/order"),
+            signed=True,
+            params=params,
+        )
 
     async def exchange_info(self, symbol: Optional[str] = None) -> Dict[str, Any]:
         params: Dict[str, Any] = {}
@@ -450,7 +470,18 @@ class BinanceClient:
                 {"asset": "USDT", "free": "10000", "locked": "0"},
                 {"asset": "BTC", "free": "0.05", "locked": "0"},
             ]
-        data = await self._request("GET", "/api/v3/account", signed=True)
+        path = self._api_path("/api/v3/account", "/fapi/v2/account")
+        data = await self._request("GET", path, signed=True)
+        if self.is_futures:
+            assets = data.get("assets") or []
+            return [
+                {
+                    "asset": a.get("asset"),
+                    "free": a.get("availableBalance", "0"),
+                    "locked": a.get("initialMargin", "0"),
+                }
+                for a in assets
+            ]
         return list(data.get("balances", []))
 
     async def open_orders(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -459,7 +490,8 @@ class BinanceClient:
         params: Dict[str, Any] = {}
         if symbol:
             params["symbol"] = symbol
-        return await self._request("GET", "/api/v3/openOrders", signed=True, params=params)
+        path = self._api_path("/api/v3/openOrders", "/fapi/v1/openOrders")
+        return await self._request("GET", path, signed=True, params=params)
 
     async def _listen_key_request(
         self,
@@ -471,7 +503,8 @@ class BinanceClient:
         await self.start()
         assert self._session is not None
         headers = {"X-MBX-APIKEY": self.api_key}
-        url = f"{self.base_url.rstrip('/')}/api/v3/userDataStream"
+        listen_path = self._api_path("/api/v3/userDataStream", "/fapi/v1/listenKey")
+        url = f"{self.base_url.rstrip('/')}{listen_path}"
         async with self._session.request(method, url, params=params or {}, headers=headers) as resp:
             body = await resp.json(content_type=None)
             if resp.status >= 400:
@@ -512,4 +545,5 @@ class BinanceClient:
                 "paper": True,
             }
         params = {"symbol": symbol.upper(), "origClientOrderId": client_order_id}
-        return await self._request("GET", "/api/v3/order", signed=True, params=params)
+        path = self._api_path("/api/v3/order", "/fapi/v1/order")
+        return await self._request("GET", path, signed=True, params=params)

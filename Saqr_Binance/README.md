@@ -1,41 +1,25 @@
-# صقر (Saqr AI) — التشغيل المحلي على Binance
+# صقر (Saqr AI) — التشغيل المحلي
 
-منظومة تداول asyncio معزولة معمارياً، بدون تيليجرام/ديسكord أو أنفاق سحابية.
+انسخ المجلد إلى **`C:\Saqr_Binance\`** وضع ملف **`.env`** المعتمد في الجذر (انظر `.env.example`).
 
-## مسار التثبيت على Windows
+## تشغيل
 
-انسخ مجلد `Saqr_Binance` بالكامل إلى:
+1. `run_saqr_local.bat`
+2. لوحة التحكم: `http://127.0.0.1:8000` (المنفذ من `MOBILE_API_PORT` / `TERMINAL_WS_PORT`)
+3. WebSocket: `ws://127.0.0.1:8000/ws`
 
-- `C:\Saqr_Binance\` (المسار المعتمد للتشغيل)
-- أو `C:\Users\acer\صقر\` ثم شغّل من داخل المجلد
+## متغيرات البيئة المعتمدة
 
-## التشغيل السريع
+جميع المفاتيح موثقة في **`.env.example`** — لا تُضاف متغيرات خارج هذه القائمة في التشغيل الرسمي.
 
-1. انسخ `.env.example` إلى `.env` وأدخل مفاتيح Binance Demo إن لزم.
-2. تأكد أن `PAPER_TRADING=True` للتجربة الآمنة.
-3. شغّل `run_saqr_local.bat` (يفتح المتصفح على لوحة التحكم).
-4. WebSocket الحي: `ws://127.0.0.1:8000/ws`
+- **`PAPER_TRADING` / `EXECUTION_MODE`**: paper = تنفيذ محاكى + شموع حية
+- **`DB_PATH`**: مثال `database/saqr_local.db`
+- **`BINANCE_BASE_URL`**: Futures REST (`fapi`) عند استخدام العقود
+- **`BINANCE_MARKET_WS_URL`**: بث الشموع (Spot stream)
+- **`BINANCE_USER_WS_BASE`**: User stream (مثلاً `fstream`)
+- **`LOOP_INTERVAL_SECONDS`**: دورة المزامنة والمحركات
+- **`WATCHDOG_ENABLED`**: مراقبة تجمد الـ Event Loop
 
-## الهيكل
+## هيكل الوحدات
 
-| مجلد | الدور |
-|------|--------|
-| `gateway/` | FastAPI، Binance client، stream_service، **user_stream** (ListenKey)، **recovery_service**، WebSocket hub، sync |
-| `engines/` | SMC macro، Gold Flash، Momentum |
-| `database/` | SQLite WAL + DAO locks |
-| `terminal_ui/` | لوحة محلية مع مؤشر ● LIVE |
-| `utils/` | Logger دوّار + crash wrapper + watchdog |
-
-## Linux / Cloud (اختبار)
-
-```bash
-cd Saqr_Binance
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python -m gateway.main
-```
-
-## أمان
-
-- أوامر `STOP_MARKET` على سيرفرات Binance عند تفعيل `DEFAULT_STOP_MARKET=true`.
-- لا ترفع ملف `.env` إلى Git (مذكور في `.gitignore`).
+`gateway/` · `engines/` · `database/` · `terminal_ui/` · `utils/`

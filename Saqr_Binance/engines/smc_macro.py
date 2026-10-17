@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from database.db_manager import PositionRow
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
+from utils.runtime_env import loop_interval_seconds, stop_market_enabled
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -46,10 +47,13 @@ class SmcMacroEngine:
         self._symbols = ["BTCUSDT", "ETHUSDT"]
 
     def _tick_seconds(self) -> float:
+        return loop_interval_seconds(4.0)
+
+    def _max_concurrent(self) -> int:
         try:
-            return float(os.getenv("ENGINE_TICK_SECONDS", "2"))
+            return int(os.getenv("SMC_MAX_CONCURRENT", "4"))
         except ValueError:
-            return 2.0
+            return 4
 
     @crash_proof(component="smc_macro", restart_delay=3.0)
     async def run_forever(self) -> None:
@@ -87,12 +91,16 @@ class SmcMacroEngine:
         if bias != "LONG" or entry is None:
             return
 
+        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
+        if open_for_engine >= self._max_concurrent():
+            return
+
         qty = 0.001
         stop_pct = 0.015
         stop_price = entry * (1 - stop_pct)
         stop_id = None
 
-        if os.getenv("DEFAULT_STOP_MARKET", "true").lower() in ("1", "true", "yes"):
+        if stop_market_enabled():
             stop_resp = await self._client.place_stop_market(
                 symbol,
                 "SELL",

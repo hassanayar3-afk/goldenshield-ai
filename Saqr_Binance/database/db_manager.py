@@ -35,7 +35,7 @@ class DatabaseManager:
     """Thread-safe + async-serialized DAO over saqr_local.db."""
 
     def __init__(self, db_path: Optional[str] = None) -> None:
-        self._db_path = db_path or os.getenv("DB_PATH", "saqr_local.db")
+        self._db_path = db_path or os.getenv("DB_PATH", "database/saqr_local.db")
         self._lock = threading.RLock()
         self._async_lock = asyncio.Lock()
         self._conn: Optional[sqlite3.Connection] = None

@@ -22,6 +22,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 load_dotenv(ROOT / ".env")
+_saqr_root = os.getenv("SAqr_ROOT")
+if _saqr_root:
+    load_dotenv(Path(_saqr_root) / ".env", override=True)
 
 from database.db_manager import DatabaseManager  # noqa: E402
 from engines.gold_flash import GoldFlashEngine  # noqa: E402
@@ -41,6 +44,7 @@ from utils.crash_wrapper import (  # noqa: E402
     touch_event_loop_heartbeat,
 )
 from utils.logger_config import setup_logger  # noqa: E402
+from utils.runtime_env import service_port, watchdog_enabled  # noqa: E402
 
 logger = setup_logger("saqr.gateway")
 
@@ -98,7 +102,8 @@ async def _start_background_services() -> None:
     )
 
     register_restart_hook(_graceful_restart)
-    start_watchdog()
+    if watchdog_enabled():
+        start_watchdog()
     await hub.publish({"type": "system", "status": "online", "paper_trading": client.paper_trading})
 
 
@@ -200,8 +205,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 def main() -> None:
     import uvicorn
 
-    host = os.getenv("GATEWAY_HOST", "127.0.0.1")
-    port = int(os.getenv("GATEWAY_PORT", "8000"))
+    host = "0.0.0.0" if os.getenv("MOBILE_WEB_DIRECT_ACCESS", "").lower() in ("1", "true", "yes") else "127.0.0.1"
+    port = service_port(8000)
     logger.info("Starting Saqr gateway on http://%s:%s", host, port)
     uvicorn.run(
         "gateway.main:app",

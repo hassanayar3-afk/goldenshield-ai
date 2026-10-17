@@ -44,7 +44,7 @@ class SyncService:
 
     def interval_seconds(self) -> float:
         try:
-            return float(os.getenv("SYNC_INTERVAL_SECONDS", "5"))
+            return float(os.getenv("LOOP_INTERVAL_SECONDS", "4"))
         except ValueError:
             return 5.0
 

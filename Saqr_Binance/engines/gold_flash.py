@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
+from utils.runtime_env import loop_interval_seconds
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -52,7 +53,7 @@ class GoldFlashEngine:
             touch_event_loop_heartbeat()
             for symbol in symbols:
                 await self._tick_symbol(symbol)
-            await asyncio.sleep(float(os.getenv("ENGINE_TICK_SECONDS", "2")))
+            await asyncio.sleep(loop_interval_seconds(4.0))
 
     async def _tick_symbol(self, symbol: str) -> None:
         closes_1m = self._stream.get_closes(symbol, "1m", 200)
@@ -76,6 +77,14 @@ class GoldFlashEngine:
         await self._hub.publish({"type": "engine", "engine": self.name, "data": payload})
 
         if signal == "NEUTRAL" or last is None:
+            return
+
+        try:
+            max_pos = int(os.getenv("GOLD_FLASH_MAX_CONCURRENT", "12"))
+        except ValueError:
+            max_pos = 12
+        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
+        if open_for_engine >= max_pos:
             return
 
         side = "SELL" if signal.endswith("SHORT") else "BUY"

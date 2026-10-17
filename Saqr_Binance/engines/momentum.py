@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
+from utils.runtime_env import loop_interval_seconds, portfolio_heat_cap_fraction
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -55,7 +56,7 @@ class MomentumEngine:
             symbol = self._liquid_universe[self._cursor % len(self._liquid_universe)]
             self._cursor += 1
             await self._scan_momentum(symbol)
-            await asyncio.sleep(float(os.getenv("ENGINE_TICK_SECONDS", "2")))
+            await asyncio.sleep(loop_interval_seconds(4.0))
 
     async def _scan_momentum(self, symbol: str) -> None:
         closes = self._stream.get_closes(symbol, "1m", 120)
@@ -74,10 +75,18 @@ class MomentumEngine:
         await self._db.save_engine_state_async(self.name, payload, now)
         await self._hub.publish({"type": "engine", "engine": self.name, "data": payload})
 
-        heat_cap = float(os.getenv("MAX_PORTFOLIO_HEAT_PCT", "8"))
+        heat_cap = portfolio_heat_cap_fraction()
         if abs(momentum_score) < 0.35 or last is None:
             return
         if heat_cap <= 0:
+            return
+
+        try:
+            max_pos = int(os.getenv("MICRO_MOMENTUM_MAX_CONCURRENT", "5"))
+        except ValueError:
+            max_pos = 5
+        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
+        if open_for_engine >= max_pos:
             return
 
         side = "BUY" if momentum_score > 0 else "SELL"

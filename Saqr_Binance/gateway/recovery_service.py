@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from database.db_manager import PositionRow
 from utils.logger_config import setup_logger
+from utils.runtime_env import recovery_stop_fraction, stop_market_enabled
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -117,7 +118,7 @@ class RecoveryService:
         return False
 
     async def _rebind_stop_market(self, pos: PositionRow) -> Optional[Dict[str, Any]]:
-        if os.getenv("DEFAULT_STOP_MARKET", "true").lower() not in ("1", "true", "yes"):
+        if not stop_market_enabled():
             return None
 
         entry = pos.entry_price
@@ -126,7 +127,7 @@ class RecoveryService:
             if live:
                 entry = live
 
-        stop_pct = float(os.getenv("RECOVERY_STOP_PCT", "0.015"))
+        stop_pct = recovery_stop_fraction()
         if pos.side.upper() == "BUY":
             stop_price = entry * (1 - stop_pct)
             stop_side = "SELL"

@@ -111,7 +111,7 @@ class UserStreamService:
             )
             while self._running:
                 touch_event_loop_heartbeat()
-                await asyncio.sleep(float(os.getenv("USER_STREAM_PAPER_POLL_SECONDS", "3")))
+                await asyncio.sleep(float(os.getenv("LOOP_INTERVAL_SECONDS", "4")))
             return
 
         logger.info("Connecting user data stream")
