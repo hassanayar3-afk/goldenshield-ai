@@ -1,5 +1,8 @@
 # صقر (Saqr AI) — التشغيل المحلي
 
+**مشروع مستقل** عن GoldenShield AI (Binance محلي، FastAPI، محركات صقر الثلاثة).  
+إن وُجد هذا المجلد داخل مستودع `goldenshield-ai` على GitHub فذلك **تنظيم Git فقط** — انظر **`STANDALONE.md`** لإنشاء repo باسم **صقر** فقط.
+
 المسار المعتمد على Windows: **`C:\Users\acer\saqr\`** — ضع ملف **`.env`** في جذر هذا المجلد (انظر `.env.example`).
 
 ## تشغيل

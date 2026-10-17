@@ -4,24 +4,17 @@
 
 وكيل Cursor Cloud **يعدّل مستودع Git على سيرفر بعيد** — لا يستطيع نسخ الملفات تلقائياً إلى قرص `C:\` على جهازك unless تربط SSH (WIN_HOST) أو تنفّذ النسخ بنفسك.
 
-## الطريقة 1 — Git (مفضّلة)
+## الطريقة 1 — مستودع «صقر» فقط (مفضّلة بعد إنشائه)
 
-```powershell
-mkdir C:\Users\acer\saqr -Force
-cd C:\Users\acer\saqr
-git clone https://github.com/hassanayar3-afk/goldenshield-ai.git .
-git checkout cursor/saqr-binance-local-dcdf
-# المشروع داخل مجلد saqr داخل المستودع:
-xcopy /E /I /Y saqr\* C:\Users\acer\saqr\
-```
+1. على GitHub: **New repository** → الاسم **`saqr`** (Private).
+2. ارفع محتوى مجلد `saqr` كجذر المستودع (انظر **`STANDALONE.md`** في المشروع).
 
-أو است clone في مكان مؤقت ثم انسخ مجلد `saqr` فقط إلى `C:\Users\acer\saqr`.
+## الطريقة 2 — من مستودع GoldenShield (مؤقت فقط)
 
-## الطريقة 2 — تنزيل ZIP من GitHub
+إذا كان الكود لا يزال على فرع `cursor/saqr-binance-local-dcdf` داخل `goldenshield-ai`:
 
-1. افتح الفرع `cursor/saqr-binance-local-dcdf` على GitHub.
-2. Code → Download ZIP.
-3. فك الضغط وانسخ محتويات مجلد **`saqr`** إلى `C:\Users\acer\saqr`.
+- حمّل ZIP من ذلك الفرع وانسخ **محتويات مجلد `saqr` فقط** إلى `C:\Users\acer\saqr`.
+- **لا** تشغّل GoldenShield ولا تدمج المجلدين — صقر وحده في `C:\Users\acer\saqr`.
 
 ## بعد النسخ
 
