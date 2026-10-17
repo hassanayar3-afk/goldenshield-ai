@@ -167,6 +167,19 @@ async def index() -> FileResponse:
     return FileResponse(UI_DIR / "index.html")
 
 
+@app.get("/manifest.webmanifest")
+async def pwa_manifest() -> FileResponse:
+    return FileResponse(
+        UI_DIR / "manifest.webmanifest",
+        media_type="application/manifest+json",
+    )
+
+
+@app.get("/sw.js")
+async def pwa_service_worker() -> FileResponse:
+    return FileResponse(UI_DIR / "sw.js", media_type="application/javascript")
+
+
 @app.get("/health")
 async def health() -> Dict[str, Any]:
     touch_event_loop_heartbeat()
