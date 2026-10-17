@@ -1,6 +1,6 @@
 """
 Saqr local gateway — FastAPI server, live WebSocket, kline stream, engine orchestration.
-Run: python -m gateway.main  (from C:\\Saqr_Binance)
+Run: python -m gateway.main  (from C:\\Users\\acer\\saqr)
 """
 
 from __future__ import annotations

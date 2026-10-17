@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 REM Saqr AI — unified local launcher (Windows)
-REM Target install path: C:\Saqr_Binance\
+REM Target install path: C:\Users\acer\saqr\
 
 cd /d "%~dp0"
 
