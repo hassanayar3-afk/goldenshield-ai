@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-REM === Saqr AI — C:\Users\acer\saqr ===
+REM === Saqr AI — C:\Saqr_Binance (or your saqr project root) ===
 cd /d "%~dp0"
 if errorlevel 1 (
   echo [Saqr] ERROR: Cannot set working directory.
@@ -10,7 +10,7 @@ if errorlevel 1 (
 
 if not exist "gateway\main.py" (
   echo [Saqr] ERROR: gateway\main.py not found.
-  echo [Saqr] Run this file from project root: C:\Users\acer\saqr
+  echo [Saqr] Run this file from project root: C:\Saqr_Binance
   exit /b 1
 )
 
@@ -56,8 +56,11 @@ set "SAQR_ROOT=%CD%"
 
 echo [Saqr] Working directory: %CD%
 
-for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":8000 .*LISTENING"') do (
-  echo [Saqr] WARNING: Port 8000 is already in use ^(PID %%P^).
+set "SAQR_PORT=8000"
+for /f "usebackq tokens=2 delims==" %%A in (`findstr /B /I "MOBILE_API_PORT=" ".env" 2^>nul`) do set "SAQR_PORT=%%A"
+
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":!SAQR_PORT! .*LISTENING"') do (
+  echo [Saqr] WARNING: Port !SAQR_PORT! is already in use ^(PID %%P^).
   echo [Saqr] Close the other Saqr/Python window or run: taskkill /PID %%P /F
   echo [Saqr] Or change MOBILE_API_PORT and TERMINAL_WS_PORT in .env
   pause
@@ -65,8 +68,8 @@ for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":8000 .*LISTENING"') d
 )
 
 echo [Saqr] Starting: python gateway\main.py
-echo [Saqr] Local UI: http://127.0.0.1:8000
-start "" http://127.0.0.1:8000/
+echo [Saqr] Local UI: http://127.0.0.1:!SAQR_PORT!
+start "" http://127.0.0.1:!SAQR_PORT!/
 
 python gateway\main.py
 set EXITCODE=!ERRORLEVEL!
