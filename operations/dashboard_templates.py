@@ -531,6 +531,38 @@ def write_console_signals_board_file(
             updated_at=updated_at,
         )
         target.write_text(text, encoding="utf-8-sig")
+        try:
+            import json
+            from datetime import datetime, timezone
+
+            from terminal_app.config import RUNTIME
+
+            pulse_rows = []
+            for entry in all_entries or []:
+                if not isinstance(entry, dict):
+                    continue
+                sym = str(entry.get("symbol") or "?").upper()
+                if not sym.endswith("/USDT") and "/" not in sym:
+                    sym = f"{sym}/USDT"
+                pulse_rows.append(
+                    {
+                        "sym": sym,
+                        "score": int(entry.get("score") or 0),
+                        "signal": str(entry.get("signal") or "WAIT"),
+                        "price": float(entry.get("price") or 0),
+                    }
+                )
+            ts = datetime.now(timezone.utc).isoformat()
+            (RUNTIME / "last_cycle_signals.json").write_text(
+                json.dumps({"signals": pulse_rows, "ts": ts}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            (RUNTIME / "heartbeat.json").write_text(
+                json.dumps({"ts": ts, "service": "bot-cycle", "signals": len(pulse_rows)}),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
         return str(target)
     except Exception:
         return None

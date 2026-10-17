@@ -18,6 +18,10 @@ MODE = os.getenv("EXECUTION_MODE", "paper").strip().lower()
 
 
 def main() -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     print(f"وضع التنفيذ: {MODE}")
 
     try:
@@ -36,16 +40,10 @@ def main() -> int:
         return 0
 
     try:
-        import ccxt
+        from data.exchange_client import get_exchange, reset_exchange
 
-        exchange = ccxt.binance(
-            {
-                "apiKey": KEY,
-                "secret": SECRET,
-                "enableRateLimit": True,
-                "options": {"defaultType": "spot"},
-            }
-        )
+        reset_exchange()
+        exchange = get_exchange()
         balance = exchange.fetch_balance()
         usdt = balance.get("USDT", {})
         free = usdt.get("free", 0) if isinstance(usdt, dict) else usdt

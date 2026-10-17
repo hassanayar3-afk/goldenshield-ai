@@ -74,7 +74,16 @@ def log_bot_activity(event: str, **fields: Any) -> None:
     if not _activity_enabled():
         return
     try:
-        path = activity_file_path()
+        report_date_raw = fields.pop("report_date", None)
+        report_day: date | None = None
+        if isinstance(report_date_raw, date):
+            report_day = report_date_raw
+        elif isinstance(report_date_raw, str) and report_date_raw.strip():
+            try:
+                report_day = date.fromisoformat(report_date_raw.strip()[:10])
+            except ValueError:
+                report_day = None
+        path = activity_file_path(report_day)
         path.parent.mkdir(parents=True, exist_ok=True)
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),

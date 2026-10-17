@@ -443,13 +443,32 @@ def _maybe_send_alive_pulse(telegram_handler: TelegramCommandHandler, entries: l
         logger.warning("hourly health pulse failed: %s", exc)
 
 
-async def check_symbol(symbol: str) -> dict | None:
+async def check_symbol(
+    symbol: str,
+    *,
+    commander: str | None = None,
+    risk_pct: float | None = None,
+    engine_proposal=None,
+) -> dict | None:
     """فحص الرمز ثم محاولة التنفيذ عند تأهل الإشارة."""
     if _runtime.user_stopped or should_block_signals():
         return None
     try:
-        analyzer = MarketAnalyzer(symbol=symbol)
-        result = analyzer.analyze()
+        if engine_proposal is not None:
+            from core.analyzer import AnalysisResult
+
+            result = AnalysisResult(
+                symbol=engine_proposal.symbol,
+                signal=engine_proposal.signal,
+                price=float(engine_proposal.price),
+                sma=0.0,
+                score=int(engine_proposal.score),
+                passed=bool(engine_proposal.passed),
+                reasons=tuple(engine_proposal.reasons or ()),
+            )
+        else:
+            analyzer = MarketAnalyzer(symbol=symbol)
+            result = analyzer.analyze()
 
         if result.price <= 0:
             detail = result.reasons[0] if result.reasons else ""
@@ -462,6 +481,14 @@ async def check_symbol(symbol: str) -> dict | None:
         side = "sell" if result.signal == "SELL SIGNAL" else "buy"
         open_count = _ssot_open_count()
         prefs = resolve_trade_prefs(symbol=symbol, signal_score=result.score)
+        if risk_pct is not None and float(risk_pct) > 0:
+            from operations.trade_prefs import TradePrefs
+
+            prefs = TradePrefs(
+                risk_pct=float(risk_pct),
+                sl_pct=prefs.sl_pct,
+                rr_ratio=prefs.rr_ratio,
+            )
         hc_protocol = evaluate_high_conviction_eligibility(
             result,
             consensus=consensus,
@@ -525,11 +552,34 @@ async def check_symbol(symbol: str) -> dict | None:
         settings = get_settings()
         pct = score_to_percent(result.score)
         auto_threshold = int(getattr(settings, "auto_entry_min_percent", 90) or 90)
-        auto_ok, auto_reason = is_auto_entry_allowed(
-            result.score,
-            open_count,
-            soft_min=auto_threshold,
-        )
+        if commander:
+            try:
+                from terminal.scoring import confidence_percent, meets_elite
+
+                pct = int(confidence_percent(result.score))
+                if meets_elite(result.score):
+                    from terminal.limits import load_commander_limits
+
+                    lim = load_commander_limits()
+                    auto_ok = open_count < lim.global_max
+                    auto_reason = (
+                        f"Elite {pct}% [{commander}] — {open_count + 1}/{lim.global_max}"
+                        if auto_ok
+                        else f"سقف {lim.global_max} صفقات"
+                    )
+                else:
+                    auto_ok, auto_reason = False, f"Elite Gate {pct}%"
+            except Exception as elite_exc:  # noqa: BLE001
+                logger.warning("elite auto path: %s", elite_exc)
+                auto_ok, auto_reason = is_auto_entry_allowed(
+                    result.score, open_count, soft_min=auto_threshold
+                )
+        else:
+            auto_ok, auto_reason = is_auto_entry_allowed(
+                result.score,
+                open_count,
+                soft_min=auto_threshold,
+            )
         trial = bool(settings.trial_mode)
 
         # دخول تلقائي فقط عند ≥ عتبة الضمان (افتراضي 95) + اجتياز التحليل
@@ -680,6 +730,7 @@ async def check_symbol(symbol: str) -> dict | None:
             prefs=prefs,
             protocol=hc_protocol,
             manual_force=False,
+            commander=commander or "",
         )
         if exec_result.executed:
             print(f"📈 تنفيذ تلقائي ({pct}/100): {exec_result.message}")
@@ -786,7 +837,14 @@ async def run_bot() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("single instance lock: %s", exc)
 
-    preflight = run_pre_flight(connection_monitor=_connection_monitor)
+    skip_binance_ping = (
+        os.getenv("PRE_FLIGHT_SKIP_BINANCE_PING", "").strip().lower() in {"1", "true", "yes", "on"}
+        or os.getenv("GS_VPS_SOFT_BINANCE", "").strip().lower() in {"1", "true", "yes", "on"}
+    )
+    preflight = run_pre_flight(
+        connection_monitor=None if skip_binance_ping else _connection_monitor,
+        skip_binance_ping=skip_binance_ping,
+    )
     for check in preflight.checks:
         icon = "✅" if check.passed else "❌"
         print(f"{icon} Pre-Flight | {check.name}: {check.detail}")
@@ -1011,7 +1069,25 @@ async def run_bot() -> None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("weekend flat check فشل: %s", exc)
 
-        cycle_results = await asyncio.gather(*[check_symbol(s) for s in symbols])
+        tri_mode = (os.getenv("TRI_COMMANDER_MODE", "true") or "true").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if tri_mode:
+            from terminal.orchestrator import run_tri_commander_cycle
+
+            async def _legacy(sym: str, **kw):
+                return await check_symbol(sym, **kw)
+
+            cycle_results = await run_tri_commander_cycle(
+                symbols,
+                executor=_executor,
+                check_symbol_legacy=_legacy,
+            )
+        else:
+            cycle_results = await asyncio.gather(*[check_symbol(s) for s in symbols])
         cycle_entries = [entry for entry in cycle_results if entry]
         # تحديث أسعار الدورة (قد تتغير بعد Priority-0)
         prices = _fetch_prices(symbols)
@@ -1074,6 +1150,12 @@ async def run_bot() -> None:
             print_cycle_pulse_footer(loop_sec, open_count=open_count)
         except Exception:
             pass
+        try:
+            from operations.mobile_runtime_mirror import push_runtime_mirror
+
+            push_runtime_mirror(getattr(_risk, "state", None))
+        except Exception as mirror_exc:  # noqa: BLE001
+            logger.debug("mobile_runtime_mirror: %s", mirror_exc)
         await asyncio.sleep(loop_sec)
 
 

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from core.constants import TIMEFRAMES
+from core.constants import ANALYSIS_TIMEFRAMES, TIMEFRAMES
 from data.cache_manager import CacheManager, reset_cache_manager
 from data.connection_monitor import ConnectionMonitor
 from data.exchange_client import reset_exchange
@@ -38,7 +38,7 @@ def test_fetch_ohlcv_multi():
     fetcher = OHLCVFetcher()
     result = fetcher.fetch_multi("ETH/USDT", limit=5, use_cache=False)
 
-    assert set(result.keys()) == set(TIMEFRAMES)
+    assert set(result.keys()) == set(ANALYSIS_TIMEFRAMES)
     for timeframe, candles in result.items():
         assert len(candles) >= 1, timeframe
         assert candles[0].open > 0
