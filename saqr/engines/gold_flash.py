@@ -8,12 +8,19 @@ import asyncio
 import math
 import os
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
+from utils.entry_guards import (
+    commit_entry,
+    engine_has_capacity,
+    portfolio_heat_allows,
+    portfolio_total_capacity,
+    signal_strength_allows,
+)
 from utils.logger_config import setup_logger
-from utils.runtime_env import loop_interval_seconds
+from utils.runtime_env import loop_interval_seconds, recovery_stop_fraction, stop_market_enabled
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -72,6 +79,8 @@ class GoldFlashEngine:
             "frame": "1m/5m",
             "last_close": last,
             "spread_bps": spread_bps,
+            "strength_pct": round(min(100.0, abs(z) / 3.0 * 100.0), 1),
+            "elite_min_pct": float(os.getenv("ELITE_MIN_PERCENT", "85")),
         }
         now = datetime.now(timezone.utc).isoformat()
         await self._db.save_engine_state_async(self.name, payload, now)
@@ -82,21 +91,63 @@ class GoldFlashEngine:
         if engines_paused():
             return
 
-        try:
-            max_pos = int(os.getenv("GOLD_FLASH_MAX_CONCURRENT", "12"))
-        except ValueError:
-            max_pos = 12
-        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
-        if open_for_engine >= max_pos:
+        strength = min(100.0, abs(z) / 3.0 * 100.0)
+        if not signal_strength_allows(strength):
+            return
+        if not await portfolio_total_capacity(self._db):
+            return
+        if not await engine_has_capacity(self._db, self.name, "GOLD_FLASH_MAX_CONCURRENT", 12):
             return
 
         side = "SELL" if signal.endswith("SHORT") else "BUY"
         qty = 0.002
-        await self._client.place_market_guarded(
+        ok_heat, _ = await portfolio_heat_allows(self._db, self._client, qty * last)
+        if not ok_heat:
+            return
+
+        fill = await self._client.place_market_guarded(
             symbol,
             side,
             qty,
             last,
             spread_bps_override=spread_bps,
         )
-        logger.info("Gold flash %s %s z=%.2f spread=%s", side, symbol, z, spread_bps)
+        if not fill:
+            return
+
+        stop_id: Optional[str] = None
+        if stop_market_enabled():
+            stop_pct = recovery_stop_fraction()
+            stop_price = last * (1 - stop_pct) if side == "BUY" else last * (1 + stop_pct)
+            stop_side = "SELL" if side == "BUY" else "BUY"
+            stop_resp = await self._client.place_stop_market(
+                symbol,
+                stop_side,
+                stop_price,
+                qty,
+                reference_price=last,
+                spread_bps_override=spread_bps,
+            )
+            if stop_resp:
+                stop_id = str(stop_resp.get("clientOrderId") or stop_resp.get("orderId"))
+                await self._db.register_protection_order_async(
+                    stop_id,
+                    symbol,
+                    stop_price,
+                    str(stop_resp.get("status", "NEW")),
+                    now,
+                )
+
+        await commit_entry(
+            self._db,
+            self._hub,
+            engine=self.name,
+            symbol=symbol,
+            side=side,
+            quantity=qty,
+            entry_price=last,
+            stop_order_id=stop_id,
+            updated_at=now,
+            paper=self._client.paper_trading,
+        )
+        logger.info("Gold flash %s %s z=%.2f strength=%.1f spread=%s", side, symbol, z, strength, spread_bps)

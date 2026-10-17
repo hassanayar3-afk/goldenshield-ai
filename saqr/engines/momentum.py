@@ -12,7 +12,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
-from utils.runtime_env import loop_interval_seconds, portfolio_heat_cap_fraction
+from utils.entry_guards import (
+    commit_entry,
+    engine_has_capacity,
+    portfolio_heat_allows,
+    portfolio_total_capacity,
+    signal_strength_allows,
+)
+from utils.runtime_env import loop_interval_seconds
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -71,34 +78,52 @@ class MomentumEngine:
             "liquidity_tier": "elite",
             "last_close": last,
             "spread_bps": spread_bps,
+            "strength_pct": round(min(100.0, abs(momentum_score) / 1.0 * 100.0), 1),
+            "elite_min_pct": float(os.getenv("ELITE_MIN_PERCENT", "85")),
         }
         now = datetime.now(timezone.utc).isoformat()
         await self._db.save_engine_state_async(self.name, payload, now)
         await self._hub.publish({"type": "engine", "engine": self.name, "data": payload})
 
-        heat_cap = portfolio_heat_cap_fraction()
         if abs(momentum_score) < 0.35 or last is None:
-            return
-        if heat_cap <= 0:
             return
         if engines_paused():
             return
 
-        try:
-            max_pos = int(os.getenv("MICRO_MOMENTUM_MAX_CONCURRENT", "5"))
-        except ValueError:
-            max_pos = 5
-        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
-        if open_for_engine >= max_pos:
+        strength = min(100.0, abs(momentum_score) / 1.0 * 100.0)
+        if not signal_strength_allows(strength):
+            return
+        if not await portfolio_total_capacity(self._db):
+            return
+        if not await engine_has_capacity(self._db, self.name, "MICRO_MOMENTUM_MAX_CONCURRENT", 5):
             return
 
         side = "BUY" if momentum_score > 0 else "SELL"
         qty = 0.0015
-        await self._client.place_ioc_limit(
+        ok_heat, _ = await portfolio_heat_allows(self._db, self._client, qty * last)
+        if not ok_heat:
+            return
+
+        fill = await self._client.place_ioc_limit(
             symbol,
             side,
             qty,
             last,
             spread_bps_override=spread_bps,
         )
-        logger.info("Momentum IOC %s %s score=%.2f", side, symbol, momentum_score)
+        if not fill:
+            return
+
+        await commit_entry(
+            self._db,
+            self._hub,
+            engine=self.name,
+            symbol=symbol,
+            side=side,
+            quantity=qty,
+            entry_price=last,
+            stop_order_id=None,
+            updated_at=now,
+            paper=self._client.paper_trading,
+        )
+        logger.info("Momentum IOC %s %s score=%.2f strength=%.1f", side, symbol, momentum_score, strength)

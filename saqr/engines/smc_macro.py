@@ -9,10 +9,16 @@ import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from database.db_manager import PositionRow
 from utils.control_state import engines_paused
 from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
+from utils.entry_guards import (
+    commit_entry,
+    engine_has_capacity,
+    portfolio_heat_allows,
+    portfolio_total_capacity,
+    signal_strength_allows,
+)
 from utils.runtime_env import loop_interval_seconds, stop_market_enabled
 
 if TYPE_CHECKING:
@@ -84,6 +90,11 @@ class SmcMacroEngine:
             "entry": entry,
             "spread_bps": spread_bps,
             "frames": "1H/4H",
+            "strength_pct": round(
+                min(100.0, max(0.0, (score_1h / 0.002) * 45.0 + (score_4h / 0.001) * 45.0)),
+                1,
+            ),
+            "elite_min_pct": float(os.getenv("ELITE_MIN_PERCENT", "85")),
         }
         now = datetime.now(timezone.utc).isoformat()
         await self._db.save_engine_state_async(self.name, payload, now)
@@ -94,11 +105,32 @@ class SmcMacroEngine:
         if engines_paused():
             return
 
-        open_for_engine = sum(1 for p in await self._db.list_positions_async() if p.engine == self.name)
-        if open_for_engine >= self._max_concurrent():
+        strength = min(
+            100.0,
+            max(0.0, (score_1h / 0.002) * 45.0 + (score_4h / 0.001) * 45.0),
+        )
+        if not signal_strength_allows(strength):
+            return
+        if not await portfolio_total_capacity(self._db):
+            return
+        if not await engine_has_capacity(self._db, self.name, "SMC_MAX_CONCURRENT", 4):
             return
 
         qty = 0.001
+        ok_heat, _ = await portfolio_heat_allows(self._db, self._client, qty * entry)
+        if not ok_heat:
+            return
+
+        fill = await self._client.place_market_guarded(
+            symbol,
+            "BUY",
+            qty,
+            entry,
+            spread_bps_override=spread_bps,
+        )
+        if not fill:
+            return
+
         stop_pct = 0.015
         stop_price = entry * (1 - stop_pct)
         stop_id = None
@@ -122,15 +154,16 @@ class SmcMacroEngine:
                     now,
                 )
 
-        await self._db.upsert_position_async(
-            PositionRow(
-                symbol=symbol,
-                side="BUY",
-                quantity=qty,
-                entry_price=entry,
-                stop_order_id=stop_id,
-                engine=self.name,
-                updated_at=now,
-            )
+        await commit_entry(
+            self._db,
+            self._hub,
+            engine=self.name,
+            symbol=symbol,
+            side="BUY",
+            quantity=qty,
+            entry_price=entry,
+            stop_order_id=stop_id,
+            updated_at=now,
+            paper=self._client.paper_trading,
         )
-        logger.info("SMC macro %s bias=%s entry=%s stop=%s", symbol, bias, entry, stop_price)
+        logger.info("SMC macro %s bias=%s strength=%.1f entry=%s stop=%s", symbol, bias, strength, entry, stop_price)

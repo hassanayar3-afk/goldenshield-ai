@@ -715,6 +715,10 @@
         pushTrade(`محرك ${msg.engine}: ${JSON.stringify(msg.data).slice(0, 80)}`);
         return;
       }
+      if (msg.type === "entry") {
+        pushTrade(`دخول ${msg.symbol} ${msg.side} qty=${msg.quantity} @ ${msg.entry_price}`);
+        return;
+      }
       if (msg.type === "recovery") {
         pushTrade(`استرداد: مراكز=${msg.positions} stops=${msg.rebound_stops}`);
         return;
