@@ -19,6 +19,9 @@ from utils.runtime_env import loop_interval_seconds, no_sleep_mode
 if TYPE_CHECKING:
     from gateway.binance_client import BinanceClient
     from gateway.connection_manager import ConnectionManager
+    from gateway.stream_service import StreamService
+
+from utils.pnl import mark_price_for_symbol, unrealized_pct, unrealized_pnl
 
 logger = setup_logger("saqr.sync")
 
@@ -33,10 +36,12 @@ class SyncService:
         db: DatabaseManager,
         client: "BinanceClient",
         hub: "ConnectionManager",
+        stream: "StreamService | None" = None,
     ) -> None:
         self._db = db
         self._client = client
         self._hub = hub
+        self._stream = stream
         self._running = False
         self._last_snapshot: Dict[str, Any] = {}
 
@@ -77,16 +82,44 @@ class SyncService:
         open_orders = await self._client.open_orders()
 
         wins, losses = await self._db.closed_trade_counts_async()
+        enriched: List[Dict[str, Any]] = []
+        total_unrealized = 0.0
+        for p in positions:
+            mark = mark_price_for_symbol(self._stream, p.symbol, p.entry_price)
+            upnl = unrealized_pnl(p, mark)
+            upct = unrealized_pct(p, mark)
+            total_unrealized += upnl
+            row = dict(p.__dict__)
+            row["mark_price"] = mark
+            row["unrealized_pnl"] = round(upnl, 6)
+            row["unrealized_pct"] = round(upct, 4)
+            enriched.append(row)
+
+        usdt_equity = 0.0
+        for b in balances:
+            if str(b.get("asset", "")).upper() == "USDT":
+                usdt_equity = float(b.get("free", 0)) + float(b.get("locked", 0))
+        if usdt_equity <= 0:
+            usdt_equity = 10_000.0
+        unrealized_pct_portfolio = (total_unrealized / usdt_equity) * 100.0
+
+        positions_by_engine: Dict[str, Dict[str, Any]] = {}
+        for row in enriched:
+            positions_by_engine[str(row.get("engine", ""))] = row
+
         snapshot = {
             "type": "sync",
             "balances": balances,
-            "positions": [p.__dict__ for p in positions],
+            "positions": enriched,
+            "positions_by_engine": positions_by_engine,
             "open_orders": open_orders,
             "paper": self._client.paper_trading,
             "synced_at": now,
             "wins": wins,
             "losses": losses,
             "engines_paused": engines_paused(),
+            "total_unrealized_pnl": round(total_unrealized, 6),
+            "unrealized_pnl_pct": round(unrealized_pct_portfolio, 4),
         }
         self._last_snapshot = snapshot
         await self._hub.publish(snapshot)

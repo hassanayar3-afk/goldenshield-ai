@@ -34,6 +34,10 @@ async def run_demo_seed_if_enabled(
     try:
         mode = os.getenv("EXECUTION_MODE", "paper").strip().lower()
         if mode in ("demo", "live"):
+            logger.info(
+                "Demo seed skipped: EXECUTION_MODE=%s (seed runs only in local paper mode)",
+                mode,
+            )
             return 0
         if not demo_entry_relax():
             return 0
