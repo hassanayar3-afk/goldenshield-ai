@@ -160,9 +160,20 @@ if UI_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
 
 
+def _control_panel() -> FileResponse:
+    return FileResponse(UI_DIR / "index.html")
+
+
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(UI_DIR / "index.html")
+    return _control_panel()
+
+
+@app.get("/dashboard")
+@app.get("/control")
+async def dashboard_aliases() -> FileResponse:
+    """Web control panel (same as /)."""
+    return _control_panel()
 
 
 @app.get("/health")
