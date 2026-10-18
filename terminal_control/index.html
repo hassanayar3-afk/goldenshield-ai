@@ -426,7 +426,7 @@
         <span>Control Terminal — تشغيل محلي</span>
       </div>
       <div class="status-chips">
-        <span class="chip live"><span id="liveDot" class="dot"></span> <span id="liveLabel">OFFLINE</span></span>
+        <span class="chip live"><span id="liveDot" class="dot"></span> <span id="live-status">OFFLINE</span></span>
         <span class="chip apricot" id="chipRunning">● يعمل</span>
         <span class="chip apricot" id="chipLiquidity">سيولة عالية</span>
         <span class="chip muted" id="chipNotify">إشعارات التقديم: 0</span>
@@ -509,14 +509,12 @@
   </div>
 
   <script>
-    const host = window.location.hostname || "127.0.0.1";
-    const port = window.location.port || "8000";
-    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsEndpoint = `${wsScheme}://${host}:${port}/ws`;
-    document.getElementById("wsUrl").textContent = wsEndpoint;
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    document.getElementById("wsUrl").textContent = wsUrl;
 
     const liveDot = document.getElementById("liveDot");
-    const liveLabel = document.getElementById("liveLabel");
+    const liveLabel = document.getElementById("live-status");
     const chipRunning = document.getElementById("chipRunning");
     const chipLiquidity = document.getElementById("chipLiquidity");
     const chipNotify = document.getElementById("chipNotify");
@@ -710,9 +708,8 @@
         filtered.slice(0, 25).map((t) => formatDateTime(t.ts) + " " + t.line).join("\n");
     }
 
-    function handleMessage(raw) {
-      let msg;
-      try { msg = JSON.parse(raw); } catch { return; }
+    function updateTerminalUI(msg) {
+      if (!msg || typeof msg !== "object") return;
 
       if (msg.type === "heartbeat") {
         lastBeat = Date.now();
@@ -778,19 +775,41 @@
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         return;
       }
-      socket = new WebSocket(wsEndpoint);
-      socket.onopen = () => {
+      socket = new WebSocket(wsUrl);
+      socket.onopen = function () {
+        console.log("Saqr Live Terminal Connected Successfully!");
         setLive(true);
+        const statusEl = document.getElementById("live-status");
+        if (statusEl) {
+          statusEl.innerText = "● LIVE";
+          statusEl.style.color = "#00ff66";
+        }
         socket.send("ping");
         refreshDashboard(true);
       };
-      socket.onmessage = (ev) => handleMessage(ev.data);
-      socket.onclose = () => {
-        setLive(false);
-        clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(connect, 1000);
+      socket.onmessage = function (event) {
+        try {
+          const data = JSON.parse(event.data);
+          updateTerminalUI(data);
+        } catch (e) {
+          console.error("Error parsing WS message:", e);
+        }
       };
-      socket.onerror = () => setLive(false);
+      socket.onclose = function () {
+        console.warn("Terminal WS Disconnected. Reconnecting in 3s...");
+        setLive(false);
+        const statusEl = document.getElementById("live-status");
+        if (statusEl) {
+          statusEl.innerText = "○ RECONNECTING";
+          statusEl.style.color = "#ffaa00";
+        }
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => { location.reload(); }, 3000);
+      };
+      socket.onerror = function () {
+        setLive(false);
+        console.error("WebSocket error");
+      };
     }
 
     async function refreshDashboard(includeHistory = false) {

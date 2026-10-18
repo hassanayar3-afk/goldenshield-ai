@@ -44,6 +44,10 @@ class ConnectionManager:
             self.clients.discard(websocket)
         logger.info("WS client disconnected (%s total)", len(self.clients))
 
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """Alias for publish — fan-out to all WebSocket clients."""
+        await self.publish(message)
+
     async def publish(self, message: Dict[str, Any]) -> None:
         message.setdefault("ts", time.time())
         self._recent.append(message)
@@ -107,3 +111,7 @@ def get_connection_manager_sync() -> ConnectionManager:
     if _singleton is None:
         _singleton = ConnectionManager()
     return _singleton
+
+
+# Canonical import for FastAPI routes: from gateway_api.connection_manager import manager
+manager = get_connection_manager_sync()

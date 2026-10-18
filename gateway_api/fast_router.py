@@ -43,7 +43,7 @@ from fastapi.staticfiles import StaticFiles
 from data_highway.logging_config import setup_logger
 from data_highway.sqlite_store import DatabaseManager
 from gateway_api.binance_client import BinanceClient
-from gateway_api.connection_manager import get_connection_manager_sync
+from gateway_api.connection_manager import manager
 from gateway_api.control_service import ControlService
 from gateway_api.demo_seed import run_demo_seed_if_enabled
 from gateway_api.recovery_service import RecoveryService
@@ -55,15 +55,14 @@ from risk_sentinel.circuit_breaker import GlobalCircuitBreaker
 logger = setup_logger("saqr.gateway")
 
 db = DatabaseManager()
-hub = get_connection_manager_sync()
 client = BinanceClient()
-stream = StreamService(hub=hub)
-sync = SyncService(db, client, hub, stream=stream)
-control = ControlService(db, client, stream, hub, sync=sync)
-circuit_breaker = GlobalCircuitBreaker(db, client, stream, control, hub)
+stream = StreamService(hub=manager)
+sync = SyncService(db, client, manager, stream=stream)
+control = ControlService(db, client, stream, manager, sync=sync)
+circuit_breaker = GlobalCircuitBreaker(db, client, stream, control, manager)
 sync.set_circuit_breaker(circuit_breaker)
-recovery = RecoveryService(db, client, hub, stream)
-user_stream = UserStreamService(db, client, hub)
+recovery = RecoveryService(db, client, manager, stream)
+user_stream = UserStreamService(db, client, manager)
 
 _stream_task: Optional[asyncio.Task] = None
 _user_stream_task: Optional[asyncio.Task] = None
@@ -73,7 +72,7 @@ _sync_task: Optional[asyncio.Task] = None
 async def _graceful_restart() -> None:
     touch_event_loop_heartbeat()
     await recovery.run_boot_recovery()
-    await hub.publish({"type": "watchdog", "action": "graceful_restart"})
+    await manager.publish({"type": "watchdog", "action": "graceful_restart"})
     logger.warning("Graceful restart completed with recovery pass")
 
 
@@ -88,7 +87,7 @@ async def _start_background_services() -> None:
         client.paper_trading,
         client.execution_mode,
     )
-    await hub.start_heartbeat(interval=1.0)
+    await manager.start_heartbeat(interval=1.0)
     await recovery.run_boot_recovery()
     await control.load_runtime_flags()
     await circuit_breaker.load_state()
@@ -111,7 +110,7 @@ async def _start_background_services() -> None:
     )
 
     try:
-        seeded = await run_demo_seed_if_enabled(db, client, stream, hub)
+        seeded = await run_demo_seed_if_enabled(db, client, stream, manager)
         if seeded:
             await sync.sync_once()
             logger.info("Demo seed: %s positions synced", seeded)
@@ -121,7 +120,7 @@ async def _start_background_services() -> None:
     register_restart_hook(_graceful_restart)
     if watchdog_enabled():
         start_watchdog()
-    await hub.publish({"type": "system", "status": "online", "paper_trading": client.paper_trading})
+    await manager.publish({"type": "system", "status": "online", "paper_trading": client.paper_trading})
 
 
 async def _stop_background_services() -> None:
@@ -138,7 +137,7 @@ async def _stop_background_services() -> None:
     _stream_task = None
     _user_stream_task = None
     _sync_task = None
-    await hub.stop_heartbeat()
+    await manager.stop_heartbeat()
     stop_watchdog()
     await client.close()
     db.close()
@@ -185,7 +184,7 @@ async def health() -> Dict[str, Any]:
         "root": str(get_project_root()),
         "bind_host": bind_host(),
         "port": service_port(8000),
-        "hub": hub.snapshot(),
+        "hub": manager.snapshot(),
         "stream": stream.snapshot(),
         "sync": sync.last_snapshot.get("synced_at"),
     }
@@ -204,24 +203,18 @@ async def api_state() -> Dict[str, Any]:
         "engines_paused": engines_paused(),
         "sync": sync.last_snapshot,
         "recovery": recovery.last_report,
-        "hub": hub.snapshot(),
+        "hub": manager.snapshot(),
         "stream": stream.snapshot(),
     }
 
 
 @app.post("/api/internal/publish")
-async def internal_publish(request: Request) -> Dict[str, Any]:
+async def internal_publish(payload: Dict[str, Any], request: Request) -> Dict[str, Any]:
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1", "localhost"):
         raise HTTPException(status_code=403, detail="local_only")
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="invalid_json")
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="expected_object")
-    await hub.publish(payload)
-    return {"ok": True}
+    await manager.broadcast(payload)
+    return {"status": "broadcasted"}
 
 
 @app.post("/api/recovery/run")
@@ -238,14 +231,14 @@ async def api_control(action: str) -> Dict[str, Any]:
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    await hub.connect(websocket)
+    await manager.connect(websocket)
     try:
         while True:
             touch_event_loop_heartbeat()
-            msg = await websocket.receive_text()
-            await control.handle_ws_message(msg)
+            data = await websocket.receive_text()
+            await control.handle_ws_message(data)
     except WebSocketDisconnect:
-        await hub.disconnect(websocket)
+        await manager.disconnect(websocket)
     except Exception as exc:
         logger.warning("WS session error: %s", exc)
-        await hub.disconnect(websocket)
+        await manager.disconnect(websocket)
