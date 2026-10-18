@@ -770,6 +770,12 @@
         pushTrade("watchdog: " + (msg.action || ""));
         return;
       }
+      if (msg.type === "circuit_breaker") {
+        applyPausedUI(true);
+        chipRunning.textContent = "● قفص طوارئ";
+        pushTrade("⚠ قاطع دائرة: " + (msg.reason || "tripped"));
+        return;
+      }
     }
 
     function connect() {

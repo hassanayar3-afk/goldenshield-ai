@@ -43,6 +43,7 @@ from gateway.binance_client import BinanceClient
 from gateway.connection_manager import get_connection_manager_sync
 from gateway.control_service import ControlService
 from gateway.demo_seed import run_demo_seed_if_enabled
+from gateway.global_circuit_breaker import GlobalCircuitBreaker
 from gateway.recovery_service import RecoveryService
 from gateway.stream_service import StreamService
 from gateway.sync_service import SyncService
@@ -63,6 +64,8 @@ client = BinanceClient()
 stream = StreamService(hub=hub)
 sync = SyncService(db, client, hub, stream=stream)
 control = ControlService(db, client, stream, hub, sync=sync)
+circuit_breaker = GlobalCircuitBreaker(db, client, stream, control, hub)
+sync.set_circuit_breaker(circuit_breaker)
 recovery = RecoveryService(db, client, hub, stream)
 user_stream = UserStreamService(db, client, hub)
 
@@ -94,6 +97,7 @@ async def _start_background_services() -> None:
     await hub.start_heartbeat(interval=1.0)
     await recovery.run_boot_recovery()
     await control.load_runtime_flags()
+    await circuit_breaker.load_state()
     try:
         await stream.warm_start(client)
     except Exception as exc:

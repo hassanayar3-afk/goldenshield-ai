@@ -136,6 +136,7 @@ class SmcMacroEngine:
             qty,
             entry,
             spread_bps_override=spread_bps,
+            stream=self._stream,
         )
         if not fill:
             log_entry_skip(self.name, symbol, "order_blocked_spread_or_notional")
@@ -153,6 +154,7 @@ class SmcMacroEngine:
                 qty,
                 reference_price=entry,
                 spread_bps_override=spread_bps,
+                stream=self._stream,
             )
             if stop_resp:
                 stop_id = str(stop_resp.get("clientOrderId") or stop_resp.get("orderId"))

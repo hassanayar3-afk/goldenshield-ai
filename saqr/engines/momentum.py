@@ -117,6 +117,7 @@ class MomentumEngine:
             qty,
             last,
             spread_bps_override=spread_bps,
+            stream=self._stream,
         )
         if not fill:
             log_entry_skip(self.name, symbol, "order_blocked_spread_or_notional")

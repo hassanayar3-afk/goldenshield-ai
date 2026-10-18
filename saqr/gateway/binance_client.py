@@ -407,13 +407,27 @@ class BinanceClient:
         reference_price: float,
         *,
         spread_bps_override: Optional[float] = None,
+        stream: Optional[Any] = None,
+        skip_advanced_guard: bool = False,
     ) -> Optional[Dict[str, Any]]:
-        allowed, reason, qty = await self.validate_order(
-            symbol,
-            quantity,
-            reference_price,
-            spread_bps_override=spread_bps_override,
-        )
+        if stream is not None and not skip_advanced_guard:
+            from utils.spread_volatility_guard import advanced_pre_trade_check
+
+            allowed, reason, qty = await advanced_pre_trade_check(
+                self,
+                stream,
+                symbol,
+                quantity,
+                reference_price,
+                spread_bps_override=spread_bps_override,
+            )
+        else:
+            allowed, reason, qty = await self.validate_order(
+                symbol,
+                quantity,
+                reference_price,
+                spread_bps_override=spread_bps_override,
+            )
         if not allowed:
             logger.info("Order blocked %s %s: %s", side, symbol, reason)
             return None
@@ -428,13 +442,26 @@ class BinanceClient:
         *,
         reference_price: float,
         spread_bps_override: Optional[float] = None,
+        stream: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        allowed, reason, qty = await self.validate_order(
-            symbol,
-            quantity,
-            reference_price,
-            spread_bps_override=spread_bps_override,
-        )
+        if stream is not None:
+            from utils.spread_volatility_guard import advanced_pre_trade_check
+
+            allowed, reason, qty = await advanced_pre_trade_check(
+                self,
+                stream,
+                symbol,
+                quantity,
+                reference_price,
+                spread_bps_override=spread_bps_override,
+            )
+        else:
+            allowed, reason, qty = await self.validate_order(
+                symbol,
+                quantity,
+                reference_price,
+                spread_bps_override=spread_bps_override,
+            )
         if not allowed:
             logger.info("STOP_MARKET blocked %s: %s", symbol, reason)
             return None
@@ -472,13 +499,26 @@ class BinanceClient:
         price: float,
         *,
         spread_bps_override: Optional[float] = None,
+        stream: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        allowed, reason, qty = await self.validate_order(
-            symbol,
-            quantity,
-            price,
-            spread_bps_override=spread_bps_override,
-        )
+        if stream is not None:
+            from utils.spread_volatility_guard import advanced_pre_trade_check
+
+            allowed, reason, qty = await advanced_pre_trade_check(
+                self,
+                stream,
+                symbol,
+                quantity,
+                price,
+                spread_bps_override=spread_bps_override,
+            )
+        else:
+            allowed, reason, qty = await self.validate_order(
+                symbol,
+                quantity,
+                price,
+                spread_bps_override=spread_bps_override,
+            )
         if not allowed:
             logger.info("IOC blocked %s %s: %s", side, symbol, reason)
             return None

@@ -75,6 +75,7 @@ async def run_demo_seed_if_enabled(
                 qty,
                 last,
                 spread_bps_override=stream.get_spread_bps(symbol),
+                stream=stream,
             )
             if not fill:
                 log_entry_skip("demo_seed", symbol, "validate_order_blocked")

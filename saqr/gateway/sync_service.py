@@ -19,6 +19,7 @@ from utils.runtime_env import loop_interval_seconds, no_sleep_mode
 if TYPE_CHECKING:
     from gateway.binance_client import BinanceClient
     from gateway.connection_manager import ConnectionManager
+    from gateway.global_circuit_breaker import GlobalCircuitBreaker
     from gateway.stream_service import StreamService
 
 from utils.pnl import mark_price_for_symbol, unrealized_pct, unrealized_pnl
@@ -37,17 +38,22 @@ class SyncService:
         client: "BinanceClient",
         hub: "ConnectionManager",
         stream: "StreamService | None" = None,
+        circuit_breaker: "GlobalCircuitBreaker | None" = None,
     ) -> None:
         self._db = db
         self._client = client
         self._hub = hub
         self._stream = stream
+        self._circuit = circuit_breaker
         self._running = False
         self._last_snapshot: Dict[str, Any] = {}
 
     @property
     def last_snapshot(self) -> Dict[str, Any]:
         return dict(self._last_snapshot)
+
+    def set_circuit_breaker(self, breaker: "GlobalCircuitBreaker") -> None:
+        self._circuit = breaker
 
     def interval_seconds(self) -> float:
         if no_sleep_mode():
@@ -120,9 +126,12 @@ class SyncService:
             "engines_paused": engines_paused(),
             "total_unrealized_pnl": round(total_unrealized, 6),
             "unrealized_pnl_pct": round(unrealized_pct_portfolio, 4),
+            "circuit_breaker_tripped": self._circuit.tripped if self._circuit else False,
         }
         self._last_snapshot = snapshot
         await self._hub.publish(snapshot)
+        if self._circuit is not None:
+            await self._circuit.evaluate(snapshot)
         return snapshot
 
     def stop(self) -> None:

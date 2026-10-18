@@ -71,7 +71,7 @@ class ControlService:
             return (mark - pos.entry_price) * pos.quantity
         return (pos.entry_price - mark) * pos.quantity
 
-    async def _close_one(self, pos: PositionRow) -> Dict[str, Any]:
+    async def _close_one(self, pos: PositionRow, *, emergency: bool = False) -> Dict[str, Any]:
         mark = self._mark_price(pos, self._stream)
         pnl = self._unrealized_pnl(pos, mark)
         exit_side = "SELL" if pos.side.upper() == "BUY" else "BUY"
@@ -82,6 +82,8 @@ class ControlService:
             pos.quantity,
             mark,
             spread_bps_override=spread_bps,
+            stream=self._stream,
+            skip_advanced_guard=emergency,
         )
         now = _utc_now()
         await self._db.run_dao(
@@ -103,14 +105,14 @@ class ControlService:
             "filled": order is not None,
         }
 
-    async def _close_matching(self, predicate) -> Dict[str, Any]:
+    async def _close_matching(self, predicate, *, emergency: bool = False) -> Dict[str, Any]:
         positions = await self._db.list_positions_async()
         closed: List[Dict[str, Any]] = []
         for pos in positions:
             mark = self._mark_price(pos, self._stream)
             pnl = self._unrealized_pnl(pos, mark)
             if predicate(pnl):
-                closed.append(await self._close_one(pos))
+                closed.append(await self._close_one(pos, emergency=emergency))
         if self._sync:
             await self._sync.sync_once()
         stats = await self.trade_stats()
@@ -123,8 +125,8 @@ class ControlService:
         await self._hub.publish(result)
         return result
 
-    async def close_all(self) -> Dict[str, Any]:
-        return await self._close_matching(lambda _pnl: True)
+    async def close_all(self, *, emergency: bool = False) -> Dict[str, Any]:
+        return await self._close_matching(lambda _pnl: True, emergency=emergency)
 
     async def close_winners(self) -> Dict[str, Any]:
         return await self._close_matching(lambda pnl: pnl > 0)
