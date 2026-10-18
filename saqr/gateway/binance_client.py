@@ -30,6 +30,27 @@ def _env_bool(key: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+def _resolve_paper_trading() -> bool:
+    """Local simulated fills only when PAPER_TRADING=true or EXECUTION_MODE=paper."""
+    if _env_bool("PAPER_TRADING", False):
+        return True
+    mode = os.getenv("EXECUTION_MODE", "paper").strip().lower()
+    return mode == "paper"
+
+
+def _resolve_market_rest_url(base_url: str) -> str:
+    explicit = os.getenv("BINANCE_MARKET_REST_URL", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    base = base_url.rstrip("/")
+    low = base.lower()
+    if "testnet.binancefuture.com" in low or "fapi" in low or "binancefuture" in low:
+        if "testnet" in low:
+            return "https://testnet.binancefuture.com"
+        return "https://fapi.binance.com"
+    return os.getenv("BINANCE_MARKET_REST_URL", "https://api.binance.com").strip() or "https://api.binance.com"
+
+
 @dataclass
 class SymbolRules:
     min_notional: float = 5.0
@@ -70,16 +91,20 @@ class BinanceClient:
     api_key: str = field(default_factory=lambda: os.getenv("BINANCE_API_KEY", ""))
     api_secret: str = field(default_factory=lambda: os.getenv("BINANCE_API_SECRET", ""))
     base_url: str = field(
-        default_factory=lambda: os.getenv("BINANCE_BASE_URL", "https://demo-api.binance.com")
+        default_factory=lambda: os.getenv("BINANCE_BASE_URL", "https://testnet.binancefuture.com")
     )
-    market_rest_url: str = field(default_factory=lambda: "https://api.binance.com")
+    market_rest_url: str = field(
+        default_factory=lambda: _resolve_market_rest_url(
+            os.getenv("BINANCE_BASE_URL", "https://testnet.binancefuture.com")
+        )
+    )
     user_ws_base: str = field(
         default_factory=lambda: os.getenv("BINANCE_USER_WS_BASE", "wss://fstream.binance.com/ws").rstrip("/")
     )
-    paper_trading: bool = field(
-        default_factory=lambda: _env_bool("PAPER_TRADING", True)
-        or os.getenv("EXECUTION_MODE", "paper").strip().lower() == "paper"
+    execution_mode: str = field(
+        default_factory=lambda: os.getenv("EXECUTION_MODE", "paper").strip().lower()
     )
+    paper_trading: bool = field(default_factory=_resolve_paper_trading)
     max_retries: int = 5
     base_backoff: float = 0.5
     _session: Optional[aiohttp.ClientSession] = field(default=None, init=False, repr=False)
@@ -88,7 +113,11 @@ class BinanceClient:
 
     @property
     def is_futures(self) -> bool:
-        return "fapi" in self.base_url.lower()
+        u = self.base_url.lower()
+        return "fapi" in u or "binancefuture" in u or "fstream" in self.user_ws_base.lower()
+
+    def _market_path(self, spot_path: str, futures_path: str) -> str:
+        return futures_path if self.is_futures else spot_path
 
     def _api_path(self, spot: str, futures: str) -> str:
         return futures if self.is_futures else spot
@@ -149,6 +178,14 @@ class BinanceClient:
                 ) as resp:
                     body = await resp.json(content_type=None)
                     if resp.status >= 400:
+                        logger.error(
+                            "Binance rejected %s %s%s — HTTP %s: %s",
+                            method,
+                            base.rstrip("/"),
+                            path,
+                            resp.status,
+                            body,
+                        )
                         raise RuntimeError(f"HTTP {resp.status}: {body}")
                 if use_breaker:
                     self._breaker.record_success()
@@ -211,9 +248,15 @@ class BinanceClient:
             return True
         try:
             await self._request("GET", self._api_path("/api/v3/ping", "/fapi/v1/ping"))
+            logger.info(
+                "Binance connected mode=%s futures=%s base=%s",
+                self.execution_mode,
+                self.is_futures,
+                self.base_url,
+            )
             return True
         except Exception as exc:
-            logger.error("Binance ping failed: %s", exc)
+            logger.error("Binance ping failed (mode=%s): %s", self.execution_mode, exc)
             return False
 
     def _parse_rules(self, symbol_info: Dict[str, Any]) -> SymbolRules:
@@ -234,7 +277,8 @@ class BinanceClient:
         if symbol in self._rules_cache:
             return self._rules_cache[symbol]
         try:
-            info = await self._market_request("GET", "/api/v3/exchangeInfo", params={"symbol": symbol})
+            path = self._market_path("/api/v3/exchangeInfo", "/fapi/v1/exchangeInfo")
+            info = await self._market_request("GET", path, params={"symbol": symbol})
             symbols = info.get("symbols") or []
             if symbols:
                 rules = self._parse_rules(symbols[0])
@@ -252,11 +296,12 @@ class BinanceClient:
         interval: str,
         limit: int = 200,
     ) -> List[List[Any]]:
-        """Public spot klines for stream warm-up (paper-safe)."""
+        """Public klines for stream warm-up (spot or futures REST from env)."""
         try:
+            path = self._market_path("/api/v3/klines", "/fapi/v1/klines")
             data = await self._market_request(
                 "GET",
-                "/api/v3/klines",
+                path,
                 params={"symbol": symbol.upper(), "interval": interval, "limit": limit},
             )
             return list(data) if isinstance(data, list) else []
@@ -266,9 +311,10 @@ class BinanceClient:
 
     async def fetch_book_ticker(self, symbol: str) -> Dict[str, float]:
         try:
+            path = self._market_path("/api/v3/ticker/bookTicker", "/fapi/v1/ticker/bookTicker")
             data = await self._market_request(
                 "GET",
-                "/api/v3/ticker/bookTicker",
+                path,
                 params={"symbol": symbol.upper()},
             )
             return {

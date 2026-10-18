@@ -32,6 +32,9 @@ async def run_demo_seed_if_enabled(
     hub: "ConnectionManager",
 ) -> int:
     try:
+        mode = os.getenv("EXECUTION_MODE", "paper").strip().lower()
+        if mode in ("demo", "live"):
+            return 0
         if not demo_entry_relax():
             return 0
         target = demo_seed_trades(0)

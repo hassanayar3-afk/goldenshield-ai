@@ -83,7 +83,14 @@ async def _start_background_services() -> None:
     db.connect()
     await client.start()
     ok = await client.ping()
-    logger.info("Binance connectivity: %s (paper=%s)", ok, client.paper_trading)
+    logger.info(
+        "Binance connectivity: %s (paper=%s mode=%s futures=%s base=%s)",
+        ok,
+        client.paper_trading,
+        client.execution_mode,
+        client.is_futures,
+        client.base_url,
+    )
     await hub.start_heartbeat(interval=1.0)
     await recovery.run_boot_recovery()
     await control.load_runtime_flags()

@@ -61,7 +61,11 @@ class StreamService:
     base_backoff: float = 0.5
 
     def _ws_base(self) -> str:
-        return os.getenv("BINANCE_MARKET_WS_URL", "wss://stream.binance.com:9443").rstrip("/")
+        raw = os.getenv("BINANCE_MARKET_WS_URL", "wss://stream.binance.com:9443").rstrip("/")
+        # Combined stream URL is {host}/stream?streams=... (not .../ws/stream)
+        if raw.endswith("/ws"):
+            return raw[:-3].rstrip("/")
+        return raw
 
     def _series_for(self, symbol: str, interval: str) -> KlineSeries:
         key = (symbol.upper(), interval)
