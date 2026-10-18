@@ -561,8 +561,9 @@
       return { text: "سيولة ضعيفة", high: false };
     }
 
-    function strengthBars(score) {
-      const n = Math.min(5, Math.max(0, Math.round(Math.abs(score) * 10)));
+    function strengthBars(strengthPct) {
+      const pct = Number(strengthPct);
+      const n = Math.min(5, Math.max(0, Math.round((Number.isFinite(pct) ? pct : 0) / 20)));
       let html = '<div class="ladder">';
       for (let i = 0; i < 5; i++) {
         html += `<span class="${i < n ? "on" : ""}" style="height:${6 + i * 2}px"></span>`;
@@ -659,13 +660,15 @@
       signalsList.innerHTML = keys.map((name) => {
         const d = engineState[name].data || {};
         const spread = d.spread_bps;
-        const liqScore = spread != null && spread < 9999 ? Math.max(0, 100 - spread * 2) : 50;
-        let strength = d.momentum_score ?? d.score_1h ?? d.zscore ?? 0;
+        const liqScore =
+          spread != null && spread < 9999 ? Math.max(0, 100 - spread * 2) : null;
+        const strength = d.strength_pct ?? 0;
         const sig = d.signal || d.bias || d.liquidity_tier || "—";
+        const elite = d.elite_min_pct != null ? formatNum(d.elite_min_pct, 0) : "85";
         return `
           <div class="signal-row">
-            <div><strong style="color:var(--text)">${name}</strong><br/><small>${d.symbol || ""} · ${sig}</small></div>
-            <div title="درجة السيولة">${formatNum(liqScore, 0)}%</div>
+            <div><strong style="color:var(--text)">${name}</strong><br/><small>${d.symbol || ""} · ${sig} · قوة ${formatNum(strength, 0)}% / ${elite}%</small></div>
+            <div title="درجة السيولة (من spread)">${liqScore != null ? formatNum(liqScore, 0) + "%" : "—"}</div>
             ${strengthBars(strength)}
           </div>`;
       }).join("");

@@ -42,6 +42,7 @@ from engines.smc_macro import SmcMacroEngine
 from gateway.binance_client import BinanceClient
 from gateway.connection_manager import get_connection_manager_sync
 from gateway.control_service import ControlService
+from gateway.demo_seed import run_demo_seed_if_enabled
 from gateway.recovery_service import RecoveryService
 from gateway.stream_service import StreamService
 from gateway.sync_service import SyncService
@@ -86,6 +87,10 @@ async def _start_background_services() -> None:
     await hub.start_heartbeat(interval=1.0)
     await recovery.run_boot_recovery()
     await control.load_runtime_flags()
+    try:
+        await stream.warm_start(client)
+    except Exception as exc:
+        logger.warning("Stream warm_start failed: %s", exc)
 
     _stream_task = asyncio.create_task(
         run_supervised("stream_service", stream.run_forever),
@@ -115,6 +120,14 @@ async def _start_background_services() -> None:
     _engine_tasks.append(
         asyncio.create_task(run_supervised("sync_service", sync.run_forever), name="sync")
     )
+
+    try:
+        seeded = await run_demo_seed_if_enabled(db, client, stream, hub)
+        if seeded:
+            await sync.sync_once()
+            logger.info("Demo seed: %s positions synced to UI", seeded)
+    except Exception as exc:
+        logger.warning("Demo seed skipped: %s", exc)
 
     register_restart_hook(_graceful_restart)
     if watchdog_enabled():

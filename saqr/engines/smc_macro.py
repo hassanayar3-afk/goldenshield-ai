@@ -14,12 +14,14 @@ from utils.crash_wrapper import crash_proof, touch_event_loop_heartbeat
 from utils.logger_config import setup_logger
 from utils.entry_guards import (
     commit_entry,
+    effective_elite_min_percent,
     engine_has_capacity,
+    log_entry_skip,
     portfolio_heat_allows,
     portfolio_total_capacity,
     signal_strength_allows,
 )
-from utils.runtime_env import loop_interval_seconds, stop_market_enabled
+from utils.runtime_env import demo_entry_relax, loop_interval_seconds, stop_market_enabled
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -80,7 +82,10 @@ class SmcMacroEngine:
         sma20_4h = _sma(closes_4h, 20)
         score_1h = 0.0 if sma20_1h is None or entry is None else (entry - sma20_1h) / sma20_1h
         score_4h = 0.0 if sma20_4h is None or entry is None else (entry - sma20_4h) / sma20_4h
-        bias = "LONG" if score_1h > 0.002 and score_4h > 0.001 else "FLAT"
+        if demo_entry_relax():
+            bias = "LONG" if score_1h > 0.0003 and score_4h > 0.0001 else "FLAT"
+        else:
+            bias = "LONG" if score_1h > 0.002 and score_4h > 0.001 else "FLAT"
 
         payload: Dict[str, Any] = {
             "symbol": symbol,
@@ -94,7 +99,7 @@ class SmcMacroEngine:
                 min(100.0, max(0.0, (score_1h / 0.002) * 45.0 + (score_4h / 0.001) * 45.0)),
                 1,
             ),
-            "elite_min_pct": float(os.getenv("ELITE_MIN_PERCENT", "85")),
+            "elite_min_pct": effective_elite_min_percent(),
         }
         now = datetime.now(timezone.utc).isoformat()
         await self._db.save_engine_state_async(self.name, payload, now)
@@ -110,15 +115,19 @@ class SmcMacroEngine:
             max(0.0, (score_1h / 0.002) * 45.0 + (score_4h / 0.001) * 45.0),
         )
         if not signal_strength_allows(strength):
+            log_entry_skip(self.name, symbol, f"strength={strength:.1f}<elite={effective_elite_min_percent():.0f}")
             return
         if not await portfolio_total_capacity(self._db):
+            log_entry_skip(self.name, symbol, "max_elite_positions")
             return
         if not await engine_has_capacity(self._db, self.name, "SMC_MAX_CONCURRENT", 4):
+            log_entry_skip(self.name, symbol, "engine_capacity")
             return
 
         qty = 0.001
-        ok_heat, _ = await portfolio_heat_allows(self._db, self._client, qty * entry)
+        ok_heat, heat_reason = await portfolio_heat_allows(self._db, self._client, qty * entry)
         if not ok_heat:
+            log_entry_skip(self.name, symbol, heat_reason)
             return
 
         fill = await self._client.place_market_guarded(
@@ -129,6 +138,7 @@ class SmcMacroEngine:
             spread_bps_override=spread_bps,
         )
         if not fill:
+            log_entry_skip(self.name, symbol, "order_blocked_spread_or_notional")
             return
 
         stop_pct = 0.015

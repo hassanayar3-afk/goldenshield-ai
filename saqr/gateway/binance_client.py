@@ -246,6 +246,24 @@ class BinanceClient:
         self._rules_cache[symbol] = rules
         return rules
 
+    async def fetch_klines(
+        self,
+        symbol: str,
+        interval: str,
+        limit: int = 200,
+    ) -> List[List[Any]]:
+        """Public spot klines for stream warm-up (paper-safe)."""
+        try:
+            data = await self._market_request(
+                "GET",
+                "/api/v3/klines",
+                params={"symbol": symbol.upper(), "interval": interval, "limit": limit},
+            )
+            return list(data) if isinstance(data, list) else []
+        except Exception as exc:
+            logger.warning("fetch_klines failed %s %s: %s", symbol, interval, exc)
+            return []
+
     async def fetch_book_ticker(self, symbol: str) -> Dict[str, float]:
         try:
             data = await self._market_request(

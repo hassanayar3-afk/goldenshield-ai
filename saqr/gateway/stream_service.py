@@ -76,9 +76,15 @@ class StreamService:
 
     def get_last_close(self, symbol: str, interval: str) -> Optional[float]:
         series = self._series_for(symbol, interval)
-        if not series.closes:
-            return None
-        return series.closes[-1]
+        if series.closes:
+            return series.closes[-1]
+        ev = series.last_event
+        if ev and ev.get("close"):
+            try:
+                return float(ev["close"])
+            except (TypeError, ValueError):
+                pass
+        return None
 
     def get_spread_bps(self, symbol: str) -> Optional[float]:
         book = self._books.get(symbol.upper())
@@ -90,6 +96,46 @@ class StreamService:
             return None
         mid = (bid + ask) / 2.0
         return ((ask - bid) / mid) * 10_000.0
+
+    async def warm_start(self, client: Any) -> None:
+        """Seed klines + bookTicker so engines are not stuck FLAT/NEUTRAL on cold start."""
+        for symbol in self.symbols:
+            sym = symbol.upper()
+            try:
+                book = await client.fetch_book_ticker(sym)
+                if book.get("bid", 0) > 0 and book.get("ask", 0) > 0:
+                    self._books[sym] = {
+                        "bid": book["bid"],
+                        "ask": book["ask"],
+                        "ts": time.time(),
+                    }
+            except Exception as exc:
+                logger.warning("warm bookTicker %s: %s", sym, exc)
+
+            for interval in self.intervals:
+                try:
+                    rows = await client.fetch_klines(sym, interval, limit=200)
+                    series = self._series_for(sym, interval)
+                    for row in rows:
+                        if len(row) < 5:
+                            continue
+                        c = float(row[4])
+                        h = float(row[2])
+                        l = float(row[3])
+                        series.closes.append(c)
+                        series.highs.append(h)
+                        series.lows.append(l)
+                    if series.closes:
+                        series.last_event = {
+                            "symbol": sym,
+                            "interval": interval,
+                            "close": series.closes[-1],
+                            "closed": True,
+                            "event_time": time.time(),
+                        }
+                except Exception as exc:
+                    logger.warning("warm klines %s %s: %s", sym, interval, exc)
+        logger.info("Stream warm_start complete (books=%s)", len(self._books))
 
     def build_combined_stream_url(self) -> str:
         parts: List[str] = []
@@ -162,17 +208,18 @@ class StreamService:
         closed = bool(k.get("x", False))
 
         series = self._series_for(symbol, interval)
+        if close > 0:
+            series.last_event = {
+                "symbol": symbol,
+                "interval": interval,
+                "close": close,
+                "closed": closed,
+                "event_time": data.get("E"),
+            }
         if closed:
             series.closes.append(close)
             series.highs.append(high)
             series.lows.append(low)
-        series.last_event = {
-            "symbol": symbol,
-            "interval": interval,
-            "close": close,
-            "closed": closed,
-            "event_time": data.get("E"),
-        }
 
         if closed:
             await self.hub.publish(

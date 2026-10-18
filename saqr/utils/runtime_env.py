@@ -160,3 +160,18 @@ def bot_force_active(default: bool = True) -> bool:
 
 def no_sleep_mode(default: bool = True) -> bool:
     return env_bool("NO_SLEEP_MODE", default)
+
+
+def demo_entry_relax(default: bool = False) -> bool:
+    """
+    When true: lower effective elite threshold, warm klines, optional demo seeds.
+    Enable via SAQR_DEMO_ENTRY_RELAX=true for local paper validation.
+    """
+    return env_bool("SAQR_DEMO_ENTRY_RELAX", default) or env_bool("BOT_DEMO_ENTRY_MODE", False)
+
+
+def demo_seed_trades(default: int = 0) -> int:
+    try:
+        return int(os.getenv("SAQR_DEMO_SEED_TRADES", str(default)))
+    except ValueError:
+        return default

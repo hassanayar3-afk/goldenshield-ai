@@ -8,7 +8,10 @@ import os
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from database.db_manager import PositionRow
-from utils.runtime_env import portfolio_heat_cap_fraction
+from utils.logger_config import setup_logger
+from utils.runtime_env import demo_entry_relax, portfolio_heat_cap_fraction
+
+logger = setup_logger("saqr.entry_guards")
 
 if TYPE_CHECKING:
     from database.db_manager import DatabaseManager
@@ -30,9 +33,20 @@ def max_elite_concurrent(default: int = 20) -> int:
         return default
 
 
+def effective_elite_min_percent() -> float:
+    base = elite_min_percent()
+    if demo_entry_relax():
+        return min(base, 40.0)
+    return base
+
+
 def signal_strength_allows(strength_pct: float) -> bool:
     """Entry only when model strength meets ELITE_MIN_PERCENT (signals may still broadcast below)."""
-    return strength_pct >= elite_min_percent()
+    return strength_pct >= effective_elite_min_percent()
+
+
+def log_entry_skip(engine: str, symbol: str, reason: str) -> None:
+    logger.info("Entry skipped [%s %s]: %s", engine, symbol, reason)
 
 
 def engine_max_concurrent(env_key: str, default: int) -> int:
