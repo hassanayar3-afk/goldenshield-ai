@@ -1,0 +1,14 @@
+GoldenShield Terminal — تشغيل إنتاجي فوري
+==========================================
+
+1) ZIP: python3 scripts/build_deployment_package.py
+2) VPS: فك → C:\GoldenShield_Binance → INSTALL_GOLDENSHIELD_TERMINAL.ps1
+3) .env من config\env.production.template (Binance Demo + Discord + Tunnel)
+4) تشغيل: GS_START_FULL_STACK.bat
+5) تحقق: python scripts\smoke_terminal_api.py && python scripts\smoke_tri_commander.py
+
+APK (مسجّل GitHub):
+  deploy\windows\DOWNLOAD_APK_TO_DESKTOP.ps1
+  https://github.com/hassanayar3-afk/goldenshield-ai/releases/tag/control-apk-p1
+
+دليل كامل: docs\GOLDENSHIELD_TERMINAL_PRODUCTION_AR.md

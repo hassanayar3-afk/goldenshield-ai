@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1428" />
+  <title>GoldenShield — Control Terminal</title>
+  <link rel="stylesheet" href="/js/ui_components.css" />
+</head>
+<body class="gs-app">
+  <div class="gs-shell">
+    <button type="button" class="gs-alert-chip" id="btn-alerts" aria-pressed="false">
+      <span class="gs-alert-icon" aria-hidden="true">🔔</span>
+      <span id="alert-chip-label">تفعيل التنبيه</span>
+    </button>
+
+    <section class="gs-hero" id="hero-card">
+      <p class="gs-kicker">CONTROL TERMINAL</p>
+      <h1 class="gs-brand">GoldenShield</h1>
+      <p class="gs-sub">لوحة القيادة • نفس أزرار تيليجرام</p>
+
+      <div class="gs-stat-grid gs-stat-grid--2">
+        <div class="gs-stat-box">
+          <span class="gs-stat-label">الرصيد الحالي</span>
+          <span class="gs-stat-value" id="stat-balance">—</span>
+        </div>
+        <div class="gs-stat-box">
+          <span class="gs-stat-label">صافي اليوم</span>
+          <span class="gs-stat-value gs-stat-pct" id="stat-daily">—</span>
+        </div>
+      </div>
+
+      <div class="gs-stat-box gs-stat-box--wide">
+        <span class="gs-stat-label">مفتوحة</span>
+        <span class="gs-stat-value gs-stat-open" id="stat-open">—</span>
+      </div>
+
+      <div class="gs-stat-grid gs-stat-grid--2">
+        <div class="gs-stat-box gs-stat-box--action">
+          <span class="gs-stat-label">الصفقات الرابحة</span>
+          <span class="gs-stat-value gs-positive" id="stat-win">$0.00</span>
+          <button type="button" class="gs-action gs-action--win" id="btn-close-win">إغلاق الرابحة</button>
+        </div>
+        <div class="gs-stat-box gs-stat-box--action">
+          <span class="gs-stat-label">الصفقات الخاسرة</span>
+          <span class="gs-stat-value gs-negative" id="stat-lose">$0.00</span>
+          <button type="button" class="gs-action gs-action--lose" id="btn-close-lose">إغلاق الخاسرة</button>
+        </div>
+      </div>
+
+      <p class="gs-banner gs-banner--hidden" id="hero-banner" role="status"></p>
+      <p class="gs-sync" id="sync-line">آخر مزامنة حية: —</p>
+    </section>
+
+    <section class="gs-section" aria-labelledby="mon-title">
+      <h2 class="gs-section-title" id="mon-title">مراقبة</h2>
+
+      <details class="gs-acc" id="acc-signals" open>
+        <summary><span class="gs-acc-icon">📡</span> الإشارات</summary>
+        <div class="gs-acc-body">
+          <p class="gs-rules-line" id="signals-rules">—</p>
+          <p class="gs-muted gs-signals-meta" id="signals-meta">—</p>
+          <ul class="gs-signal-list" id="signals-list"></ul>
+        </div>
+      </details>
+
+      <details class="gs-acc" id="acc-positions">
+        <summary><span class="gs-acc-icon">📂</span> مراكزي</summary>
+        <div class="gs-acc-body">
+          <ul class="gs-pos-list" id="positions-list"></ul>
+        </div>
+      </details>
+
+      <details class="gs-acc" id="acc-history">
+        <summary><span class="gs-acc-icon">📜</span> سجل الصفقات</summary>
+        <div class="gs-acc-body">
+          <ul class="gs-history-list" id="history-list"></ul>
+        </div>
+      </details>
+
+      <details class="gs-acc" id="acc-report">
+        <summary><span class="gs-acc-icon">📋</span> التقرير</summary>
+        <div class="gs-acc-body">
+          <div class="gs-report-grid" id="report-body">—</div>
+        </div>
+      </details>
+    </section>
+
+    <section class="gs-section" aria-labelledby="ctrl-title">
+      <h2 class="gs-section-title" id="ctrl-title">تحكم</h2>
+      <button type="button" class="gs-control-main" id="btn-toggle-run">
+        <span class="gs-control-icon" id="toggle-run-icon">⏸</span>
+        <span id="toggle-run-label">إيقاف</span>
+      </button>
+      <div class="gs-control-row">
+        <button type="button" class="gs-control-secondary" id="btn-refresh">تحديث</button>
+        <button type="button" class="gs-control-danger" id="btn-panic">طوارئ</button>
+      </div>
+      <details class="gs-acc gs-acc--compact" id="acc-advanced">
+        <summary>إعدادات متقدمة (PIN / Pocket Lock)</summary>
+        <div class="gs-acc-body" id="pocket-lock-panel"></div>
+      </details>
+    </section>
+
+    <section class="gs-card gs-pair gs-pair--hidden" id="pair-card" aria-hidden="true">
+      <h2>ربط الجهاز</h2>
+      <label>رمز الربط<input type="text" id="pair-code" autocomplete="off" /></label>
+      <label>اسم الجهاز<input type="text" id="device-name" value="WebPanel" /></label>
+      <button type="button" class="gs-control-secondary" id="btn-pair">ربط</button>
+      <p class="gs-muted" id="pair-status"></p>
+    </section>
+  </div>
+
+  <p class="gs-footer-status" id="status-line" aria-live="polite"></p>
+
+  <script src="/js/api_client.js"></script>
+  <script src="/js/pocket_lock_ui.js"></script>
+  <script src="/js/ui_components.js"></script>
+</body>
+</html>

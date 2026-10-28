@@ -227,9 +227,19 @@ class OrderManager:
                         last_err = str(exc2)
                         logger.debug("unified SL/TP failed %s: %s", symbol, exc2)
 
-            # 2) وقف فقط — كافٍ للتأكيد (TP يُدار من البوت عبر manage_positions)
+            # 2) Server-Side Hard SL — STOP_MARKET أولاً (GoldenShield Terminal)
             if not stop_ok:
                 for order_type, price, params in (
+                    (
+                        "STOP_MARKET",
+                        None,
+                        {"stopPrice": sl},
+                    ),
+                    (
+                        "stop_market",
+                        None,
+                        {"stopPrice": sl},
+                    ),
                     (
                         "STOP_LOSS_LIMIT",
                         sl_limit,

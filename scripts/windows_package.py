@@ -48,6 +48,10 @@ def production_env(local: dict[str, str]) -> str:
             f"TELEGRAM_BOT_USERNAME={local.get('TELEGRAM_BOT_USERNAME', 'GoldenShield_2026_bot')}",
             f"TELEGRAM_CHAT_ID={local.get('TELEGRAM_CHAT_ID', '')}",
             f"TELEGRAM_BACKUP_CHANNEL_ID={local.get('TELEGRAM_BACKUP_CHANNEL_ID', '')}",
+            f"DISCORD_NOTIFY_ENABLED={local.get('DISCORD_NOTIFY_ENABLED', 'true')}",
+            f"DISCORD_WEBHOOK_URL={local.get('DISCORD_WEBHOOK_URL', '')}",
+            f"DISCORD_BOT_TOKEN={local.get('DISCORD_BOT_TOKEN', '')}",
+            f"DISCORD_CHANNEL_ID={local.get('DISCORD_CHANNEL_ID', '')}",
             "DB_PATH=storage/db/goldenshield.db",
         ]
     ) + "\n"

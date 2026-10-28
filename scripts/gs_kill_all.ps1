@@ -7,7 +7,10 @@ $patterns = @(
     'gs_daemon\.ps1',
     'BOT_WINDOW\.(bat|ps1)',
     'live_console\.(bat|ps1)',
-    '00_LIVE_CONSOLE\.bat'
+    '00_LIVE_CONSOLE\.bat',
+    'terminal_app\.server',
+    'discord_bridge\.py',
+    'cloudflared'
 )
 Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.CommandLine -and (
@@ -17,7 +20,10 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         ($_.CommandLine -match 'gs_daemon\.ps1') -or
         ($_.CommandLine -match 'BOT_WINDOW\.(bat|ps1)') -or
         ($_.CommandLine -match 'live_console\.(bat|ps1)') -or
-        ($_.CommandLine -match '00_LIVE_CONSOLE')
+        ($_.CommandLine -match '00_LIVE_CONSOLE') -or
+        ($_.CommandLine -match 'terminal_app\.server') -or
+        ($_.CommandLine -match 'discord_bridge\.py') -or
+        ($_.CommandLine -match 'cloudflared')
     )
 } | ForEach-Object {
     try {
