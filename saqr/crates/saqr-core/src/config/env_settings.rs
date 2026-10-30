@@ -1,0 +1,117 @@
+use std::env;
+
+#[derive(Debug, Clone)]
+pub struct BinanceEndpoints {
+    pub rest_base_url: String,
+    pub ws_base_url: String,
+    pub spot_web_url: String,
+    pub recv_window_ms: u64,
+    pub testnet: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TelegramSettings {
+    pub bot_token: String,
+    pub chat_id: String,
+    pub secondary_bot_token: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CloudServerSettings {
+    pub host: String,
+    pub port: u16,
+    pub ssh_user: String,
+    pub password: String,
+    pub public_dashboard_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct SaqrSettings {
+    pub mode: String,
+    pub require_integrated_demo: bool,
+    pub enable_trading: bool,
+    pub initial_balance_usd: f64,
+    pub symbol: String,
+    pub api_key: String,
+    pub api_secret: String,
+    pub binance: BinanceEndpoints,
+    pub telegram: TelegramSettings,
+    pub cloud: CloudServerSettings,
+    pub web_bind_host: String,
+    pub web_bind_port: u16,
+}
+
+impl SaqrSettings {
+    pub fn from_env() -> Self {
+        let testnet = env_bool("BINANCE_TESTNET", true);
+        let rest = env::var("BINANCE_REST_URL").unwrap_or_else(|_| {
+            if testnet {
+                "https://testnet.binance.vision".into()
+            } else {
+                "https://api.binance.com".into()
+            }
+        });
+        let ws = env::var("BINANCE_WS_URL").unwrap_or_else(|_| {
+            if testnet {
+                "wss://testnet.binance.vision".into()
+            } else {
+                "wss://stream.binance.com:9443".into()
+            }
+        });
+
+        Self {
+            mode: env::var("SAQR_MODE").unwrap_or_else(|_| "demo".into()),
+            require_integrated_demo: env_bool("SAQR_REQUIRE_INTEGRATED_DEMO", false),
+            enable_trading: env_bool("SAQR_ENABLE_TRADING", true),
+            initial_balance_usd: env_f64("SAQR_INITIAL_BALANCE_USD", 500.0),
+            symbol: env::var("SAQR_SYMBOL").unwrap_or_else(|_| "BTCUSDT".into()),
+            api_key: env::var("BINANCE_API_KEY").unwrap_or_default(),
+            api_secret: env::var("BINANCE_API_SECRET").unwrap_or_default(),
+            binance: BinanceEndpoints {
+                rest_base_url: rest,
+                ws_base_url: ws,
+                spot_web_url: env::var("BINANCE_SPOT_WEB_URL").unwrap_or_default(),
+                recv_window_ms: env::var("BINANCE_RECV_WINDOW")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(5000),
+                testnet,
+            },
+            telegram: TelegramSettings {
+                bot_token: env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default(),
+                chat_id: env::var("TELEGRAM_CHAT_ID").unwrap_or_default(),
+                secondary_bot_token: env::var("TELEGRAM_SECONDARY_BOT_TOKEN").ok(),
+            },
+            cloud: CloudServerSettings {
+                host: env::var("CLOUD_SERVER_HOST").unwrap_or_default(),
+                port: env_u16("CLOUD_SERVER_PORT", 22),
+                ssh_user: env::var("CLOUD_SERVER_SSH_USER").unwrap_or_default(),
+                password: env::var("CLOUD_SERVER_PASSWORD").unwrap_or_default(),
+                public_dashboard_url: env::var("SAQR_PUBLIC_DASHBOARD_URL").unwrap_or_default(),
+            },
+            web_bind_host: env::var("SAQR_WEB_BIND_HOST").unwrap_or_else(|_| "0.0.0.0".into()),
+            web_bind_port: env_u16("SAQR_WEB_BIND_PORT", 8788),
+        }
+    }
+}
+
+fn env_bool(key: &str, default: bool) -> bool {
+    match env::var(key) {
+        Ok(v) => matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"),
+        Err(_) => default,
+    }
+}
+
+fn env_f64(key: &str, default: f64) -> f64 {
+    env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+fn env_u16(key: &str, default: u16) -> u16 {
+    env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}

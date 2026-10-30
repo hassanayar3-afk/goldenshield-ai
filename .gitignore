@@ -25,4 +25,7 @@ node_modules/
 .env.local
 .env.*.local
 !.env.example
+saqr.env
+saqr-rust/
+saqr/.env
 storage/exports/ 

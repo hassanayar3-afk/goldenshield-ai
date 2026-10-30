@@ -1,0 +1,20 @@
+[package]
+name = "saqr-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "saqr"
+path = "src/main.rs"
+
+[dependencies]
+saqr-core = { path = "../saqr-core" }
+dotenvy = "0.15"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+parking_lot = "0.12"

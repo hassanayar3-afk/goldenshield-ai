@@ -1,0 +1,9 @@
+[workspace]
+members = ["crates/saqr-core", "crates/saqr-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "6.2.3"
+edition = "2021"
+license = "Proprietary"
+authors = ["SAQR Engine"]

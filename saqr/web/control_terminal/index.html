@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAQR | صقر - Control Terminal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        gold: {
+          100: '#FDF8E1', 300: '#E6C875', 400: '#D4AF37', 500: '#C59B27', 600: '#9A781C', dark: '#4A3B0F'
+        }
+      },
+      fontFamily: { cairo: ['Cairo', 'sans-serif'], num: ['Inter', 'sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Cairo', sans-serif; background-color: #07090e; color: #d1d5db; font-weight: 600; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+@keyframes softSubtleGlow { 0%, 100% { border-color: rgba(212, 175, 55, 0.2); box-shadow: 0 0 6px rgba(212, 175, 55, 0.08); } 50% { border-color: rgba(212, 175, 55, 0.35); box-shadow: 0 0 10px rgba(212, 175, 55, 0.12); } }
+.gold-subtle-card { animation: softSubtleGlow 3s ease-in-out infinite; }
+@keyframes pulseGoldGlow { 0%, 100% { border-color: rgba(212, 175, 55, 0.2); } 50% { border-color: rgba(212, 175, 55, 0.4); } }
+@keyframes pulseBlueGlow { 0%, 100% { border-color: rgba(59, 130, 246, 0.2); } 50% { border-color: rgba(59, 130, 246, 0.4); } }
+@keyframes pulseAmberGlow { 0%, 100% { border-color: rgba(245, 158, 11, 0.2); } 50% { border-color: rgba(245, 158, 11, 0.4); } }
+@keyframes pulsePurpleGlow { 0%, 100% { border-color: rgba(168, 85, 247, 0.2); } 50% { border-color: rgba(168, 85, 247, 0.4); } }
+@keyframes pulseEmeraldGlow { 0%, 100% { border-color: rgba(16, 185, 129, 0.2); } 50% { border-color: rgba(16, 185, 129, 0.4); } }
+@keyframes pulseTealGlow { 0%, 100% { border-color: rgba(20, 184, 166, 0.2); } 50% { border-color: rgba(20, 184, 166, 0.4); } }
+.glow-signals { animation: pulseGoldGlow 3s ease-in-out infinite; }
+.glow-positions { animation: pulseBlueGlow 3s ease-in-out infinite 0.4s; }
+.glow-liquidity { animation: pulseAmberGlow 3s ease-in-out infinite 0.8s; }
+.glow-calculator { animation: pulsePurpleGlow 3s ease-in-out infinite 1.2s; }
+.glow-reports { animation: pulseEmeraldGlow 3s ease-in-out infinite 1.6s; }
+.glow-history { animation: pulseTealGlow 3s ease-in-out infinite 2s; }
+.bg-grid-pattern { background-size: 32px 32px; background-image: linear-gradient(to right, rgba(255,255,255,0.008) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.008) 1px, transparent 1px); }
+.font-num { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+.accordion-content { display: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.accordion-content.open { display: block; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #07090e; }
+::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c59b27; }
+</style>
+</head>
+<body class="bg-[#07090e] min-h-screen text-gray-300 bg-grid-pattern relative pb-8 selection:bg-gold-500/30 selection:text-white">
+<div class="fixed top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gold-500/2 rounded-full blur-[180px] pointer-events-none"></div>
+<div class="max-w-md md:max-w-lg mx-auto px-3.5 pt-3.5">
+<div class="flex items-center justify-between bg-[#0d111a]/90 backdrop-blur-md px-3 py-2 rounded-xl border border-gray-800/60 mb-3 shadow-sm">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span id="statusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500/50 opacity-50"></span>
+<span id="statusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+</span>
+<span id="statusText" class="text-[11px] font-bold text-emerald-400/90 tracking-wide">النظام: نشط</span>
+<span class="text-gray-700 text-[10px]">|</span>
+<span class="text-[11px] font-num text-gray-400 font-medium">سيولة موثوقة</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button id="alertToggle" onclick="toggleAlerts()" class="flex items-center gap-1.5 bg-[#121724] hover:bg-[#182030] text-gray-300 hover:text-white text-[11px] px-2.5 py-1 rounded-lg border border-gray-800/80 transition-all active:scale-95 font-medium shadow-sm">
+<i id="alertIcon" class="fa-solid fa-bell text-gold-400/80 text-[10px]"></i>
+<span id="alertText">التنبيهات مفعلة</span>
+</button>
+</div>
+</div>
+<div class="bg-[#0d111a] rounded-2xl p-3.5 border border-gold-500/20 gold-subtle-card relative overflow-hidden shadow-lg mb-3">
+<div class="text-center relative z-10">
+<h1 class="text-xl font-bold text-gray-200 font-cairo tracking-wide">صـقـر <span class="text-gold-400/90 font-num font-medium text-xs tracking-wider">| SAQR</span></h1>
+<p class="text-[11px] text-gray-400 mt-0.5 font-medium">لوحة التحكم التكتيكية • نظام إدارة التداول الآلي</p>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-3">
+<div class="bg-[#121724] p-2.5 rounded-xl border border-gray-800/70 text-center">
+<div class="text-[11px] text-gray-400 font-medium">الرصيد الإجمالي</div>
+<div id="totalBalance" class="text-base font-num font-bold text-gray-200 mt-0.5 transition-all">10,483.43 $</div>
+</div>
+<div class="bg-[#121724] p-2.5 rounded-xl border border-gray-800/70 text-center">
+<div class="text-[11px] text-gray-400 font-medium">أرباح اليوم</div>
+<div id="dailyProfitPct" class="text-base font-num font-bold text-emerald-400/90 mt-0.5">+1.84%</div>
+</div>
+</div>
+<div class="mt-2 bg-[#121724]/80 px-3 py-2 rounded-xl border border-gray-800/70 flex items-center justify-between text-xs">
+<span class="text-gray-300 font-medium">الصفقات المفتوحة حالياً</span>
+<span id="activePositionsCount" class="font-num font-bold bg-gold-500/10 text-gold-400/90 px-2.5 py-0.5 rounded border border-gold-500/20">3</span>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-2">
+<div class="bg-emerald-950/10 p-2.5 rounded-xl border border-emerald-500/20 flex flex-col justify-between">
+<div>
+<div class="text-[11px] text-gray-400 font-medium">الصفقات الرابحة:</div>
+<div id="winningPnlVal" class="text-xs font-num font-bold text-emerald-400/90 mt-1">+178.50 $</div>
+</div>
+<button onclick="closeWinningTrades()" class="mt-2.5 w-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 shadow-sm">إغلاق الرابحة</button>
+</div>
+<div class="bg-rose-950/10 p-2.5 rounded-xl border border-rose-500/20 flex flex-col justify-between">
+<div>
+<div class="text-[11px] text-gray-400 font-medium">الصفقات الخاسرة:</div>
+<div id="losingPnlVal" class="text-xs font-num font-bold text-rose-400/90 mt-1">-14.20 $</div>
+</div>
+<button onclick="closeLosingTrades()" class="mt-2.5 w-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 shadow-sm">إغلاق الخاسرة</button>
+</div>
+</div>
+<div class="mt-3 pt-2 border-t border-gray-800/60 flex justify-between items-center text-[11px] text-gray-400 font-medium">
+<span>زمن السيرفر التكتيكي</span>
+<span id="syncTime" class="font-num text-gold-400/90 font-bold">--:--:--</span>
+</div>
+</div>
+<!-- accordions: signals, positions, liquidity, calculator, reports, history - same structure as spec -->
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-signals transition-all duration-300">
+<button onclick="toggleAccordion('signalsSec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-400/90 text-[11px]"><i class="fa-solid fa-signal"></i></div><h3 class="font-bold text-xs text-gray-200">الإشارات الفنية</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="signalsSec-icon" class="fa-solid fa-chevron-down text-gold-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="signalsSec" class="accordion-content">
+<div class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-2 text-xs">
+<div class="flex items-center justify-between bg-[#121724]/90 p-2 rounded-xl border border-gray-800/60">
+<div class="flex items-center gap-1.5 text-[11px] text-gray-300 font-medium"><i class="fa-regular fa-clock text-gold-400/80"></i><span>التحديث القادم:</span><span id="signalTimer" class="font-num text-gold-400/90 font-bold text-xs">00:04</span></div>
+<button onclick="refreshSignals(true)" class="bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/30 text-gold-300 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"><i id="refreshIcon" class="fa-solid fa-rotate text-[10px]"></i><span>تحديث يدوي</span></button>
+</div>
+<div id="signalsList" class="space-y-1.5 max-h-80 overflow-y-auto pr-0.5"></div>
+</div></div></div>
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-positions transition-all duration-300">
+<button onclick="toggleAccordion('positionsSec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400/90 text-[11px]"><i class="fa-solid fa-chart-line"></i></div><h3 class="font-bold text-xs text-gray-200">مراكزي المفتوحة</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="positionsSec-icon" class="fa-solid fa-chevron-down text-blue-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="positionsSec" class="accordion-content"><div id="positionsList" class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-2"></div></div></div>
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-liquidity transition-all duration-300">
+<button onclick="toggleAccordion('liquiditySec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400/90 text-[11px]"><i class="fa-solid fa-fire"></i></div><h3 class="font-bold text-xs text-gray-200">الأعلى سيولة</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="liquiditySec-icon" class="fa-solid fa-chevron-down text-amber-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="liquiditySec" class="accordion-content"><div id="liquidityList" class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-1.5 text-xs"></div></div></div>
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-calculator transition-all duration-300">
+<button onclick="toggleAccordion('toolsSec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400/90 text-[11px]"><i class="fa-solid fa-calculator"></i></div><h3 class="font-bold text-xs text-gray-200">حاسبة العقود</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="toolsSec-icon" class="fa-solid fa-chevron-down text-purple-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="toolsSec" class="accordion-content">
+<div class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-3 text-xs">
+<div class="bg-[#121724]/90 p-3 rounded-xl border border-gray-800/70 space-y-2.5">
+<div class="flex items-center justify-between">
+<div class="font-bold text-purple-300/90 flex items-center gap-1.5 text-xs"><i class="fa-solid fa-calculator text-[11px]"></i><span>حاسبة حجم العقود</span></div>
+<button id="calcPowerBtn" onclick="toggleCalculatorPower()" class="bg-rose-950/40 hover:bg-rose-950/60 border border-rose-500/30 text-rose-400/90 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"><i id="calcPowerIcon" class="fa-solid fa-power-off text-[9px]"></i><span id="calcPowerText">متوقف (غير مفعل)</span></button>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div><label class="text-[11px] text-gray-400 font-medium block mb-1">رأس المال ($)</label><input type="number" id="calcCapital" value="0.00" disabled class="w-full bg-[#0d111a] border border-gray-800 rounded-lg px-2.5 py-1.5 text-gray-500 font-num text-xs opacity-60"></div>
+<div><label class="text-[11px] text-gray-400 font-medium block mb-1">المخاطرة (%)</label><input type="number" id="calcRisk" value="0.00" disabled class="w-full bg-[#0d111a] border border-gray-800 rounded-lg px-2.5 py-1.5 text-gray-500 font-num text-xs opacity-60"></div>
+</div>
+<button id="calcBtn" onclick="calculateLotSize()" disabled class="w-full bg-gray-800 text-gray-500 py-2 rounded-lg font-bold text-[11px] cursor-not-allowed shadow">حساب العقد المناسب (معطل)</button>
+<div id="calcResult" class="text-[11px] text-gray-400 font-num font-medium text-center pt-1">الحاسبة معطلة ومصفرة بالكامل. قم بتفعيل الزر لأداء الحسابات.</div>
+</div></div></div></div>
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-reports transition-all duration-300">
+<button onclick="toggleAccordion('reportsSec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400/90 text-[11px]"><i class="fa-solid fa-chart-pie"></i></div><h3 class="font-bold text-xs text-gray-200">التقارير</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="reportsSec-icon" class="fa-solid fa-chevron-down text-emerald-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="reportsSec" class="accordion-content">
+<div class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-2.5 text-xs">
+<div class="flex items-center justify-between bg-[#121724]/90 p-2 rounded-xl border border-gray-800/60">
+<span class="font-bold text-gray-300 text-xs">اختر الفترة الزمنيّة:</span>
+<div class="flex items-center gap-1 bg-[#0d111a] p-0.5 rounded-lg border border-gray-800">
+<button onclick="setReportPeriod('daily')" id="btnDaily" class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-700/80 text-white transition-all shadow-sm">اليومي</button>
+<button onclick="setReportPeriod('weekly')" id="btnWeekly" class="px-2.5 py-1 rounded-md text-[10px] font-medium text-gray-400 hover:text-white transition-all">الأسبوعي</button>
+<button onclick="setReportPeriod('monthly')" id="btnMonthly" class="px-2.5 py-1 rounded-md text-[10px] font-medium text-gray-400 hover:text-white transition-all">الشهري</button>
+</div></div>
+<div class="space-y-1.5 font-num">
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الأساسي</span><span id="repBaseBal" class="text-xs font-bold text-gray-200">10,000.00 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الحالي</span><span id="repCurrBal" class="text-xs font-bold text-emerald-400/90 transition-all">10,483.43 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الصفقات الرابحة (مجموع)</span><span id="repWinAmt" class="text-xs font-bold text-emerald-400/90">+183.43 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الصفقات الخاسرة (مجموع)</span><span id="repLossAmt" class="text-xs font-bold text-rose-400/90">-0.00 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">عدد الصفقات الرابحة</span><span id="repWinCount" class="text-xs font-bold text-emerald-400/90">4 صفقات</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">عدد الصفقات الخاسرة</span><span id="repLossCount" class="text-xs font-bold text-rose-400/90">0 صفقات</span></div>
+</div></div></div></div>
+<div class="bg-[#0d111a] border rounded-xl overflow-hidden mb-3 shadow-sm glow-history transition-all duration-300">
+<button onclick="toggleAccordion('historySec')" class="w-full p-2.5 flex items-center justify-between text-right hover:bg-[#121724]/70 transition-colors">
+<div class="flex items-center gap-2.5"><div class="w-6 h-6 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400/90 text-[11px]"><i class="fa-solid fa-history"></i></div><h3 class="font-bold text-xs text-gray-200">سجل الصفقات</h3></div>
+<div class="w-5 h-5 rounded-md bg-[#121724] border border-gray-800 flex items-center justify-center"><i id="historySec-icon" class="fa-solid fa-chevron-down text-teal-400/80 text-[10px] transition-transform duration-200"></i></div>
+</button>
+<div id="historySec" class="accordion-content"><div id="historyList" class="accordion-inner p-2.5 border-t border-gray-800/60 bg-[#07090e]/60 space-y-1.5 text-xs"></div></div></div>
+<div class="bg-[#0d111a] border border-gray-800/80 p-3 rounded-xl shadow-sm space-y-2 mt-4">
+<button id="toggleBotBtn" onclick="toggleBotState()" class="w-full bg-[#121724] hover:bg-[#182030] border border-gold-500/30 text-gold-400/90 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"><i id="botBtnIcon" class="fa-solid fa-pause text-[10px]"></i><span id="botBtnText">إيقاف عمليات البوت مؤقتاً</span></button>
+<button onclick="emergencyCloseAll()" class="w-full bg-rose-950/20 hover:bg-rose-950/40 border border-rose-500/30 text-rose-300/90 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"><i class="fa-solid fa-circle-xmark text-[10px]"></i><span>إغلاق كلي لجميع الصفقات (إغلاق طوارئ)</span></button>
+</div>
+<div class="text-center mt-6 text-[10px] text-gray-500 font-num font-medium flex items-center justify-center gap-2"><span>SAQR SYSTEM • LIVE TERMINAL ENGINE v6.5</span><span class="h-1 w-1 bg-emerald-500/70 rounded-full"></span><span class="text-emerald-500/80 font-bold">ONLINE</span></div>
+</div>
+<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-gray-100 border border-gray-700 px-4 py-2 rounded-xl text-xs font-bold shadow-xl opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2 z-50"><i class="fa-solid fa-circle-check text-xs text-gold-400"></i><span id="toastMsg">تم الإجراء بنجاح</span></div>
+<script src="./dashboard.js"></script>
+</body>
+</html>
