@@ -13,7 +13,7 @@ fi
 
 OUT_NAME="Saqr-Windows-Complete-v6.2.3-bridge"
 if $INCLUDE_ENV; then
-  OUT_NAME="Saqr-Windows-Complete-v6.2.3-bridge-configured"
+  OUT_NAME="Saqr-Windows-Complete-v6.2.3-FULL"
 fi
 STAGE="/tmp/${OUT_NAME}"
 ZIP="/tmp/${OUT_NAME}.zip"
@@ -172,7 +172,8 @@ echo "PACKAGE_READY $ZIP ($(du -h "$ZIP" | cut -f1))"
 
 if $INCLUDE_ENV; then
   cp "$ZIP" /opt/cursor/artifacts/"${OUT_NAME}.zip"
-  echo "[artifact] configured zip (with .env) → /opt/cursor/artifacts/${OUT_NAME}.zip"
+  cp "$ZIP" /opt/cursor/artifacts/Saqr-Windows-Complete-v6.2.3-bridge-configured.zip
+  echo "[artifact] FULL zip (with .env) → /opt/cursor/artifacts/${OUT_NAME}.zip"
 else
   cp "$ZIP" "$ROOT/storage/${OUT_NAME}.zip" 2>/dev/null || mkdir -p "$ROOT/storage" && cp "$ZIP" "$ROOT/storage/${OUT_NAME}.zip"
   cp "$ZIP" /opt/cursor/artifacts/"${OUT_NAME}.zip" 2>/dev/null || true
