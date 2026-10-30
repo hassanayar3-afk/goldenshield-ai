@@ -3,6 +3,8 @@ mod control_actions;
 mod dashboard_api;
 mod env_loader;
 mod market_api;
+mod market_signals;
+mod telegram_control;
 mod gc_worker;
 mod hot_loop;
 mod integrations_bridge;
@@ -98,26 +100,45 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    integrations_bridge::spawn_integrations_bridge(settings.clone());
+    if !settings.telegram_control_panel {
+        integrations_bridge::spawn_integrations_bridge(settings.clone());
+    }
     telegram_bridge::spawn_bidirectional_bridge(Arc::clone(&rt));
+    telegram_control::spawn_telegram_control_panel(Arc::clone(&rt));
     hot_loop::spawn_hot_loop(Arc::clone(&rt));
     spawn_console_live_ticker(Arc::clone(&rt));
 
-    let web_root = resolve_web_root();
-    eprintln!("[SAQR] dashboard web root: {web_root}");
-    let web_rt = (*rt).clone();
-    tokio::spawn(async move {
-        if let Err(e) = web_server::start_web(web_rt, &web_root).await {
-            eprintln!("[SAQR WEB ERROR] {e}");
-            tracing::error!("web server error: {e}");
-        }
-    });
+    if settings.web_enabled {
+        let web_root = resolve_web_root();
+        eprintln!("[SAQR] dashboard web root: {web_root}");
+        let web_rt = (*rt).clone();
+        tokio::spawn(async move {
+            if let Err(e) = web_server::start_web(web_rt, &web_root).await {
+                eprintln!("[SAQR WEB ERROR] {e}");
+                tracing::error!("web server error: {e}");
+            }
+        });
+    } else {
+        eprintln!("[SAQR] Web control terminal DISABLED — Telegram is control panel");
+    }
 
     let _ = gc_tx.send(0).await;
     orchestrator.heartbeat();
 
-    eprintln!("[SAQR] Engine running — http://127.0.0.1:{}/  (Ctrl+C to stop)", settings.web_bind_port);
-    eprintln!("[SAQR] Telegram bridge: {}", settings.telegram_bridge_enabled);
+    if settings.web_enabled {
+        eprintln!(
+            "[SAQR] Engine running — http://127.0.0.1:{}/  (Ctrl+C to stop)",
+            settings.web_bind_port
+        );
+    } else {
+        eprintln!("[SAQR] Engine running — Telegram control only (Ctrl+C to stop)");
+    }
+    eprintln!(
+        "[SAQR] Telegram bridge: {} | control panel: {} | signals every {}s",
+        settings.telegram_bridge_enabled,
+        settings.telegram_control_panel,
+        settings.signal_interval_secs
+    );
 
     tokio::signal::ctrl_c().await?;
     Ok(())
@@ -200,6 +221,9 @@ fn run_check(settings: &SaqrSettings) -> bool {
         println!("  TELEGRAM_CHAT_ID: set");
     }
     println!("  SAQR_TELEGRAM_BRIDGE: {}", settings.telegram_bridge_enabled);
+    println!("  SAQR_TELEGRAM_CONTROL_PANEL: {}", settings.telegram_control_panel);
+    println!("  SAQR_WEB_ENABLED: {}", settings.web_enabled);
+    println!("  SAQR_SIGNAL_INTERVAL_SECS: {}", settings.signal_interval_secs);
     if ok {
         println!("  preflight: OK");
     } else {

@@ -18,6 +18,7 @@ pub struct SharedRuntime {
     pub telegram: Arc<TelegramClient>,
     pub bot_running: Arc<AtomicBool>,
     pub last_mirror: Arc<Mutex<Option<BinanceMirrorPayload>>>,
+    pub telegram_board_message_id: Arc<Mutex<Option<i64>>>,
 }
 
 impl SharedRuntime {
@@ -32,6 +33,7 @@ impl SharedRuntime {
             telegram: Arc::new(TelegramClient::new(settings.telegram.clone())),
             bot_running,
             last_mirror: Arc::new(Mutex::new(None)),
+            telegram_board_message_id: Arc::new(Mutex::new(None)),
         }
     }
 

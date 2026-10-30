@@ -5,15 +5,15 @@ use saqr_core::telegram::anti_flood::TelegramAntiFlood;
 use crate::control_actions;
 use crate::runtime::SharedRuntime;
 
-const HELP_AR: &str = "🦅 <b>صقر SAQR v6.2.3</b> — أوامر الجسر\n\
-/status أو <code>رصيد</code> — ملخص الرصيد والصفقات\n\
-/price — سعر BTCUSDT حي\n\
-/pause — إيقاف البوت | /resume — تشغيل\n\
-/buy — دخول Paper BTC (2%)\n\
-/close_win — إغلاق الرابحة | /close_loss — الخاسرة\n\
-/emergency — إغلاق طوارئ لكل المراكز\n\
-/help — هذه القائمة\n\
-📡 سوق: api.binance.com · تنفيذ: Paper Sandbox";
+const HELP_AR: &str = "🦅 <b>صقر SAQR v6.2.3</b> — لوحة Telegram\n\
+/status — رصيد + صفقات (Binance حي)\n\
+/price — سعر حي\n\
+/buy — دخول Paper (2%)\n\
+/close_win · /close_loss · /emergency\n\
+/pause · /resume · /toggle\n\
+/help — القائمة\n\
+📡 الإشارات تُحدَّث كل 3ث في رسالة اللوحة\n\
+🎛 لوحة الويب معطّلة عند SAQR_TELEGRAM_CONTROL_PANEL=true";
 
 pub fn spawn_bidirectional_bridge(rt: Arc<SharedRuntime>) {
     if !rt.settings.telegram_bridge_enabled {

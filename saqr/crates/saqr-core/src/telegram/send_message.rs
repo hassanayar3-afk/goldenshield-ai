@@ -11,6 +11,14 @@ struct SendMessageBody<'a> {
     parse_mode: &'a str,
 }
 
+#[derive(Serialize)]
+struct EditMessageBody<'a> {
+    chat_id: &'a str,
+    message_id: i64,
+    text: &'a str,
+    parse_mode: &'a str,
+}
+
 pub struct TelegramClient {
     dispatcher: TelegramDispatcher,
     http: reqwest::Client,
@@ -65,6 +73,63 @@ impl TelegramClient {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             return Err(format!("Telegram HTTP {status}: {body}"));
+        }
+        Ok(())
+    }
+
+    /// Sends HTML text; returns Telegram `message_id` for live board edits.
+    pub async fn send_text_return_id(&self, text: &str) -> Result<i64, String> {
+        if self.dispatcher.default_chat_id().is_empty() {
+            return Err("TELEGRAM_CHAT_ID missing".into());
+        }
+        let url = self.dispatcher.api_send_url();
+        let body = SendMessageBody {
+            chat_id: self.dispatcher.default_chat_id(),
+            text,
+            parse_mode: "HTML",
+        };
+        let resp = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        let status = resp.status();
+        let raw = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(format!("Telegram HTTP {status}: {raw}"));
+        }
+        let v: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|e| format!("Telegram JSON: {e}"))?;
+        v.get("result")
+            .and_then(|r| r.get("message_id"))
+            .and_then(|m| m.as_i64())
+            .ok_or_else(|| format!("Telegram send missing message_id: {raw}"))
+    }
+
+    pub async fn edit_text(&self, message_id: i64, text: &str) -> Result<(), String> {
+        if self.dispatcher.default_chat_id().is_empty() {
+            return Err("TELEGRAM_CHAT_ID missing".into());
+        }
+        let url = self.dispatcher.api_edit_message_url();
+        let body = EditMessageBody {
+            chat_id: self.dispatcher.default_chat_id(),
+            message_id,
+            text,
+            parse_mode: "HTML",
+        };
+        let resp = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(format!("Telegram edit HTTP {status}: {body}"));
         }
         Ok(())
     }

@@ -48,10 +48,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [RUN] Engine in this window - live BTC lines every 5 sec
-echo [RUN] Dashboard http://127.0.0.1:8788
+echo [RUN] Engine in this window - Telegram control panel mode
+echo [RUN] Open Telegram bot for signals every 3 sec
 echo.
-rundll32 url.dll,FileProtocolHandler "http://127.0.0.1:8788"
+findstr /I /C:"SAQR_WEB_ENABLED=false" ".env" >nul 2>&1
+if errorlevel 1 (
+  echo [RUN] Dashboard http://127.0.0.1:8788
+  rundll32 url.dll,FileProtocolHandler "http://127.0.0.1:8788"
+)
 
 call "%SAQR_EXE%"
 set "EC=%ERRORLEVEL%"

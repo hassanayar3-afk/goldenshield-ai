@@ -41,7 +41,10 @@ pub struct SaqrSettings {
     pub cloud: CloudServerSettings,
     pub web_bind_host: String,
     pub web_bind_port: u16,
+    pub web_enabled: bool,
     pub telegram_bridge_enabled: bool,
+    pub telegram_control_panel: bool,
+    pub signal_interval_secs: u64,
     pub integration_interval_secs: u64,
 }
 
@@ -93,6 +96,17 @@ impl SaqrSettings {
                 })
         };
 
+        let telegram_control_panel = env_bool("SAQR_TELEGRAM_CONTROL_PANEL", false);
+        let web_enabled = match env::var("SAQR_WEB_ENABLED") {
+            Ok(_) => env_bool("SAQR_WEB_ENABLED", true),
+            Err(_) => !telegram_control_panel,
+        };
+        let signal_interval_secs = env::var("SAQR_SIGNAL_INTERVAL_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(if telegram_control_panel { 3 } else { 15 })
+            .clamp(2, 300);
+
         Self {
             mode,
             require_integrated_demo: env_bool("SAQR_REQUIRE_INTEGRATED_DEMO", false),
@@ -128,6 +142,9 @@ impl SaqrSettings {
             web_bind_host: env::var("SAQR_WEB_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
             web_bind_port: env_u16("SAQR_WEB_BIND_PORT", 8788),
             telegram_bridge_enabled: env_bool("SAQR_TELEGRAM_BRIDGE", true),
+            telegram_control_panel,
+            web_enabled,
+            signal_interval_secs,
             integration_interval_secs: env::var("SAQR_INTEGRATION_INTERVAL_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())

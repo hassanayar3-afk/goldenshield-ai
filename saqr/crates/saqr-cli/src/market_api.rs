@@ -3,11 +3,8 @@ use axum::Json;
 use serde::Deserialize;
 use serde_json::json;
 
-use saqr_core::binance::market_public::{closes_from_klines, rsi_from_closes};
-
+use crate::market_signals::{self, WATCH_SYMBOLS};
 use crate::runtime::SharedRuntime;
-
-const WATCH_SYMBOLS: &[&str] = &["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT"];
 
 pub async fn liquidity(State(rt): State<SharedRuntime>) -> Json<serde_json::Value> {
     match rt.market.tickers_24h().await {
@@ -73,50 +70,21 @@ pub async fn signals(
     Query(q): Query<SignalQuery>,
 ) -> Json<serde_json::Value> {
     let interval = q.interval.as_deref().unwrap_or("15m");
+    let rows = market_signals::fetch_live_signals(&rt, interval).await;
     let mut out = Vec::new();
-    for (idx, sym) in WATCH_SYMBOLS.iter().enumerate() {
-        let klines = match rt.market.klines(sym, interval, 60).await {
-            Ok(k) => k,
-            Err(_) => continue,
-        };
-        let closes = closes_from_klines(&klines);
-        let rsi = rsi_from_closes(&closes, 14).unwrap_or(50.0);
-        let last = *closes.last().unwrap_or(&0.0);
-        let prev = closes.get(closes.len().saturating_sub(5)).copied().unwrap_or(last);
-        let direction = if last >= prev { "BUY" } else { "SELL" };
-        let momentum = (last - prev).abs() / last.max(1.0) * 8000.0;
-        let strength =
-            (((rsi - 50.0).abs() + momentum).min(28.0) + 72.0) as i32;
-        let strength = strength.clamp(72, 97);
-        let base = sym.strip_suffix("USDT").unwrap_or(sym);
+    for (idx, s) in rows.iter().enumerate() {
         out.push(json!({
-            "id": format!("{sym}-{idx}"),
-            "pair": format!("{base}/USDT"),
-            "symbol": sym,
-            "direction": direction,
-            "strengthScore": strength,
+            "id": format!("{}-{idx}", s.symbol),
+            "pair": s.pair,
+            "symbol": s.symbol,
+            "direction": s.direction,
+            "strengthScore": s.strength,
             "timeframe": interval,
-            "rsi": format!("{rsi:.0}"),
-            "macd": if direction == "BUY" { "إيجابي" } else { "سلبي" },
+            "rsi": format!("{:.0}", s.rsi),
+            "macd": if s.direction == "BUY" { "إيجابي" } else { "سلبي" },
             "executed": false,
-            "price": last,
+            "price": s.price,
         }));
-    }
-    if out.is_empty() {
-        if let Ok(px) = rt.market.price("BTCUSDT").await {
-            out.push(json!({
-                "id": "BTCUSDT-fallback",
-                "pair": "BTC/USDT",
-                "symbol": "BTCUSDT",
-                "direction": "BUY",
-                "strengthScore": 75,
-                "timeframe": interval,
-                "rsi": "50",
-                "macd": "محايد",
-                "executed": false,
-                "price": px,
-            }));
-        }
     }
     Json(json!({
         "ok": !out.is_empty(),
