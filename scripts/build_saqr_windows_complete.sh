@@ -64,60 +64,7 @@ AR
   echo "[pack] template only (public GitHub — keys empty by design)"
 fi
 
-cat > "$STAGE/SAQR_RUN.bat" << 'BAT'
-@echo off
-setlocal EnableExtensions
-chcp 65001 >nul
-title SAQR Engine v6.2.3 — صقر
-cd /d "%~dp0"
-
-echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║   SAQR v6.2.3 — Paper + Telegram Bridge   ║
-echo  ╚══════════════════════════════════════════╝
-echo.
-
-if not exist ".env" (
-  if exist "saqr.env" copy /Y saqr.env .env >nul
-)
-if not exist ".env" (
-  if exist "env.template" copy /Y env.template .env >nul
-  echo [OK] Created .env from env.template
-)
-if not exist ".env" (
-  echo [ERROR] Missing .env in: %CD%
-  pause
-  exit /b 1
-)
-
-if exist "FIX_MY_ENV.bat" call FIX_MY_ENV.bat
-
-if exist "scripts\validate_saqr_env.py" (
-  where python >nul 2>&1
-  if not errorlevel 1 python scripts\validate_saqr_env.py .env
-  if errorlevel 1 pause & exit /b 1
-)
-
-if exist "bin\saqr.exe" (
-  echo [CHECK] Engine preflight...
-  "bin\saqr.exe" --check
-  if errorlevel 1 pause & exit /b 1
-  echo [RUN] Dashboard: http://127.0.0.1:8788
-  echo       Paper 5000 USD ^| api.binance.com ^| Telegram bridge
-  "bin\saqr.exe"
-  goto :done
-)
-
-echo [ERROR] bin\saqr.exe not found.
-pause
-exit /b 1
-
-:done
-set "EC=%ERRORLEVEL%"
-if not "%EC%"=="0" echo [EXIT] Code %EC%
-pause
-exit /b %EC%
-BAT
+cp "$SAQR/deploy/windows/SAQR_RUN_PORTABLE.bat" "$STAGE/SAQR_RUN.bat"
 
 cat > "$STAGE/FIX_MY_ENV.bat" << 'BAT'
 @echo off
@@ -165,6 +112,17 @@ fi
 
 printf '%s\n' "$READ_ME" > "$STAGE/ابدأ_هنا.txt"
 
+cp "$SAQR/deploy/windows/STOP_SAQR.bat" "$STAGE/" 2>/dev/null || true
+cat > "$STAGE/MANIFEST.txt" << 'MF'
+SAQR v6.2.3 FULL package manifest
+[required] bin/saqr.exe
+[required] saqr.env + .env (same content, keys filled)
+[required] SAQR_RUN.bat (syncs saqr.env -> .env)
+[required] web/control_terminal/index.html + dashboard.js
+[required] scripts/sanitize_saqr_env.py + validate_saqr_env.py
+[optional] OPEN_DASHBOARD.bat, SAQR_CHECK.bat, FIX_MY_ENV.bat, STOP_SAQR.bat
+[dirs] data/, logs/
+MF
 touch "$STAGE/data/.keep" "$STAGE/logs/.keep"
 
 (cd /tmp && zip -r "$ZIP" "$OUT_NAME")

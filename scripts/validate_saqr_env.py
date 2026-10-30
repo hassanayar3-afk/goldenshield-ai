@@ -10,9 +10,12 @@ REQUIRED = [
     "SAQR_INITIAL_BALANCE_USD",
     "SAQR_SYMBOL",
     "BINANCE_REST_URL",
+    "BINANCE_API_KEY",
+    "BINANCE_API_SECRET",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
     "SAQR_WEB_BIND_PORT",
+    "SAQR_TELEGRAM_BRIDGE",
 ]
 
 OPTIONAL_WARN = ["SAQR_TELEGRAM_BRIDGE"]
@@ -36,6 +39,14 @@ def main() -> int:
         return 1
     env = parse_env(path)
     missing = [k for k in REQUIRED if not env.get(k)]
+    empty_critical = [
+        k
+        for k in ("BINANCE_API_KEY", "BINANCE_API_SECRET", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+        if not env.get(k, "").strip()
+    ]
+    if empty_critical:
+        print(f"[FAIL] Empty credentials: {', '.join(empty_critical)}", file=sys.stderr)
+        return 1
     if missing:
         print(f"[FAIL] Missing or empty keys: {', '.join(missing)}", file=sys.stderr)
         return 1
