@@ -17,6 +17,12 @@ if not exist ".env" (
   )
 )
 if not exist ".env" (
+  if exist "saqr.env.template" (
+    copy /Y saqr.env.template .env >nul
+    echo [OK] Created .env from saqr.env.template — add TELEGRAM_* then restart.
+  )
+)
+if not exist ".env" (
   echo [ERROR] Missing .env in: %CD%
   echo         Copy saqr.env.template to .env and fill credentials.
   pause
@@ -45,6 +51,7 @@ if not exist "%SAQR_EXE%" (
 )
 
 echo [RUN] Dashboard: http://127.0.0.1:8788
+echo       Paper 5000 USD ^| api.binance.com ^| Telegram bridge
 echo.
 "%SAQR_EXE%"
 set "EC=%ERRORLEVEL%"
