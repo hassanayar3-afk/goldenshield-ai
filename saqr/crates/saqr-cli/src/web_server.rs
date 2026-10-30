@@ -18,6 +18,7 @@ pub async fn start_web(rt: SharedRuntime, web_root: &str) -> Result<(), std::io:
         .route("/api/report", get(dashboard_api::report))
         .route("/api/trades/history", get(dashboard_api::trades_history))
         .route("/api/market/liquidity", get(market_api::liquidity))
+        .route("/api/market/ticker", get(market_api::ticker))
         .route("/api/market/signals", get(market_api::signals))
         .route("/api/paper/enter", post(dashboard_api::paper_enter))
         .route("/api/control/bot_toggle", post(dashboard_api::bot_toggle))

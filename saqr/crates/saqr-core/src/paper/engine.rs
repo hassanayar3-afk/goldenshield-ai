@@ -98,7 +98,8 @@ impl PaperEngine {
         };
 
         BinanceMirrorPayload {
-            ok: btc_price > 0.0,
+            // Paper wallet is always valid; market feed may be geo-blocked (HTTP 451) on some hosts.
+            ok: true,
             source: "paper_live_market",
             total_balance_usd: total.max(st.initial_usdt),
             daily_profit_pct: daily_pct,

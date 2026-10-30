@@ -1,3 +1,9 @@
+/**
+ * SAQR Control Terminal v6.2.3 — Paper balance + live Binance market APIs
+ * All onclick handlers in index.html are registered on window at load.
+ */
+'use strict';
+
 let isRunning = true;
 let alertActive = true;
 let calcEnabled = false;
@@ -7,9 +13,9 @@ let signalTimerSeconds = SIGNAL_REFRESH_INTERVAL;
 let countdownTimer = null;
 let lastLiveBalance = 5000;
 let mirrorPollTimer = null;
+let lastBtcPrice = 0;
 
 let openPositions = [];
-
 let liquidityPairs = [];
 let tradeHistory = [];
 let signals = [];
@@ -28,19 +34,37 @@ function fmtMoney(n) {
 
 function applyMirror(m) {
   if (!m) return;
-  lastLiveBalance = Math.max(m.total_balance_usd || 0, m.initial_balance_usd || 5000);
+  const floor = m.initial_balance_usd || 5000;
+  lastLiveBalance = Math.max(m.total_balance_usd || 0, floor);
+
   const totalEl = document.getElementById('totalBalance');
   if (totalEl) totalEl.innerText = fmtMoney(lastLiveBalance);
+
   const dailyEl = document.getElementById('dailyProfitPct');
   if (dailyEl) {
     const pct = m.daily_profit_pct || 0;
     dailyEl.innerText = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
     dailyEl.className = `text-base font-num font-bold mt-0.5 ${pct >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'}`;
   }
+
   const repCurr = document.getElementById('repCurrBal');
   if (repCurr) repCurr.innerText = fmtMoney(lastLiveBalance);
   const repBase = document.getElementById('repBaseBal');
-  if (repBase) repBase.innerText = fmtMoney(m.initial_balance_usd || lastLiveBalance);
+  if (repBase) repBase.innerText = fmtMoney(floor);
+
+  const winEl = document.getElementById('winningPnlVal');
+  const loseEl = document.getElementById('losingPnlVal');
+  const countEl = document.getElementById('activePositionsCount');
+  if (typeof m.winning_pnl_usd === 'number' && winEl && !(m.positions || []).length) {
+    winEl.innerText = `+${m.winning_pnl_usd.toFixed(2)} $`;
+  }
+  if (typeof m.losing_pnl_usd === 'number' && loseEl && !(m.positions || []).length) {
+    loseEl.innerText = `-${m.losing_pnl_usd.toFixed(2)} $`;
+  }
+  if (countEl && typeof m.open_positions_count === 'number') {
+    countEl.innerText = String(m.open_positions_count);
+  }
+
   openPositions = (m.positions || []).map(p => ({
     id: p.id || p.symbol,
     symbol: p.symbol,
@@ -60,13 +84,21 @@ function applyMirror(m) {
 
 async function refreshBinanceMirror() {
   try {
-    const res = await fetch('/api/binance_mirror');
+    const res = await fetch('/api/binance_mirror', { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     applyMirror(data);
   } catch (_) {
-    /* keep last snapshot — avoid flashing zeros */
+    /* retain last snapshot */
   }
+}
+
+async function refreshBtcTicker() {
+  try {
+    const res = await fetch('/api/market/ticker?symbol=BTCUSDT', { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok && data.price) lastBtcPrice = Number(data.price);
+  } catch (_) {}
 }
 
 function syncBotUiFromState() {
@@ -79,17 +111,21 @@ function syncBotUiFromState() {
   if (isRunning) {
     icon.className = 'fa-solid fa-pause text-[10px]';
     text.innerText = 'إيقاف عمليات البوت مؤقتاً';
-    statusText.innerText = 'النظام: نشط';
-    statusText.className = 'text-[11px] font-bold text-emerald-400/90 tracking-wide';
-    statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
-    statusPing.classList.remove('hidden');
+    if (statusText) {
+      statusText.innerText = 'النظام: نشط';
+      statusText.className = 'text-[11px] font-bold text-emerald-400/90 tracking-wide';
+    }
+    if (statusDot) statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+    if (statusPing) statusPing.classList.remove('hidden');
   } else {
     icon.className = 'fa-solid fa-play text-[10px]';
     text.innerText = 'استئناف عمليات البوت';
-    statusText.innerText = 'النظام: متوقف مؤقتاً';
-    statusText.className = 'text-[11px] font-bold text-amber-400/90 tracking-wide';
-    statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500';
-    statusPing.classList.add('hidden');
+    if (statusText) {
+      statusText.innerText = 'النظام: متوقف مؤقتاً';
+      statusText.className = 'text-[11px] font-bold text-amber-400/90 tracking-wide';
+    }
+    if (statusDot) statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500';
+    if (statusPing) statusPing.classList.add('hidden');
   }
 }
 
@@ -159,8 +195,9 @@ function toggleCalculatorPower() {
   }
 }
 
-function calculateLotSize() {
+async function calculateLotSize() {
   if (!calcEnabled) return;
+  await refreshBtcTicker();
   const cap = parseFloat(document.getElementById('calcCapital').value) || 0;
   const riskPct = parseFloat(document.getElementById('calcRisk').value) || 0;
   const p = 0.68;
@@ -171,8 +208,13 @@ function calculateLotSize() {
   const volatilityScalar = Math.min(Math.max(0.015 / 0.008, 0.4), 1.2);
   let calculatedRiskFraction = (riskPct / 100.0) * fractionalKelly * volatilityScalar;
   if (calculatedRiskFraction > 0.03) calculatedRiskFraction = 0.03;
-  const recommendedLot = ((cap * calculatedRiskFraction) / 100).toFixed(2);
-  document.getElementById('calcResult').innerText = `العقد الموصى به (معامل كيلي الديناميكي): ${recommendedLot} لوت`;
+  const riskUsd = cap * calculatedRiskFraction;
+  let recommendedLot = (riskUsd / 100).toFixed(4);
+  if (lastBtcPrice > 0) {
+    const btcQty = (riskUsd / lastBtcPrice).toFixed(6);
+    recommendedLot = `${btcQty} BTC (~${riskUsd.toFixed(2)} USDT @ ${lastBtcPrice.toFixed(2)})`;
+  }
+  document.getElementById('calcResult').innerText = `العقد الموصى به (BTCUSDT حي): ${recommendedLot}`;
   showToast('تم حساب حجم العقد بناءً على دستور كيلي الديناميكي 🧮');
 }
 
@@ -182,12 +224,12 @@ async function setReportPeriod(period) {
   const btnW = document.getElementById('btnWeekly');
   const btnM = document.getElementById('btnMonthly');
   const base = 'px-2.5 py-1 rounded-md text-[10px] font-bold text-gray-400 hover:text-white transition-all';
-  btnD.className = base;
-  btnW.className = base;
-  btnM.className = base;
-  if (period === 'daily') btnD.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
-  if (period === 'weekly') btnW.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
-  if (period === 'monthly') btnM.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  if (btnD) btnD.className = base;
+  if (btnW) btnW.className = base;
+  if (btnM) btnM.className = base;
+  if (period === 'daily' && btnD) btnD.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  if (period === 'weekly' && btnW) btnW.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  if (period === 'monthly' && btnM) btnM.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
   try {
     const res = await fetch(`/api/report?period=${period}`);
     const r = await res.json();
@@ -228,9 +270,9 @@ function renderPositions() {
         <div class="flex items-center gap-1.5">
           <span class="font-bold text-xs text-gray-200">${pos.pair}</span>
           <span class="text-[10px] text-emerald-400/90 bg-emerald-950/60 px-1.5 py-0.5 rounded font-num font-medium">${pos.type} ${pos.lot}</span>
-          <span class="text-[10px] font-num font-bold ${isProfitable ? 'text-emerald-400/90' : 'text-rose-400/90'}">${isProfitable ? '+' : ''}${pos.pnl.toFixed(2)} $</span>
+          <span class="text-[10px] font-num font-bold ${isProfitable ? 'text-emerald-400/90' : 'text-rose-400/90'}">${isProfitable ? '+' : ''}${Number(pos.pnl).toFixed(2)} $</span>
         </div>
-        <div class="text-[10px] text-gray-400 mt-1 font-medium">دخول: ${pos.entry.toLocaleString()} | الحالي: ${pos.current.toLocaleString()}</div>
+        <div class="text-[10px] text-gray-400 mt-1 font-medium">دخول: ${Number(pos.entry).toLocaleString()} | الحالي: ${Number(pos.current).toLocaleString()}</div>
       </div>
       <div class="flex items-center gap-1.5">
         <button type="button" data-partial="${pos.id}" class="text-[10px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 px-2 py-1 rounded-lg border border-amber-500/30 font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm"><span>50%</span><span class="text-amber-400/80 font-medium">×</span></button>
@@ -246,7 +288,7 @@ function renderPositions() {
 }
 
 async function partialClosePosition(id) {
-  const pos = openPositions.find(p => p.id === id);
+  const pos = openPositions.find(p => String(p.id) === String(id));
   if (!pos) return;
   const symbol = pos.symbol || String(id);
   const out = await apiPost('/api/control/partial_close', { symbol, fraction: 0.5 });
@@ -257,7 +299,7 @@ async function partialClosePosition(id) {
 }
 
 async function closePosition(id) {
-  const pos = openPositions.find(p => p.id === id);
+  const pos = openPositions.find(p => String(p.id) === String(id));
   const symbol = pos?.symbol || String(id);
   const out = await apiPost(`/api/control/close/${encodeURIComponent(symbol)}`);
   if (out.ok) {
@@ -282,7 +324,7 @@ async function closeLosingTrades() {
 
 async function refreshLiquidity() {
   try {
-    const res = await fetch('/api/market/liquidity');
+    const res = await fetch('/api/market/liquidity', { cache: 'no-store' });
     const data = await res.json();
     liquidityPairs = data.pairs || [];
   } catch (_) {
@@ -312,6 +354,10 @@ function renderHistory() {
   const container = document.getElementById('historyList');
   if (!container) return;
   container.innerHTML = '';
+  if (!tradeHistory.length) {
+    container.innerHTML = '<div class="text-center text-xs text-gray-500 py-2">لا يوجد سجل صفقات Paper بعد</div>';
+    return;
+  }
   tradeHistory.forEach(item => {
     const el = document.createElement('div');
     const isWin = item.pnl >= 0;
@@ -326,7 +372,7 @@ function renderHistory() {
         <div class="text-[10px] text-gray-400 mt-1 font-medium"><span>${item.day} - ${item.time}</span></div>
       </div>
       <div class="text-left font-num">
-        <div class="text-xs font-bold ${isWin ? 'text-emerald-400/90' : 'text-rose-400/90'}">${isWin ? '+' : ''}${item.pnl.toFixed(2)} $</div>
+        <div class="text-xs font-bold ${isWin ? 'text-emerald-400/90' : 'text-rose-400/90'}">${isWin ? '+' : ''}${Number(item.pnl).toFixed(2)} $</div>
         <div class="text-[10px] text-gray-400 mt-0.5">${item.entry} ← ${item.exit}</div>
       </div>`;
     container.appendChild(el);
@@ -354,7 +400,7 @@ async function refreshSignals(isManual = false) {
   const icon = document.getElementById('refreshIcon');
   if (icon) icon.classList.add('fa-spin');
   try {
-    const res = await fetch('/api/market/signals?interval=15m');
+    const res = await fetch('/api/market/signals?interval=15m', { cache: 'no-store' });
     const data = await res.json();
     signals = data.signals || [];
   } catch (_) {
@@ -371,6 +417,10 @@ function renderSignals() {
   const container = document.getElementById('signalsList');
   if (!container) return;
   container.innerHTML = '';
+  if (!signals.length) {
+    container.innerHTML = '<div class="text-center text-xs text-gray-500 py-2">انتظر اتصال سوق BTCUSDT أو حدّث يدوياً</div>';
+    return;
+  }
   signals.forEach(sig => {
     const isBuy = sig.direction === 'BUY';
     const strength = sig.strengthScore;
@@ -384,11 +434,12 @@ function renderSignals() {
     } else {
       actionAreaHtml = `<button type="button" data-exec="${sig.id}" class="px-2.5 py-1 rounded-lg ${isBuy ? 'bg-emerald-600/80 hover:bg-emerald-500/80 border-emerald-500/40' : 'bg-rose-600/80 hover:bg-rose-500/80 border-rose-500/40'} text-white border text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm"><i class="fa-solid ${isBuy ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[9px]"></i><span>دخول مباشر</span></button>`;
     }
+    const priceHint = sig.price ? ` · ${Number(sig.price).toLocaleString()}` : '';
     card.innerHTML = `
       <div class="flex items-center gap-2.5">
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="font-bold text-xs font-num text-gray-200 tracking-wide">${sig.pair}</span>
+            <span class="font-bold text-xs font-num text-gray-200 tracking-wide">${sig.pair}${priceHint}</span>
             <span class="text-[10px] px-1.5 py-0.2 rounded font-bold font-num ${isBuy ? 'bg-emerald-950/60 text-emerald-400/90 border border-emerald-500/20' : 'bg-rose-950/60 text-rose-400/90 border border-rose-500/20'}">${isBuy ? 'شراء' : 'بيع'}</span>
             <span class="text-[10px] font-num font-bold text-gold-400/90 bg-gold-500/10 border border-gold-500/20 px-1.5 py-0.2 rounded">${strength}%</span>
           </div>
@@ -409,7 +460,7 @@ function renderSignals() {
 async function executeTrade(signalId) {
   const sig = signals.find(s => String(s.id) === String(signalId));
   if (!sig || sig.executed) return;
-  const symbol = (sig.symbol || sig.pair.replace('/', '')).toUpperCase();
+  const symbol = (sig.symbol || sig.pair.replace(/\//g, '')).toUpperCase();
   const out = await apiPost('/api/paper/enter', { symbol, risk_pct: 2.0 });
   if (out.ok) {
     sig.executed = true;
@@ -458,7 +509,7 @@ function updateSyncClock() {
 
 async function loadTradeHistoryFromApi() {
   try {
-    const res = await fetch('/api/trades/history');
+    const res = await fetch('/api/trades/history', { cache: 'no-store' });
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.trades)) return;
     tradeHistory = data.trades.slice(-20).reverse().map(t => {
@@ -478,18 +529,52 @@ async function loadTradeHistoryFromApi() {
   } catch (_) {}
 }
 
+async function bootstrapDashboard() {
+  applyMirror({ initial_balance_usd: 5000, total_balance_usd: 5000, daily_profit_pct: 0, open_positions_count: 0, positions: [], bot_running: true });
+  await refreshBinanceMirror();
+  await refreshBtcTicker();
+  await refreshSignals(false);
+  await refreshLiquidity();
+  await loadTradeHistoryFromApi();
+  await setReportPeriod('daily');
+  try {
+    const st = await fetch('/api/status').then(r => r.json());
+    if (typeof st.bot_running === 'boolean') {
+      isRunning = st.bot_running;
+      syncBotUiFromState();
+    }
+  } catch (_) {}
+}
+
+/** Register every index.html onclick handler on window (required for inline handlers). */
+Object.assign(window, {
+  toggleAlerts,
+  closeWinningTrades,
+  closeLosingTrades,
+  toggleAccordion,
+  refreshSignals,
+  toggleCalculatorPower,
+  calculateLotSize,
+  setReportPeriod,
+  toggleBotState,
+  emergencyCloseAll,
+  renderPositions,
+  partialClosePosition,
+  closePosition,
+  executeTrade
+});
+
 document.addEventListener('DOMContentLoaded', () => {
-  renderSignals();
-  renderPositions();
-  refreshLiquidity();
-  renderHistory();
   updateSignalTimerUI();
   startSignalCountdown();
   updateSyncClock();
   setInterval(updateSyncClock, 1000);
-  refreshBinanceMirror();
-  loadTradeHistoryFromApi();
+  bootstrapDashboard();
   if (mirrorPollTimer) clearInterval(mirrorPollTimer);
-  mirrorPollTimer = setInterval(refreshBinanceMirror, 2500);
+  mirrorPollTimer = setInterval(() => {
+    refreshBinanceMirror();
+    refreshBtcTicker();
+  }, 2500);
+  setInterval(refreshLiquidity, 15000);
   fetch('/api/health').catch(() => {});
 });
