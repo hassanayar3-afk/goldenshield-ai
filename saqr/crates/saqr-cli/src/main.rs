@@ -80,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     integrations_bridge::spawn_integrations_bridge(settings.clone());
     telegram_bridge::spawn_bidirectional_bridge(Arc::clone(&rt));
     hot_loop::spawn_hot_loop(Arc::clone(&rt));
+    spawn_console_live_ticker(Arc::clone(&rt));
 
     let web_root = resolve_web_root();
     let web_rt = (*rt).clone();
@@ -143,6 +144,26 @@ fn run_check(settings: &SaqrSettings) -> bool {
         println!("  preflight: FAILED");
     }
     ok
+}
+
+/// طبقة عرض: سطر حي في نافذة CMD كل ~5 ث (BTC + رصيد Paper).
+fn spawn_console_live_ticker(rt: Arc<SharedRuntime>) {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
+        tick.tick().await;
+        loop {
+            tick.tick().await;
+            let sym = rt.settings.symbol.clone();
+            let px = rt.market.price(&sym).await.unwrap_or(0.0);
+            let m = rt.refresh_mirror().await;
+            let bot = if rt.bot_is_running() { "ON" } else { "OFF" };
+            println!(
+                "[SAQR LIVE] {sym} {px:.2} | balance {:.2} USD | open {} | bot {bot}",
+                m.total_balance_usd,
+                m.open_positions_count
+            );
+        }
+    });
 }
 
 fn resolve_web_root() -> String {

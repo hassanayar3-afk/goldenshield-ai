@@ -65,6 +65,7 @@ AR
 fi
 
 cp "$SAQR/deploy/windows/SAQR_RUN_PORTABLE.bat" "$STAGE/SAQR_RUN.bat"
+cp "$SAQR/deploy/windows/SAQR_LIVE_CONSOLE.ps1" "$STAGE/"
 
 cat > "$STAGE/FIX_MY_ENV.bat" << 'BAT'
 @echo off
