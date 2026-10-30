@@ -1,86 +1,65 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title SAQR Engine v6.2.3 — صقر
-cd /d "%~dp0..\.."
+title SAQR TRADING ENGINE v6.2.3 - LIVE BRIDGE
+color 0B
+cd /d "%~dp0"
+set "SAQR_HOLD_CONSOLE=1"
 
-echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║   SAQR v6.2.3 — Paper + Live Market Bridge  ║
-echo  ╚══════════════════════════════════════════╝
+echo ========================================================
+echo       SAQR ENGINE v6.2.3 - TELEGRAM ^& BINANCE BRIDGE
+echo ========================================================
+echo   Folder: %CD%
 echo.
 
-if not exist ".env" (
-  if exist "saqr.env" (
-    copy /Y saqr.env .env >nul
-    echo [OK] Copied saqr.env to .env
-  )
+if not exist "data" mkdir "data"
+if not exist "logs" mkdir "logs"
+
+if exist "saqr.env" (
+  copy /Y "saqr.env" ".env" >nul
+  echo [+] synced saqr.env -^> .env
 )
+
 if not exist ".env" (
-  if exist "saqr.env.template" (
-    copy /Y saqr.env.template .env >nul
-    echo [OK] Created .env from saqr.env.template — add TELEGRAM_* then restart.
-  )
-)
-if not exist ".env" (
-  echo [ERROR] Missing .env in: %CD%
-  echo         Copy saqr.env.template to .env and fill credentials.
+  echo [!] ملف .env غير موجود — ضع saqr.env أو .env في هذا المجلد.
   pause
   exit /b 1
 )
 
-set "SANITIZER=scripts\sanitize_saqr_env.py"
-if not exist "%SANITIZER%" set "SANITIZER=..\..\scripts\sanitize_saqr_env.py"
-where python >nul 2>&1
-if %ERRORLEVEL%==0 if exist "%SANITIZER%" (
-  python "%SANITIZER%" ".env" >nul 2>&1
-  echo [OK] .env sanitized (ZWSP, Telegram +, defaults)
-)
+echo [+] جاري تحميل إعدادات البيئة...
+echo [+] Paper 5000 USD ^| api.binance.com ^| Telegram bridge
+echo.
 
-set "VALIDATOR=scripts\validate_saqr_env.py"
-if not exist "%VALIDATOR%" set "VALIDATOR=..\..\scripts\validate_saqr_env.py"
-where python >nul 2>&1
-if %ERRORLEVEL%==0 if exist "%VALIDATOR%" (
-  python "%VALIDATOR%" ".env"
-  if errorlevel 1 (
-    echo [ERROR] .env preflight failed — fix keys then restart.
-    pause
-    exit /b 1
-  )
-)
+set "SAQR_EXE="
+if exist "bin\saqr.exe" set "SAQR_EXE=bin\saqr.exe"
+if not defined SAQR_EXE if exist "saqr.exe" set "SAQR_EXE=saqr.exe"
+if not defined SAQR_EXE if exist "target\release\saqr.exe" set "SAQR_EXE=target\release\saqr.exe"
 
-set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
-set "SAQR_EXE=target\release\saqr.exe"
-
-if not exist "%SAQR_EXE%" (
-  echo [BUILD] First run — compiling release binary...
-  cargo build --release
-  if errorlevel 1 (
-    echo [ERROR] cargo build failed.
-    pause
-    exit /b 1
-  )
-)
-
-if not exist "%SAQR_EXE%" (
-  echo [ERROR] Build saqr.exe first: cargo build --release
+if not defined SAQR_EXE (
+  echo [X] saqr.exe not found — build: cargo build --release
   pause
   exit /b 1
 )
 
-echo [CHECK] Engine preflight...
+echo [CHECK] %SAQR_EXE% --check
 "%SAQR_EXE%" --check
 if errorlevel 1 (
-  echo [ERROR] Engine --check failed. Fix .env and retry.
+  echo [X] preflight failed — keys missing in .env
   pause
   exit /b 1
 )
 
-echo [RUN] Dashboard: http://127.0.0.1:8788
-echo       Paper 5000 USD ^| api.binance.com ^| Telegram bridge
+echo [+] تشغيل المحرك في هذه النافذة — ستظهر أسعار BTC والإشارات...
+echo [+] Dashboard: http://127.0.0.1:8788
 echo.
+start "" "http://127.0.0.1:8788"
+
 "%SAQR_EXE%"
 set "EC=%ERRORLEVEL%"
-if not "%EC%"=="0" echo [EXIT] Code %EC%
+
+echo.
+echo ========================================================
+echo   Engine stopped or error. Exit code: %EC%
+echo ========================================================
 pause
 exit /b %EC%

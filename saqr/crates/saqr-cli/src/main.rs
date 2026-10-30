@@ -10,6 +10,7 @@ mod telegram_bridge;
 mod telegram_notify;
 mod web_server;
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -21,8 +22,26 @@ use tokio::sync::mpsc;
 
 use runtime::SharedRuntime;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
+    install_panic_hook();
+    let code = if let Err(e) = run_async() {
+        eprintln!("\n[SAQR FATAL] {e}");
+        hold_console_on_exit();
+        1
+    } else {
+        0
+    };
+    std::process::exit(code);
+}
+
+fn run_async() -> Result<(), Box<dyn std::error::Error>> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(async_main())
+}
+
+async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("SAQR Engine v6.2.3");
@@ -37,11 +56,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = SaqrSettings::from_env();
 
     if args.iter().any(|a| a == "--check") {
-        let ok = run_check(&settings);
-        if !ok {
-            std::process::exit(1);
+        if !run_check(&settings) {
+            return Err("preflight check failed".into());
         }
         return Ok(());
+    }
+
+    if !preflight_credentials(&settings) {
+        hold_console_on_exit();
+        return Err("credentials missing — fix .env / saqr.env".into());
     }
 
     let rt = Arc::new(SharedRuntime::new(settings.clone()));
@@ -68,13 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     if settings.is_paper_trading() {
-        tracing::info!(
-            "Paper mode — live market {} · sandbox capital {:.2} USD",
-            settings.market_rest_url,
-            settings.initial_balance_usd
+        eprintln!(
+            "[SAQR] Paper + live market {} | ${:.0} | symbol {}",
+            settings.market_rest_url, settings.initial_balance_usd, settings.symbol
         );
-    } else if settings.require_integrated_demo {
-        tracing::info!("SAQR_REQUIRE_INTEGRATED_DEMO=true — Testnet execution path");
     }
 
     integrations_bridge::spawn_integrations_bridge(settings.clone());
@@ -83,9 +103,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     spawn_console_live_ticker(Arc::clone(&rt));
 
     let web_root = resolve_web_root();
+    eprintln!("[SAQR] dashboard web root: {web_root}");
     let web_rt = (*rt).clone();
     tokio::spawn(async move {
         if let Err(e) = web_server::start_web(web_rt, &web_root).await {
+            eprintln!("[SAQR WEB ERROR] {e}");
             tracing::error!("web server error: {e}");
         }
     });
@@ -93,10 +115,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = gc_tx.send(0).await;
     orchestrator.heartbeat();
 
-    tracing::info!("صقر SAQR Engine v6.2.3 — hot loop + dashboard linked to .env");
+    eprintln!("[SAQR] Engine running — http://127.0.0.1:{}/  (Ctrl+C to stop)", settings.web_bind_port);
+    eprintln!("[SAQR] Telegram bridge: {}", settings.telegram_bridge_enabled);
 
     tokio::signal::ctrl_c().await?;
     Ok(())
+}
+
+fn preflight_credentials(settings: &SaqrSettings) -> bool {
+    let mut ok = true;
+    if settings.api_key.is_empty() {
+        eprintln!("[SAQR] BINANCE_API_KEY missing");
+        ok = false;
+    }
+    if settings.api_secret.is_empty() {
+        eprintln!("[SAQR] BINANCE_API_SECRET missing");
+        ok = false;
+    }
+    if settings.telegram.bot_token.len() < 40 {
+        eprintln!("[SAQR] TELEGRAM_BOT_TOKEN missing or truncated");
+        ok = false;
+    }
+    if settings.telegram.chat_id.is_empty() {
+        eprintln!("[SAQR] TELEGRAM_CHAT_ID missing");
+        ok = false;
+    }
+    ok
+}
+
+fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("\n[SAQR PANIC] {info}");
+        hold_console_on_exit();
+    }));
+}
+
+fn hold_console_on_exit() {
+    if std::env::var("SAQR_HOLD_CONSOLE")
+        .map(|v| v == "0" || v.eq_ignore_ascii_case("false"))
+        .unwrap_or(false)
+    {
+        return;
+    }
+    eprintln!("\nPress Enter to close this window...");
+    let _ = std::io::stderr().flush();
+    let mut line = String::new();
+    let _ = std::io::stdin().read_line(&mut line);
 }
 
 fn run_check(settings: &SaqrSettings) -> bool {
@@ -135,9 +199,6 @@ fn run_check(settings: &SaqrSettings) -> bool {
         println!("  TELEGRAM_CHAT_ID: set");
     }
     println!("  SAQR_TELEGRAM_BRIDGE: {}", settings.telegram_bridge_enabled);
-    if !settings.is_paper_trading() {
-        println!("  [warn] not in paper mode");
-    }
     if ok {
         println!("  preflight: OK");
     } else {
@@ -146,7 +207,6 @@ fn run_check(settings: &SaqrSettings) -> bool {
     ok
 }
 
-/// طبقة عرض: سطر حي في نافذة CMD كل ~5 ث (BTC + رصيد Paper).
 fn spawn_console_live_ticker(rt: Arc<SharedRuntime>) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
