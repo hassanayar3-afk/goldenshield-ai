@@ -75,29 +75,29 @@ body { font-family: 'Cairo', sans-serif; background-color: #07090e; color: #d1d5
 <div class="grid grid-cols-2 gap-2 mt-3">
 <div class="bg-[#121724] p-2.5 rounded-xl border border-gray-800/70 text-center">
 <div class="text-[11px] text-gray-400 font-medium">الرصيد الإجمالي</div>
-<div id="totalBalance" class="text-base font-num font-bold text-gray-200 mt-0.5 transition-all">10,483.43 $</div>
+<div id="totalBalance" class="text-base font-num font-bold text-gray-200 mt-0.5 transition-all">5,000.00 $</div>
 </div>
 <div class="bg-[#121724] p-2.5 rounded-xl border border-gray-800/70 text-center">
 <div class="text-[11px] text-gray-400 font-medium">أرباح اليوم</div>
-<div id="dailyProfitPct" class="text-base font-num font-bold text-emerald-400/90 mt-0.5">+1.84%</div>
+<div id="dailyProfitPct" class="text-base font-num font-bold text-emerald-400/90 mt-0.5">+0.00%</div>
 </div>
 </div>
 <div class="mt-2 bg-[#121724]/80 px-3 py-2 rounded-xl border border-gray-800/70 flex items-center justify-between text-xs">
 <span class="text-gray-300 font-medium">الصفقات المفتوحة حالياً</span>
-<span id="activePositionsCount" class="font-num font-bold bg-gold-500/10 text-gold-400/90 px-2.5 py-0.5 rounded border border-gold-500/20">3</span>
+<span id="activePositionsCount" class="font-num font-bold bg-gold-500/10 text-gold-400/90 px-2.5 py-0.5 rounded border border-gold-500/20">0</span>
 </div>
 <div class="grid grid-cols-2 gap-2 mt-2">
 <div class="bg-emerald-950/10 p-2.5 rounded-xl border border-emerald-500/20 flex flex-col justify-between">
 <div>
 <div class="text-[11px] text-gray-400 font-medium">الصفقات الرابحة:</div>
-<div id="winningPnlVal" class="text-xs font-num font-bold text-emerald-400/90 mt-1">+178.50 $</div>
+<div id="winningPnlVal" class="text-xs font-num font-bold text-emerald-400/90 mt-1">+0.00 $</div>
 </div>
 <button onclick="closeWinningTrades()" class="mt-2.5 w-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 shadow-sm">إغلاق الرابحة</button>
 </div>
 <div class="bg-rose-950/10 p-2.5 rounded-xl border border-rose-500/20 flex flex-col justify-between">
 <div>
 <div class="text-[11px] text-gray-400 font-medium">الصفقات الخاسرة:</div>
-<div id="losingPnlVal" class="text-xs font-num font-bold text-rose-400/90 mt-1">-14.20 $</div>
+<div id="losingPnlVal" class="text-xs font-num font-bold text-rose-400/90 mt-1">-0.00 $</div>
 </div>
 <button onclick="closeLosingTrades()" class="mt-2.5 w-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 shadow-sm">إغلاق الخاسرة</button>
 </div>
@@ -167,8 +167,8 @@ body { font-family: 'Cairo', sans-serif; background-color: #07090e; color: #d1d5
 <button onclick="setReportPeriod('monthly')" id="btnMonthly" class="px-2.5 py-1 rounded-md text-[10px] font-medium text-gray-400 hover:text-white transition-all">الشهري</button>
 </div></div>
 <div class="space-y-1.5 font-num">
-<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الأساسي</span><span id="repBaseBal" class="text-xs font-bold text-gray-200">10,000.00 $</span></div>
-<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الحالي</span><span id="repCurrBal" class="text-xs font-bold text-emerald-400/90 transition-all">10,483.43 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الأساسي</span><span id="repBaseBal" class="text-xs font-bold text-gray-200">5,000.00 $</span></div>
+<div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الرصيد الحالي</span><span id="repCurrBal" class="text-xs font-bold text-emerald-400/90 transition-all">5,000.00 $</span></div>
 <div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الصفقات الرابحة (مجموع)</span><span id="repWinAmt" class="text-xs font-bold text-emerald-400/90">+183.43 $</span></div>
 <div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">الصفقات الخاسرة (مجموع)</span><span id="repLossAmt" class="text-xs font-bold text-rose-400/90">-0.00 $</span></div>
 <div class="bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between"><span class="text-xs text-gray-400 font-medium">عدد الصفقات الرابحة</span><span id="repWinCount" class="text-xs font-bold text-emerald-400/90">4 صفقات</span></div>

@@ -6,7 +6,7 @@ cd /d "%~dp0..\.."
 
 echo.
 echo  ╔══════════════════════════════════════════╗
-echo  ║   SAQR v6.2.3 — Live Integrated Testnet   ║
+echo  ║   SAQR v6.2.3 — Paper + Live Market Bridge  ║
 echo  ╚══════════════════════════════════════════╝
 echo.
 

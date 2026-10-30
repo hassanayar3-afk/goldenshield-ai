@@ -1,3 +1,4 @@
+mod control_actions;
 mod dashboard_api;
 mod env_loader;
 mod market_api;
@@ -5,6 +6,7 @@ mod gc_worker;
 mod hot_loop;
 mod integrations_bridge;
 mod runtime;
+mod telegram_bridge;
 mod telegram_notify;
 mod web_server;
 
@@ -73,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     integrations_bridge::spawn_integrations_bridge(settings.clone());
+    telegram_bridge::spawn_bidirectional_bridge(Arc::clone(&rt));
     hot_loop::spawn_hot_loop(Arc::clone(&rt));
 
     let web_root = resolve_web_root();
@@ -115,6 +118,7 @@ fn run_check(settings: &SaqrSettings) {
             "set"
         }
     );
+    println!("  SAQR_TELEGRAM_BRIDGE: {}", settings.telegram_bridge_enabled);
 }
 
 fn resolve_web_root() -> String {

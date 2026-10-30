@@ -530,20 +530,24 @@ async function loadTradeHistoryFromApi() {
 }
 
 async function bootstrapDashboard() {
-  applyMirror({ initial_balance_usd: 5000, total_balance_usd: 5000, daily_profit_pct: 0, open_positions_count: 0, positions: [], bot_running: true });
+  let floor = 5000;
+  try {
+    const st = await fetch('/api/status').then(r => r.json());
+    if (typeof st.initial_balance_usd === 'number' && st.initial_balance_usd > 0) {
+      floor = st.initial_balance_usd;
+    }
+    if (typeof st.bot_running === 'boolean') {
+      isRunning = st.bot_running;
+      syncBotUiFromState();
+    }
+  } catch (_) {}
+  applyMirror({ initial_balance_usd: floor, total_balance_usd: floor, daily_profit_pct: 0, open_positions_count: 0, positions: [], bot_running: isRunning });
   await refreshBinanceMirror();
   await refreshBtcTicker();
   await refreshSignals(false);
   await refreshLiquidity();
   await loadTradeHistoryFromApi();
   await setReportPeriod('daily');
-  try {
-    const st = await fetch('/api/status').then(r => r.json());
-    if (typeof st.bot_running === 'boolean') {
-      isRunning = st.bot_running;
-      syncBotUiFromState();
-    }
-  } catch (_) {}
 }
 
 /** Register every index.html onclick handler on window (required for inline handlers). */

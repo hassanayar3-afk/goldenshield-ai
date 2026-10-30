@@ -33,4 +33,15 @@ impl TelegramDispatcher {
     pub fn default_chat_id(&self) -> &str {
         &self.settings.chat_id
     }
+
+    pub fn get_updates_url(&self) -> String {
+        format!(
+            "https://api.telegram.org/bot{}/getUpdates",
+            self.settings.bot_token
+        )
+    }
+
+    pub fn bot_token_configured(&self) -> bool {
+        !self.settings.bot_token.is_empty()
+    }
 }

@@ -12,6 +12,22 @@ pub async fn system_status(rt: &SharedRuntime, running: bool) {
     let _ = rt.telegram.send_text(&text).await;
 }
 
+pub async fn paper_trade_entry(
+    rt: &SharedRuntime,
+    symbol: &str,
+    entry: f64,
+    qty: &str,
+    usdt_spend: f64,
+) {
+    if !rt.telegram.is_configured() {
+        return;
+    }
+    let text = format!(
+        "🟢 <b>دخول Paper</b>\nرمز: <code>{symbol}</code>\nسعر: <code>{entry:.4}</code>\nحجم: <code>{qty}</code>\nاستثمار: <code>{usdt_spend:.2} $</code>\n📡 Binance سوق حي · Terminal sync"
+    );
+    let _ = rt.telegram.send_text(&text).await;
+}
+
 pub async fn trade_entry(
     rt: &SharedRuntime,
     pair: &str,

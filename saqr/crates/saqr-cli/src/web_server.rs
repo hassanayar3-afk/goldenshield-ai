@@ -68,7 +68,9 @@ async fn status(
         "binance_rest_url": s.binance.rest_base_url,
         "binance_configured": rt.binance.configured(),
         "telegram_configured": rt.telegram.is_configured(),
+        "telegram_bridge": s.telegram_bridge_enabled && rt.telegram.is_configured(),
         "web_port": s.web_bind_port,
         "bot_running": rt.bot_is_running(),
+        "initial_balance_usd": s.initial_balance_usd,
     }))
 }

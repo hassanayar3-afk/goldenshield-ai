@@ -41,6 +41,8 @@ pub struct SaqrSettings {
     pub cloud: CloudServerSettings,
     pub web_bind_host: String,
     pub web_bind_port: u16,
+    pub telegram_bridge_enabled: bool,
+    pub integration_interval_secs: u64,
 }
 
 impl SaqrSettings {
@@ -118,6 +120,11 @@ impl SaqrSettings {
             },
             web_bind_host: env::var("SAQR_WEB_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
             web_bind_port: env_u16("SAQR_WEB_BIND_PORT", 8788),
+            telegram_bridge_enabled: env_bool("SAQR_TELEGRAM_BRIDGE", true),
+            integration_interval_secs: env::var("SAQR_INTEGRATION_INTERVAL_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(900),
         }
     }
 

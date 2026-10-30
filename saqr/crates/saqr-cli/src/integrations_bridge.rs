@@ -4,16 +4,14 @@ use saqr_core::telegram::send_message::TelegramClient;
 use tokio::time::{interval, Duration};
 
 pub fn spawn_integrations_bridge(settings: SaqrSettings) {
+    let period = settings.integration_interval_secs.max(60);
     tokio::spawn(async move {
-        if let Err(e) = run_bridge_cycle(&settings).await {
-            tracing::error!("integrations bridge cycle failed: {e}");
-        }
-        let mut tick = interval(Duration::from_secs(900));
+        let mut tick = interval(Duration::from_secs(period));
         tick.tick().await;
         loop {
             tick.tick().await;
             if let Err(e) = run_bridge_cycle(&settings).await {
-                tracing::error!("integrations bridge cycle failed: {e}");
+                tracing::warn!("integrations heartbeat: {e}");
             }
         }
     });
