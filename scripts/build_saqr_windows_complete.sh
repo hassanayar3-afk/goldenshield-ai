@@ -64,8 +64,8 @@ AR
   echo "[pack] template only (public GitHub — keys empty by design)"
 fi
 
-cp "$SAQR/deploy/windows/SAQR_RUN_PORTABLE.bat" "$STAGE/SAQR_RUN.bat"
-cp "$SAQR/deploy/windows/SAQR_LIVE_CONSOLE.ps1" "$STAGE/"
+cp "$SAQR/deploy/windows/SAQR_RUN.bat" "$STAGE/SAQR_RUN.bat"
+cp "$SAQR/deploy/windows/SAQR_LIVE_CONSOLE.ps1" "$STAGE/" 2>/dev/null || true
 
 cat > "$STAGE/FIX_MY_ENV.bat" << 'BAT'
 @echo off

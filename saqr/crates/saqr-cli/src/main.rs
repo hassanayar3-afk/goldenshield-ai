@@ -1,3 +1,4 @@
+mod bridge_sync;
 mod control_actions;
 mod dashboard_api;
 mod env_loader;

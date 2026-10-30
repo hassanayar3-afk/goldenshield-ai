@@ -1,4 +1,4 @@
-use saqr_core::binance::mirror::MirrorPosition;
+use saqr_core::binance::mirror::{BinanceMirrorPayload, MirrorPosition};
 use saqr_core::binance::signed_api::OrderResponse;
 
 use crate::runtime::SharedRuntime;
@@ -80,6 +80,38 @@ pub async fn paper_trade_exit(rt: &SharedRuntime, symbol: &str, pnl_usd: f64, fr
     let text = format!(
         "🔴 <b>إغلاق Paper</b> ({:.0}%)\nرمز: <code>{symbol}</code>\nPnL: <code>{pnl_usd:+.2} $</code>\n📡 أسعار: سوق Binance الحي",
         fraction * 100.0
+    );
+    let _ = rt.telegram.send_text(&text).await;
+}
+
+/// Compact real-time ack after Terminal or Telegram trade actions (mirror already refreshed).
+pub async fn bridge_sync_event(
+    rt: &SharedRuntime,
+    source: &str,
+    action: &str,
+    closed: u32,
+    m: &BinanceMirrorPayload,
+) {
+    if !rt.telegram.is_configured() {
+        return;
+    }
+    let src_label = match source {
+        "terminal" => "لوحة التحكم → Telegram",
+        "telegram" => "Telegram → Binance → Terminal",
+        _ => source,
+    };
+    let text = format!(
+        "🔄 <b>مزامنة صقر</b>\n\
+{src_label}\n\
+إجراء: <code>{action}</code>\n\
+أغلقت: <code>{closed}</code>\n\
+رصيد: <code>{:.2} $</code> · مفتوحة: <code>{}</code>\n\
+رابحة: <code>+{:.2}</code> $ · خاسرة: <code>-{:.2}</code> $ · يوم: <code>{:+.2}%</code>",
+        m.total_balance_usd,
+        m.open_positions_count,
+        m.winning_pnl_usd,
+        m.losing_pnl_usd,
+        m.daily_profit_pct,
     );
     let _ = rt.telegram.send_text(&text).await;
 }

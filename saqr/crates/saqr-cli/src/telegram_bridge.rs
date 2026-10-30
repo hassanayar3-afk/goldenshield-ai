@@ -106,7 +106,7 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
         }
         "/buy" | "/enter" | "/دخول" | "دخول" => {
             let sym = parse_symbol_arg(text).unwrap_or_else(|| rt.settings.symbol.clone());
-            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0).await;
+            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0, "telegram").await;
             if code.is_success() {
                 format!("🟢 Paper دخول <code>{sym}</code> @ سعر Binance الحي")
             } else {
@@ -117,21 +117,21 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
             }
         }
         "/close_win" | "رابحة" => {
-            let (_, body) = control_actions::close_winners(rt).await;
+            let (_, body) = control_actions::close_winners(rt, "telegram").await;
             format!(
                 "💰 إغلاق الرابحة — أغلقت <code>{}</code> (Terminal sync)",
                 body.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
             )
         }
         "/close_loss" | "خاسرة" => {
-            let (_, body) = control_actions::close_losers(rt).await;
+            let (_, body) = control_actions::close_losers(rt, "telegram").await;
             format!(
                 "📉 إغلاق الخاسرة — أغلقت <code>{}</code>",
                 body.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
             )
         }
         "/emergency" | "/close_all" | "إغلاق_الكل" | "إغلاق الكل" => {
-            let (_, body) = control_actions::emergency_close_all(rt).await;
+            let (_, body) = control_actions::emergency_close_all(rt, "telegram").await;
             format!(
                 "🚨 إغلاق طوارئ — <code>{}</code> صفقة",
                 body.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
@@ -139,7 +139,7 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
         }
         _ if lower.starts_with("/buy ") => {
             let sym = parse_symbol_arg(text).unwrap_or_else(|| "BTCUSDT".into());
-            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0).await;
+            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0, "telegram").await;
             if code.is_success() {
                 format!("🟢 Paper دخول <code>{sym}</code>")
             } else {

@@ -93,6 +93,10 @@ async function refreshBinanceMirror() {
   }
 }
 
+async function syncAllAfterAction() {
+  await Promise.all([refreshBinanceMirror(), refreshBtcTicker(), loadTradeHistoryFromApi()]);
+}
+
 async function refreshBtcTicker() {
   try {
     const res = await fetch('/api/market/ticker?symbol=BTCUSDT', { cache: 'no-store' });
@@ -294,7 +298,7 @@ async function partialClosePosition(id) {
   const out = await apiPost('/api/control/partial_close', { symbol, fraction: 0.5 });
   if (out.ok) {
     showToast(`تم إغلاق 50% من صفقة ${pos.pair}`);
-    await refreshBinanceMirror();
+    await syncAllAfterAction();
   } else showToast(out.error || 'فشل الإغلاق الجزئي');
 }
 
@@ -304,20 +308,20 @@ async function closePosition(id) {
   const out = await apiPost(`/api/control/close/${encodeURIComponent(symbol)}`);
   if (out.ok) {
     showToast('تم إغلاق الصفقة بالكامل');
-    await refreshBinanceMirror();
+    await syncAllAfterAction();
   } else showToast(out.error || 'فشل الإغلاق');
 }
 
 async function closeWinningTrades() {
   const out = await apiPost('/api/control/close_winners');
-  await refreshBinanceMirror();
+  await syncAllAfterAction();
   if (out.closed > 0) showToast('تم إغلاق الصفقات الرابحة وتحصين الأرباح بنجاح 💰');
   else showToast('لا توجد صفقات رابحة مفتوحة');
 }
 
 async function closeLosingTrades() {
   const out = await apiPost('/api/control/close_losers');
-  await refreshBinanceMirror();
+  await syncAllAfterAction();
   if (out.closed > 0) showToast('تم إغلاق الصفقات الخاسرة بنجاح');
   else showToast('لا توجد صفقات خاسرة لإغلاقها');
 }
@@ -465,7 +469,7 @@ async function executeTrade(signalId) {
   if (out.ok) {
     sig.executed = true;
     renderSignals();
-    await refreshBinanceMirror();
+    await syncAllAfterAction();
     showToast(`🚀 Paper: دخول ${sig.pair} @ سعر السوق الحي`);
   } else {
     showToast(out.error || 'فشل الدخول Paper');
@@ -474,7 +478,7 @@ async function executeTrade(signalId) {
 
 async function emergencyCloseAll() {
   const out = await apiPost('/api/control/emergency_close');
-  await refreshBinanceMirror();
+  await syncAllAfterAction();
   showToast(out.closed ? '🚨 تم الإغلاق الطارئ لجميع المراكز' : '🚨 أمر الطوارئ — راجع السجل');
 }
 

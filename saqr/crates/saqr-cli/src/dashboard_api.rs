@@ -16,17 +16,17 @@ pub async fn bot_toggle(State(rt): State<SharedRuntime>) -> impl IntoResponse {
 }
 
 pub async fn close_winners(State(rt): State<SharedRuntime>) -> impl IntoResponse {
-    let (code, body) = control_actions::close_winners(&rt).await;
+    let (code, body) = control_actions::close_winners(&rt, "terminal").await;
     (code, Json(body))
 }
 
 pub async fn close_losers(State(rt): State<SharedRuntime>) -> impl IntoResponse {
-    let (code, body) = control_actions::close_losers(&rt).await;
+    let (code, body) = control_actions::close_losers(&rt, "terminal").await;
     (code, Json(body))
 }
 
 pub async fn emergency_close_all(State(rt): State<SharedRuntime>) -> impl IntoResponse {
-    let (code, body) = control_actions::emergency_close_all(&rt).await;
+    let (code, body) = control_actions::emergency_close_all(&rt, "terminal").await;
     (code, Json(body))
 }
 
@@ -44,6 +44,7 @@ pub async fn partial_close(
         &rt,
         &body.symbol,
         body.fraction.unwrap_or(0.5),
+        "terminal",
     )
     .await;
     (code, Json(val))
@@ -53,7 +54,7 @@ pub async fn close_one(
     State(rt): State<SharedRuntime>,
     Path(symbol): Path<String>,
 ) -> impl IntoResponse {
-    let (code, val) = control_actions::partial_close(&rt, &symbol, 1.0).await;
+    let (code, val) = control_actions::partial_close(&rt, &symbol, 1.0, "terminal").await;
     (code, Json(val))
 }
 
@@ -113,7 +114,8 @@ pub async fn paper_enter(
     State(rt): State<SharedRuntime>,
     Json(body): Json<PaperEnterBody>,
 ) -> impl IntoResponse {
-    let (code, val) = control_actions::paper_enter(&rt, &body.symbol, body.risk_pct).await;
+    let (code, val) =
+        control_actions::paper_enter(&rt, &body.symbol, body.risk_pct, "terminal").await;
     (code, Json(val))
 }
 

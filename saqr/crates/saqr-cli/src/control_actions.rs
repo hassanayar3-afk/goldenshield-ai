@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 
 use saqr_core::binance::mirror::sell_qty_for_position;
 
+use crate::bridge_sync;
 use crate::runtime::SharedRuntime;
 use crate::telegram_notify;
 
@@ -13,22 +14,23 @@ pub async fn toggle_bot(rt: &SharedRuntime) -> Value {
     json!({"ok": true, "bot_running": next})
 }
 
-pub async fn close_winners(rt: &SharedRuntime) -> (StatusCode, Value) {
-    execute_filter(rt, |pnl| *pnl > 0.0).await
+pub async fn close_winners(rt: &SharedRuntime, source: &str) -> (StatusCode, Value) {
+    execute_filter(rt, "close_winners", source, |pnl| *pnl > 0.0).await
 }
 
-pub async fn close_losers(rt: &SharedRuntime) -> (StatusCode, Value) {
-    execute_filter(rt, |pnl| *pnl < 0.0).await
+pub async fn close_losers(rt: &SharedRuntime, source: &str) -> (StatusCode, Value) {
+    execute_filter(rt, "close_losers", source, |pnl| *pnl < 0.0).await
 }
 
-pub async fn emergency_close_all(rt: &SharedRuntime) -> (StatusCode, Value) {
-    execute_filter(rt, |_| true).await
+pub async fn emergency_close_all(rt: &SharedRuntime, source: &str) -> (StatusCode, Value) {
+    execute_filter(rt, "emergency_close_all", source, |_| true).await
 }
 
 pub async fn paper_enter(
     rt: &SharedRuntime,
     symbol: &str,
     risk_pct: f64,
+    source: &str,
 ) -> (StatusCode, Value) {
     if !rt.settings.is_paper_trading() {
         return (
@@ -51,6 +53,7 @@ pub async fn paper_enter(
     match rt.paper.market_buy(&symbol, spend, px) {
         Ok(qty) => {
             telegram_notify::paper_trade_entry(rt, &symbol, px, &format!("{qty:.8}"), spend).await;
+            bridge_sync::sync_after_trade_action(rt, source, "paper_enter", 0).await;
             (
                 StatusCode::OK,
                 json!({"ok": true, "paper": true, "qty": qty, "price": px}),
@@ -67,6 +70,7 @@ pub async fn partial_close(
     rt: &SharedRuntime,
     symbol: &str,
     fraction: f64,
+    source: &str,
 ) -> (StatusCode, Value) {
     let symbol = symbol.to_uppercase();
     let frac = fraction.clamp(0.05, 1.0);
@@ -84,6 +88,7 @@ pub async fn partial_close(
         match rt.paper.close_symbol(&symbol, frac, px) {
             Ok(pnl) => {
                 telegram_notify::paper_trade_exit(rt, &symbol, pnl, frac).await;
+                bridge_sync::sync_after_trade_action(rt, source, "partial_close", 1).await;
                 (StatusCode::OK, json!({"ok": true, "paper": true, "pnl_usd": pnl}))
             }
             Err(e) => (
@@ -117,6 +122,7 @@ pub async fn partial_close(
         {
             Ok(order) => {
                 telegram_notify::trade_exit(rt, pos, &order, frac).await;
+                bridge_sync::sync_after_trade_action(rt, source, "partial_close", 1).await;
                 (StatusCode::OK, json!({"ok": true, "order": order}))
             }
             Err(e) => (
@@ -150,7 +156,12 @@ pub async fn status_snapshot(rt: &SharedRuntime) -> Value {
     })
 }
 
-async fn execute_filter<F>(rt: &SharedRuntime, pred: F) -> (StatusCode, Value)
+async fn execute_filter<F>(
+    rt: &SharedRuntime,
+    action: &str,
+    source: &str,
+    pred: F,
+) -> (StatusCode, Value)
 where
     F: Fn(&f64) -> bool,
 {
@@ -171,6 +182,7 @@ where
                 telegram_notify::paper_trade_exit(rt, &p.symbol, realized, 1.0).await;
             }
         }
+        bridge_sync::sync_after_trade_action(rt, source, action, closed).await;
         return (
             StatusCode::OK,
             json!({"ok": true, "closed": closed, "paper": true, "errors": []}),
@@ -201,6 +213,7 @@ where
             Err(e) => errors.push(format!("{}: {e}", pos.symbol)),
         }
     }
+    bridge_sync::sync_after_trade_action(rt, source, action, closed).await;
     (
         StatusCode::OK,
         json!({
