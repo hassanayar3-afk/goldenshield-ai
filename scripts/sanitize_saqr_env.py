@@ -10,7 +10,8 @@ INVISIBLE = re.compile(r"[\u200b-\u200d\ufeff\u2060\u00ad]+")
 
 DEFAULTS: dict[str, str] = {
     "SAQR_REQUIRE_INTEGRATED_DEMO": "false",
-    "SAQR_ENABLE_TRADING": "false",
+    "SAQR_ENABLE_TRADING": "true",
+    "SAQR_WEB_BIND_PORT": "8788",
     "SAQR_ENABLE_LIVE_ACK": "false",
     "SAQR_WAL_PATH": "data/saqr.wal.jsonl",
     "SAQR_WS_RECONNECT_SECS": "3",
