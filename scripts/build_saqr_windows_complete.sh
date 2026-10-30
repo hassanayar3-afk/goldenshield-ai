@@ -15,7 +15,7 @@ echo "[build] cross-compile saqr.exe..."
 cp "$SAQR/target/x86_64-pc-windows-gnu/release/saqr.exe" "$STAGE/bin/"
 
 cp "$SAQR/web/control_terminal/index.html" "$SAQR/web/control_terminal/dashboard.js" "$STAGE/web/control_terminal/"
-cp "$ROOT/scripts/sanitize_saqr_env.py" "$STAGE/scripts/"
+cp "$ROOT/scripts/sanitize_saqr_env.py" "$ROOT/scripts/validate_saqr_env.py" "$STAGE/scripts/"
 cp "$ROOT/saqr.env.template" "$STAGE/env.template"
 
 cat > "$STAGE/SAQR_RUN.bat" << 'BAT'
@@ -46,7 +46,16 @@ if not exist ".env" (
 
 if exist "FIX_MY_ENV.bat" call FIX_MY_ENV.bat
 
+if exist "scripts\validate_saqr_env.py" (
+  where python >nul 2>&1
+  if not errorlevel 1 python scripts\validate_saqr_env.py .env
+  if errorlevel 1 pause & exit /b 1
+)
+
 if exist "bin\saqr.exe" (
+  echo [CHECK] Engine preflight...
+  "bin\saqr.exe" --check
+  if errorlevel 1 pause & exit /b 1
   echo [RUN] Dashboard: http://127.0.0.1:8788
   echo       Paper 5000 USD ^| api.binance.com ^| Telegram bridge
   "bin\saqr.exe"

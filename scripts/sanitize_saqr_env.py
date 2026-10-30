@@ -16,6 +16,7 @@ DEFAULTS: dict[str, str] = {
     "SAQR_WAL_PATH": "data/saqr.wal.jsonl",
     "SAQR_WS_RECONNECT_SECS": "3",
     "SAQR_INTEGRATION_INTERVAL_SECS": "300",
+    "SAQR_TELEGRAM_BRIDGE": "true",
 }
 
 

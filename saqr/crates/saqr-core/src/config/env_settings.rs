@@ -55,12 +55,17 @@ impl SaqrSettings {
             env_bool("BINANCE_TESTNET", true)
         };
 
-        let market_rest = env::var("BINANCE_MARKET_REST_URL").unwrap_or_else(|_| {
-            "https://api.binance.com".into()
-        });
-        let market_ws = env::var("BINANCE_MARKET_WS_URL").unwrap_or_else(|_| {
-            "wss://stream.binance.com:9443".into()
-        });
+        let market_rest = env::var("BINANCE_MARKET_REST_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| env::var("BINANCE_REST_URL").ok())
+            .unwrap_or_else(|| "https://api.binance.com".into());
+        let market_ws = env::var("BINANCE_MARKET_WS_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| env::var("BINANCE_WS_URL").ok())
+            .map(|s| normalize_binance_ws_base(&s))
+            .unwrap_or_else(|| "wss://stream.binance.com:9443".into());
 
         let rest = if paper {
             market_rest.clone()
@@ -77,13 +82,15 @@ impl SaqrSettings {
         let ws = if paper {
             market_ws.clone()
         } else {
-            env::var("BINANCE_WS_URL").unwrap_or_else(|_| {
-                if testnet {
-                    "wss://stream.testnet.binance.vision".into()
-                } else {
-                    "wss://stream.binance.com:9443".into()
-                }
-            })
+            env::var("BINANCE_WS_URL")
+                .map(|s| normalize_binance_ws_base(&s))
+                .unwrap_or_else(|_| {
+                    if testnet {
+                        "wss://stream.testnet.binance.vision".into()
+                    } else {
+                        "wss://stream.binance.com:9443".into()
+                    }
+                })
         };
 
         Self {
@@ -164,4 +171,14 @@ fn env_u16(key: &str, default: u16) -> u16 {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(default)
+}
+
+/// Accepts `wss://stream.binance.com:9443/ws` and normalizes to stream base.
+fn normalize_binance_ws_base(raw: &str) -> String {
+    let mut s = raw.trim().trim_end_matches('/').to_string();
+    if s.ends_with("/ws") {
+        s.truncate(s.len().saturating_sub(3));
+        s = s.trim_end_matches('/').to_string();
+    }
+    s
 }

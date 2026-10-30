@@ -37,7 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = SaqrSettings::from_env();
 
     if args.iter().any(|a| a == "--check") {
-        run_check(&settings);
+        let ok = run_check(&settings);
+        if !ok {
+            std::process::exit(1);
+        }
         return Ok(());
     }
 
@@ -95,30 +98,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_check(settings: &SaqrSettings) {
+fn run_check(settings: &SaqrSettings) -> bool {
+    let mut ok = true;
     println!("SAQR --check v6.2.3");
     println!("  mode: {}", settings.mode);
     println!("  SAQR_ENABLE_TRADING: {}", settings.enable_trading);
     println!("  paper_trading: {}", settings.is_paper_trading());
     println!("  market_rest: {}", settings.market_rest_url);
+    println!("  binance_rest: {}", settings.binance.rest_base_url);
+    println!("  symbol: {}", settings.symbol);
+    println!("  initial_balance_usd: {}", settings.initial_balance_usd);
     println!("  web bind: {}:{}", settings.web_bind_host, settings.web_bind_port);
-    println!(
-        "  BINANCE_API_KEY: {}",
-        if settings.api_key.is_empty() {
-            "MISSING"
-        } else {
-            "set"
-        }
-    );
-    println!(
-        "  TELEGRAM_BOT_TOKEN: {}",
-        if settings.telegram.bot_token.is_empty() {
-            "MISSING"
-        } else {
-            "set"
-        }
-    );
+    if settings.api_key.is_empty() {
+        println!("  BINANCE_API_KEY: MISSING");
+        ok = false;
+    } else {
+        println!("  BINANCE_API_KEY: set");
+    }
+    if settings.api_secret.is_empty() {
+        println!("  BINANCE_API_SECRET: MISSING");
+        ok = false;
+    } else {
+        println!("  BINANCE_API_SECRET: set");
+    }
+    if settings.telegram.bot_token.is_empty() || settings.telegram.bot_token.len() < 40 {
+        println!("  TELEGRAM_BOT_TOKEN: MISSING or truncated");
+        ok = false;
+    } else {
+        println!("  TELEGRAM_BOT_TOKEN: set");
+    }
+    if settings.telegram.chat_id.is_empty() {
+        println!("  TELEGRAM_CHAT_ID: MISSING");
+        ok = false;
+    } else {
+        println!("  TELEGRAM_CHAT_ID: set");
+    }
     println!("  SAQR_TELEGRAM_BRIDGE: {}", settings.telegram_bridge_enabled);
+    if !settings.is_paper_trading() {
+        println!("  [warn] not in paper mode");
+    }
+    if ok {
+        println!("  preflight: OK");
+    } else {
+        println!("  preflight: FAILED");
+    }
+    ok
 }
 
 fn resolve_web_root() -> String {
