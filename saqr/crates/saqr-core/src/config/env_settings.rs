@@ -186,6 +186,10 @@ impl SaqrSettings {
         )
     }
 
+    pub fn is_testnet_execution(&self) -> bool {
+        !self.is_paper_trading() && self.binance.testnet
+    }
+
     /// تنفيذ أوامر حقيقية على Testnet/Live — معطّل في وضع Paper.
     pub fn live_execution_enabled(&self) -> bool {
         self.enable_trading && !self.is_paper_trading()

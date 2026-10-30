@@ -70,6 +70,7 @@ fi
 
 cp "$SAQR/deploy/windows/SAQR_RUN.bat" "$STAGE/SAQR_RUN.bat"
 cp "$SAQR/deploy/windows/ENV_VARIABLES_AR.txt" "$STAGE/" 2>/dev/null || true
+cp "$SAQR/deploy/windows/TESTNET_TRADING_AR.txt" "$STAGE/" 2>/dev/null || true
 cp "$SAQR/deploy/windows/SAQR_LIVE_CONSOLE.ps1" "$STAGE/" 2>/dev/null || true
 
 cat > "$STAGE/FIX_MY_ENV.bat" << 'BAT'

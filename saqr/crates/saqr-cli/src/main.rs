@@ -97,8 +97,19 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     if settings.is_paper_trading() {
         eprintln!(
-            "[SAQR] Paper + live market {} | ${:.0} | symbol {}",
+            "[SAQR] Paper + market {} | ${:.0} | symbol {}",
             settings.market_rest_url, settings.initial_balance_usd, settings.symbol
+        );
+    } else {
+        eprintln!(
+            "[SAQR] Signed Binance {} | REST {} | symbol {}",
+            if settings.binance.testnet {
+                "TESTNET"
+            } else {
+                "LIVE"
+            },
+            settings.binance.rest_base_url,
+            settings.symbol
         );
     }
 

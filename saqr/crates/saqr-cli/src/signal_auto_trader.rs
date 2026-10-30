@@ -13,8 +13,8 @@ pub fn spawn_signal_auto_trader(rt: Arc<SharedRuntime>) {
         tracing::info!("Auto paper signal entries disabled (SAQR_AUTO_PAPER_SIGNALS=false)");
         return;
     }
-    if !rt.settings.is_paper_trading() {
-        tracing::warn!("Auto signal trader requires SAQR_MODE=paper");
+    if !rt.settings.is_paper_trading() && !rt.settings.live_execution_enabled() {
+        tracing::warn!("Auto signal trader requires paper or live/testnet trading enabled");
         return;
     }
     tokio::spawn(async move {
@@ -66,7 +66,7 @@ async fn run_auto_trader(rt: Arc<SharedRuntime>) {
                 break;
             }
             let (code, body) =
-                control_actions::paper_enter(&rt, &sig.symbol, risk, "auto_signal").await;
+                control_actions::enter_market(&rt, &sig.symbol, risk, "auto_signal").await;
             if code.is_success() {
                 rt.auto_entered_symbols.lock().insert(sig.symbol.clone());
                 tracing::info!(

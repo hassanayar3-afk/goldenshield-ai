@@ -12,6 +12,28 @@ pub async fn system_status(rt: &SharedRuntime, running: bool) {
     let _ = rt.telegram.send_text(&text).await;
 }
 
+pub async fn binance_trade_entry(
+    rt: &SharedRuntime,
+    symbol: &str,
+    entry: f64,
+    qty: &str,
+    usdt_spend: f64,
+    testnet: bool,
+) {
+    if !rt.telegram.is_configured() {
+        return;
+    }
+    let venue = if testnet {
+        "Binance Spot Testnet ✅"
+    } else {
+        "Binance Spot LIVE ⚠️"
+    };
+    let text = format!(
+        "🟢 <b>دخول {venue}</b>\nرمز: <code>{symbol}</code>\nسعر: <code>{entry:.4}</code>\nحجم: <code>{qty}</code>\nUSDT: <code>{usdt_spend:.2}</code>\n📡 أمر MARKET موقّع — محفوظ على Binance"
+    );
+    let _ = rt.telegram.send_text(&text).await;
+}
+
 pub async fn paper_trade_entry(
     rt: &SharedRuntime,
     symbol: &str,

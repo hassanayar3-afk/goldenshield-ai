@@ -257,4 +257,24 @@ impl BinanceSignedClient {
         let body = self.signed_post("/api/v3/order", &params).await?;
         serde_json::from_str(&body).map_err(|e| e.to_string())
     }
+
+    /// MARKET BUY spending quote asset (USDT) — Spot / Testnet signed order.
+    pub async fn market_buy_quote_usdt(
+        &self,
+        symbol: &str,
+        quote_usdt: f64,
+    ) -> Result<OrderResponse, String> {
+        if quote_usdt < 5.0 {
+            return Err("quote_usdt_below_min".into());
+        }
+        let quote = format!("{quote_usdt:.2}");
+        let params = vec![
+            ("symbol", symbol.to_string()),
+            ("side", "BUY".to_string()),
+            ("type", "MARKET".to_string()),
+            ("quoteOrderQty", quote),
+        ];
+        let body = self.signed_post("/api/v3/order", &params).await?;
+        serde_json::from_str(&body).map_err(|e| e.to_string())
+    }
 }

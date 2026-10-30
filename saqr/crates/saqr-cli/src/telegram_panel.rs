@@ -180,7 +180,17 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
         }
         _ => {
             out.push_str("<b>🎛 لوحة التحكم</b> — اختر قسماً من الأزرار ↓\n");
-            out.push_str("<i>تحديث تلقائي كل 3 ث · Paper · api.binance.com</i>\n");
+            let exec = if rt.settings.is_paper_trading() {
+                "Paper Sandbox"
+            } else if rt.settings.is_testnet_execution() {
+                "Binance Spot Testnet (أوامر حقيقية)"
+            } else {
+                "Binance Spot LIVE"
+            };
+            out.push_str(&format!(
+                "<i>تحديث كل {}ث · {exec}</i>\n",
+                rt.settings.signal_interval_secs
+            ));
         }
     }
 

@@ -1,0 +1,16 @@
+SAQR v6.2.3 — تداول Testnet (أوامر حقيقية على حساب تجريبي)
+============================================================
+
+هذه الحزمة مضبوطة على:
+  SAQR_MODE=testnet
+  BINANCE_REST_URL=https://testnet.binance.vision
+  BINANCE_TESTNET=true
+
+⚠️ مفاتيح API يجب أن تكون من https://testnet.binance.vision/ (ليس من binance.com الرئيسي).
+
+التداول:
+  - أوامر MARKET موقّعة (BUY/SELL) تُحفظ على Spot Testnet
+  - Telegram ⇄ Binance: لوحة + /buy + إشارات تلقائية
+  - ليس Paper وهمي — رصيدك من حساب Testnet
+
+شغّل SAQR_RUN.bat — راقب Telegram.

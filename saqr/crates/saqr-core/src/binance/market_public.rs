@@ -38,12 +38,17 @@ pub struct BinancePublicMarket {
 
 impl BinancePublicMarket {
     pub fn new(settings: &SaqrSettings) -> Self {
+        let base_url = if settings.is_paper_trading() {
+            settings.market_rest_url.clone()
+        } else {
+            settings.binance.rest_base_url.clone()
+        };
         Self {
             http: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(20))
                 .build()
                 .unwrap_or_default(),
-            base_url: settings.market_rest_url.trim_end_matches('/').to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
         }
     }
 

@@ -26,43 +26,109 @@ pub async fn emergency_close_all(rt: &SharedRuntime, source: &str) -> (StatusCod
     execute_filter(rt, "emergency_close_all", source, |_| true).await
 }
 
+/// Paper sandbox OR signed Binance Testnet/Live market entry (Telegram / signals / panel).
 pub async fn paper_enter(
     rt: &SharedRuntime,
     symbol: &str,
     risk_pct: f64,
     source: &str,
 ) -> (StatusCode, Value) {
-    if !rt.settings.is_paper_trading() {
-        return (
-            StatusCode::BAD_REQUEST,
-            json!({"ok": false, "error": "not_paper_mode"}),
-        );
-    }
+    enter_market(rt, symbol, risk_pct, source).await
+}
+
+pub async fn enter_market(
+    rt: &SharedRuntime,
+    symbol: &str,
+    risk_pct: f64,
+    source: &str,
+) -> (StatusCode, Value) {
     let symbol = symbol.to_uppercase().replace('/', "");
-    let px = match rt.market.price(&symbol).await {
-        Ok(p) => p,
-        Err(e) => {
+    let risk = risk_pct.clamp(0.1, 5.0);
+
+    if rt.settings.is_paper_trading() {
+        let px = match rt.market.price(&symbol).await {
+            Ok(p) => p,
+            Err(e) => return (StatusCode::BAD_GATEWAY, json!({"ok": false, "error": e})),
+        };
+        let mirror = rt.refresh_mirror().await;
+        let spend = mirror.total_balance_usd * (risk / 100.0);
+        match rt.paper.market_buy(&symbol, spend, px) {
+            Ok(qty) => {
+                telegram_notify::paper_trade_entry(rt, &symbol, px, &format!("{qty:.8}"), spend)
+                    .await;
+                bridge_sync::sync_after_trade_action(rt, source, "paper_enter", 0).await;
+                (
+                    StatusCode::OK,
+                    json!({"ok": true, "paper": true, "qty": qty, "price": px}),
+                )
+            }
+            Err(e) => (StatusCode::BAD_REQUEST, json!({"ok": false, "error": e})),
+        }
+    } else {
+        if !rt.settings.live_execution_enabled() {
             return (
-                StatusCode::BAD_GATEWAY,
-                json!({"ok": false, "error": e}),
+                StatusCode::BAD_REQUEST,
+                json!({"ok": false, "error": "trading_disabled"}),
             );
         }
-    };
-    let mirror = rt.refresh_mirror().await;
-    let spend = mirror.total_balance_usd * (risk_pct / 100.0).clamp(0.1, 5.0);
-    match rt.paper.market_buy(&symbol, spend, px) {
-        Ok(qty) => {
-            telegram_notify::paper_trade_entry(rt, &symbol, px, &format!("{qty:.8}"), spend).await;
-            bridge_sync::sync_after_trade_action(rt, source, "paper_enter", 0).await;
-            (
-                StatusCode::OK,
-                json!({"ok": true, "paper": true, "qty": qty, "price": px}),
-            )
+        if !rt.binance.configured() {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"ok": false, "error": "binance_keys_missing"}),
+            );
         }
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            json!({"ok": false, "error": e}),
-        ),
+        if let Err(e) = rt.binance.sync_time().await {
+            tracing::warn!("binance time sync: {e}");
+        }
+        let _ = rt.binance.refresh_exchange_rules().await;
+        let mirror = rt.refresh_mirror().await;
+        let spend = mirror.usdt_free * (risk / 100.0);
+        if spend < 5.0 {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"ok": false, "error": "insufficient_usdt_testnet", "usdt_free": mirror.usdt_free}),
+            );
+        }
+        match rt.binance.market_buy_quote_usdt(&symbol, spend).await {
+            Ok(order) => {
+                let px = order
+                    .price
+                    .as_ref()
+                    .and_then(|p| p.parse::<f64>().ok())
+                    .or_else(|| {
+                        order.cummulativeQuoteQty.as_ref().and_then(|q| {
+                            q.parse::<f64>()
+                                .ok()
+                                .and_then(|quote| {
+                                    order.executedQty.parse::<f64>().ok().map(|e| {
+                                        quote / e.max(1e-12)
+                                    })
+                                })
+                        })
+                    })
+                    .unwrap_or(0.0);
+                telegram_notify::binance_trade_entry(
+                    rt,
+                    &symbol,
+                    px,
+                    &order.executedQty,
+                    spend,
+                    rt.settings.is_testnet_execution(),
+                )
+                .await;
+                bridge_sync::sync_after_trade_action(rt, source, "binance_enter", 0).await;
+                (
+                    StatusCode::OK,
+                    json!({
+                        "ok": true,
+                        "paper": false,
+                        "testnet": rt.settings.binance.testnet,
+                        "order": order,
+                    }),
+                )
+            }
+            Err(e) => (StatusCode::BAD_GATEWAY, json!({"ok": false, "error": e})),
+        }
     }
 }
 
