@@ -30,6 +30,13 @@ impl TelegramDispatcher {
         )
     }
 
+    pub fn api_answer_callback_url(&self) -> String {
+        format!(
+            "https://api.telegram.org/bot{}/answerCallbackQuery",
+            self.settings.bot_token
+        )
+    }
+
     pub fn fallback_api_send_url(&self) -> Option<String> {
         self.settings
             .secondary_bot_token

@@ -4,16 +4,13 @@ use saqr_core::telegram::anti_flood::TelegramAntiFlood;
 
 use crate::control_actions;
 use crate::runtime::SharedRuntime;
+use crate::telegram_panel;
 
-const HELP_AR: &str = "🦅 <b>صقر SAQR v6.2.3</b> — لوحة Telegram\n\
-/status — رصيد + صفقات (Binance حي)\n\
-/price — سعر حي\n\
-/buy — دخول Paper (2%)\n\
-/close_win · /close_loss · /emergency\n\
-/pause · /resume · /toggle\n\
-/help — القائمة\n\
-📡 الإشارات تُحدَّث كل 3ث في رسالة اللوحة\n\
-🎛 لوحة الويب معطّلة عند SAQR_TELEGRAM_CONTROL_PANEL=true";
+const HELP_AR: &str = "🦅 <b>صقر SAQR v6.2.3</b>\n\
+/panel أو /لوحة — فتح لوحة التحكم (أزرار)\n\
+/status · /price · /buy · /close_win · /emergency\n\
+/pause · /resume\n\
+📡 اللوحة تتحدّث كل 3 ث مع Binance مباشرة";
 
 pub fn spawn_bidirectional_bridge(rt: Arc<SharedRuntime>) {
     if !rt.settings.telegram_bridge_enabled {
@@ -33,19 +30,30 @@ async fn run_bridge_loop(rt: Arc<SharedRuntime>) {
     let flood = TelegramAntiFlood::new();
     let mut offset: i64 = 0;
     tracing::info!("Telegram ⇄ SAQR bidirectional bridge active (long poll)");
-    let _ = rt
-        .telegram
-        .send_text(
-            "🦅 <b>صقر SAQR v6.2.3</b>\n✅ الجسر الثنائي نشط\nTelegram ⇄ Binance (سوق حي) ⇄ Terminal\nPaper Sandbox · أرسل /help",
-        )
-        .await;
+    if !rt.settings.telegram_control_panel {
+        let _ = rt
+            .telegram
+            .send_text(
+                "🦅 <b>صقر SAQR v6.2.3</b>\n✅ الجسر نشط · /help",
+            )
+            .await;
+    }
 
     loop {
-        match rt.telegram.poll_inbound(offset, 25).await {
-            Ok((messages, next)) => {
-                offset = next;
+        match rt.telegram.poll_updates(offset, 25).await {
+            Ok(batch) => {
+                offset = batch.next_offset;
                 flood.reset_on_success();
-                for msg in messages {
+                for cb in batch.callbacks {
+                    if !rt.telegram.chat_is_authorized(&cb.chat_id) {
+                        continue;
+                    }
+                    if let Err(e) = telegram_panel::handle_callback(&rt, &cb.query_id, &cb.data).await
+                    {
+                        tracing::warn!("telegram callback: {e}");
+                    }
+                }
+                for msg in batch.messages {
                     if !rt.telegram.chat_is_authorized(&msg.chat_id) {
                         tracing::warn!("ignored Telegram chat {}", msg.chat_id);
                         continue;
@@ -76,7 +84,12 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
     let cmd = lower.split_whitespace().next().unwrap_or("");
 
     let reply = match cmd {
-        "/start" | "/help" | "help" | "مساعدة" => HELP_AR.to_string(),
+        "/start" | "/panel" | "/لوحة" => {
+            *rt.telegram_panel_section.lock() = "home".into();
+            let _ = telegram_panel::push_dashboard(rt).await;
+            return Ok(());
+        }
+        "/help" | "help" | "مساعدة" => HELP_AR.to_string(),
         "/status" | "/رصيد" | "رصيد" | "status" | "حالة" => format_status(rt).await,
         "/price" | "سعر" => format_price(rt, text).await,
         "/pause" | "/stop" | "إيقاف" => {

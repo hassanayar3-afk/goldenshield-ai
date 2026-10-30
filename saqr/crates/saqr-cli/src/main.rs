@@ -6,6 +6,7 @@ mod market_api;
 mod market_signals;
 mod signal_auto_trader;
 mod telegram_control;
+mod telegram_panel;
 mod gc_worker;
 mod hot_loop;
 mod integrations_bridge;

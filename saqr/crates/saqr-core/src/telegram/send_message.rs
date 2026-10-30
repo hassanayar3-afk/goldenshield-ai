@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use super::dispatcher::TelegramDispatcher;
-use super::get_updates::{parse_updates, TelegramInboundMessage};
+use super::get_updates::{parse_updates, TelegramInboundMessage, TelegramPollBatch};
 use crate::config::env_settings::TelegramSettings;
 
 #[derive(Serialize)]
@@ -109,16 +109,47 @@ impl TelegramClient {
     }
 
     pub async fn edit_text(&self, message_id: i64, text: &str) -> Result<(), String> {
+        self.edit_dashboard(message_id, text, &serde_json::json!({})).await
+    }
+
+    pub async fn send_dashboard(&self, text: &str, keyboard: &serde_json::Value) -> Result<i64, String> {
+        let url = self.dispatcher.api_send_url();
+        let body = serde_json::json!({
+            "chat_id": self.dispatcher.default_chat_id(),
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": keyboard,
+        });
+        let resp = self.http.post(&url).json(&body).send().await.map_err(|e| e.to_string())?;
+        let status = resp.status();
+        let raw = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(format!("Telegram HTTP {status}: {raw}"));
+        }
+        let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| format!("Telegram JSON: {e}"))?;
+        v.get("result")
+            .and_then(|r| r.get("message_id"))
+            .and_then(|m| m.as_i64())
+            .ok_or_else(|| format!("Telegram send missing message_id: {raw}"))
+    }
+
+    pub async fn edit_dashboard(
+        &self,
+        message_id: i64,
+        text: &str,
+        keyboard: &serde_json::Value,
+    ) -> Result<(), String> {
         if self.dispatcher.default_chat_id().is_empty() {
             return Err("TELEGRAM_CHAT_ID missing".into());
         }
         let url = self.dispatcher.api_edit_message_url();
-        let body = EditMessageBody {
-            chat_id: self.dispatcher.default_chat_id(),
-            message_id,
-            text,
-            parse_mode: "HTML",
-        };
+        let body = serde_json::json!({
+            "chat_id": self.dispatcher.default_chat_id(),
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": keyboard,
+        });
         let resp = self
             .http
             .post(&url)
@@ -130,6 +161,22 @@ impl TelegramClient {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             return Err(format!("Telegram edit HTTP {status}: {body}"));
+        }
+        Ok(())
+    }
+
+    pub async fn answer_callback(&self, query_id: &str, text: Option<&str>) -> Result<(), String> {
+        let url = self.dispatcher.api_answer_callback_url();
+        let body = serde_json::json!({
+            "callback_query_id": query_id,
+            "text": text.unwrap_or(""),
+            "show_alert": false,
+        });
+        let resp = self.http.post(&url).json(&body).send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let raw = resp.text().await.unwrap_or_default();
+            return Err(format!("answerCallbackQuery {status}: {raw}"));
         }
         Ok(())
     }
@@ -146,14 +193,22 @@ impl TelegramClient {
         chat_id.trim() == allowed.trim()
     }
 
-    /// Long-poll inbound commands (Telegram → SAQR).
+    /// Long-poll messages + inline keyboard callbacks.
     pub async fn poll_inbound(
         &self,
         offset: i64,
         timeout_secs: u8,
     ) -> Result<(Vec<TelegramInboundMessage>, i64), String> {
+        let batch = self.poll_updates(offset, timeout_secs).await?;
+        Ok((batch.messages, batch.next_offset))
+    }
+
+    pub async fn poll_updates(&self, offset: i64, timeout_secs: u8) -> Result<TelegramPollBatch, String> {
         if !self.is_configured() {
-            return Ok((Vec::new(), offset));
+            return Ok(TelegramPollBatch {
+                next_offset: offset,
+                ..Default::default()
+            });
         }
         let url = self.dispatcher.get_updates_url();
         let resp = self
@@ -162,7 +217,7 @@ impl TelegramClient {
             .query(&[
                 ("offset", offset.to_string()),
                 ("timeout", timeout_secs.to_string()),
-                ("allowed_updates", "[\"message\"]".into()),
+                ("allowed_updates", "[\"message\",\"callback_query\"]".into()),
             ])
             .send()
             .await
@@ -173,12 +228,10 @@ impl TelegramClient {
             return Err(format!("Telegram getUpdates HTTP {status}: {body}"));
         }
         let body = resp.text().await.map_err(|e| e.to_string())?;
-        let messages = parse_updates(&body)?;
-        let next = messages
-            .iter()
-            .map(|m| m.update_id + 1)
-            .max()
-            .unwrap_or(offset);
-        Ok((messages, next))
+        let mut batch = parse_updates(&body)?;
+        if batch.next_offset == 0 {
+            batch.next_offset = offset;
+        }
+        Ok(batch)
     }
 }

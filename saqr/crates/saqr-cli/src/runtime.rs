@@ -21,6 +21,7 @@ pub struct SharedRuntime {
     pub last_mirror: Arc<Mutex<Option<BinanceMirrorPayload>>>,
     pub telegram_board_message_id: Arc<Mutex<Option<i64>>>,
     pub auto_entered_symbols: Arc<Mutex<HashSet<String>>>,
+    pub telegram_panel_section: Arc<Mutex<String>>,
 }
 
 impl SharedRuntime {
@@ -37,6 +38,7 @@ impl SharedRuntime {
             last_mirror: Arc::new(Mutex::new(None)),
             telegram_board_message_id: Arc::new(Mutex::new(None)),
             auto_entered_symbols: Arc::new(Mutex::new(HashSet::new())),
+            telegram_panel_section: Arc::new(Mutex::new("home".into())),
         }
     }
 
