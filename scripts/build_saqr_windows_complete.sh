@@ -31,6 +31,10 @@ if $INCLUDE_ENV && [[ -z "$ENV_SRC" ]]; then
   exit 1
 fi
 
+if $INCLUDE_ENV; then
+  python3 "$ROOT/scripts/prepare_saqr_runtime_env.py" || true
+fi
+
 rm -rf "$STAGE" "$ZIP"
 mkdir -p "$STAGE"/{bin,data,logs,scripts,web/control_terminal}
 
@@ -65,6 +69,7 @@ AR
 fi
 
 cp "$SAQR/deploy/windows/SAQR_RUN.bat" "$STAGE/SAQR_RUN.bat"
+cp "$SAQR/deploy/windows/ENV_VARIABLES_AR.txt" "$STAGE/" 2>/dev/null || true
 cp "$SAQR/deploy/windows/SAQR_LIVE_CONSOLE.ps1" "$STAGE/" 2>/dev/null || true
 
 cat > "$STAGE/FIX_MY_ENV.bat" << 'BAT'
@@ -97,11 +102,12 @@ if exist "bin\saqr.exe" ("bin\saqr.exe" --check & pause) else (echo Missing bin\
 BAT
 
 if $INCLUDE_ENV; then
-  READ_ME='SAQR v6.2.3 — حزمة جاهزة (.env مكتمل)
+  READ_ME='SAQR v6.2.3 — حزمة جاهزة (.env مكتمل + Telegram لوحة تحكم)
 ========================================
 1) فك الضغط
-2) شغّل SAQR_RUN.bat مباشرة (ملف .env موجود ومربوط)
-3) OPEN_DASHBOARD.bat أو http://127.0.0.1:8788
+2) شغّل SAQR_RUN.bat — saqr.env ينسخ إلى .env تلقائياً
+3) افتح بوت Telegram — الإشارات كل 3 ثوانٍ (Binance مباشر)
+4) لوحة الويب معطّلة افتراضياً (SAQR_WEB_ENABLED=false)
 لا تشارك هذا المجلد — يحتوي مفاتيحك.'
 else
   READ_ME='SAQR v6.2.3 — حزمة Windows
