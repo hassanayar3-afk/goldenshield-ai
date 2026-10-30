@@ -23,16 +23,14 @@ pub fn spawn_hot_loop(rt: Arc<SharedRuntime>) {
                     if !rt.settings.enable_trading || !rt.bot_is_running() {
                         continue;
                     }
-                    if let Ok(p) = rt.binance.ticker_prices_map().await {
-                        if let Some(cur) = p.get(&rt.settings.symbol).copied() {
-                            if let Some(prev) = last_price {
-                                let shock = ((cur - prev) / prev).abs();
-                                if shock >= 0.01 {
-                                    tracing::info!("BTC shock {:.2}% — cascade armed", shock * 100.0);
-                                }
+                    if let Ok(cur) = rt.market.price(&rt.settings.symbol).await {
+                        if let Some(prev) = last_price {
+                            let shock = ((cur - prev) / prev).abs();
+                            if shock >= 0.01 {
+                                tracing::info!("Live BTC shock {:.2}%", shock * 100.0);
                             }
-                            last_price = Some(cur);
                         }
+                        last_price = Some(cur);
                     }
                     let _ = rt.refresh_mirror().await;
                 }

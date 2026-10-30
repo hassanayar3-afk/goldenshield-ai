@@ -1,4 +1,4 @@
-use saqr_core::binance::http_client::BinanceHttpClient;
+use saqr_core::binance::market_public::BinancePublicMarket;
 use saqr_core::config::env_settings::SaqrSettings;
 use saqr_core::telegram::send_message::TelegramClient;
 use tokio::time::{interval, Duration};
@@ -20,21 +20,22 @@ pub fn spawn_integrations_bridge(settings: SaqrSettings) {
 }
 
 async fn run_bridge_cycle(settings: &SaqrSettings) -> Result<(), String> {
-    let binance = BinanceHttpClient::new(settings.clone());
-    let binance_status = match binance.ping().await {
+    let market = BinancePublicMarket::new(settings);
+    let market_status = match market.ping().await {
         Ok(()) => {
-            let price = binance.ticker_price().await.unwrap_or_else(|e| e);
-            let server_ms = binance
-                .server_time()
+            let price = market
+                .price(&settings.symbol)
                 .await
-                .map(|v| v.to_string())
+                .map(|p| format!("{p}"))
                 .unwrap_or_else(|e| e);
             format!(
-                "📊 {}: <code>{}</code>\n⏱ serverTime: <code>{}</code>\n✅ Binance reachable",
-                settings.symbol, price, server_ms
+                "📊 {} (سوق حي): <code>{}</code>\n✅ Market data OK — {}",
+                settings.symbol,
+                price,
+                market.base_url()
             )
         }
-        Err(e) => format!("⚠️ Binance ping: <code>{e}</code>\n(قد يكون حظر منطقة — جرّب من VPS)"),
+        Err(e) => format!("⚠️ Market data: <code>{e}</code>"),
     };
 
     let tg = TelegramClient::new(settings.telegram.clone());
@@ -43,13 +44,18 @@ async fn run_bridge_cycle(settings: &SaqrSettings) -> Result<(), String> {
         return Ok(());
     }
 
+    let exec = if settings.is_paper_trading() {
+        "Paper Sandbox ($)".to_string()
+    } else {
+        format!("live/testnet ({})", settings.mode)
+    };
+
     let text = format!(
-        "🦅 <b>صقر SAQR</b>\n🔗 {}\n{}\n🤖 mode: <code>{}</code>",
-        binance.mode_label(),
-        binance_status,
+        "🦅 <b>صقر SAQR v6.2.3</b>\n{}\nmode: <code>{}</code>\nتنفيذ: <code>{exec}</code>",
+        market_status,
         settings.mode,
     );
     tg.send_text(&text).await?;
-    tracing::info!("Telegram + Binance demo bridge notified");
+    tracing::info!("Telegram status (live market + paper path)");
     Ok(())
 }

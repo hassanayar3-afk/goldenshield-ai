@@ -35,6 +35,8 @@ pub struct SaqrSettings {
     pub api_key: String,
     pub api_secret: String,
     pub binance: BinanceEndpoints,
+    pub market_rest_url: String,
+    pub market_ws_url: String,
     pub telegram: TelegramSettings,
     pub cloud: CloudServerSettings,
     pub web_bind_host: String,
@@ -43,27 +45,50 @@ pub struct SaqrSettings {
 
 impl SaqrSettings {
     pub fn from_env() -> Self {
-        let testnet = env_bool("BINANCE_TESTNET", true);
-        let rest = env::var("BINANCE_REST_URL").unwrap_or_else(|_| {
-            if testnet {
-                "https://testnet.binance.vision".into()
-            } else {
-                "https://api.binance.com".into()
-            }
+        let mode = env::var("SAQR_MODE").unwrap_or_else(|_| "paper".into());
+        let paper = Self::is_paper_mode_str(&mode);
+        let testnet = if paper {
+            false
+        } else {
+            env_bool("BINANCE_TESTNET", true)
+        };
+
+        let market_rest = env::var("BINANCE_MARKET_REST_URL").unwrap_or_else(|_| {
+            "https://api.binance.com".into()
         });
-        let ws = env::var("BINANCE_WS_URL").unwrap_or_else(|_| {
-            if testnet {
-                "wss://testnet.binance.vision".into()
-            } else {
-                "wss://stream.binance.com:9443".into()
-            }
+        let market_ws = env::var("BINANCE_MARKET_WS_URL").unwrap_or_else(|_| {
+            "wss://stream.binance.com:9443".into()
         });
 
+        let rest = if paper {
+            market_rest.clone()
+        } else {
+            env::var("BINANCE_REST_URL").unwrap_or_else(|_| {
+                if testnet {
+                    "https://testnet.binance.vision".into()
+                } else {
+                    "https://api.binance.com".into()
+                }
+            })
+        };
+
+        let ws = if paper {
+            market_ws.clone()
+        } else {
+            env::var("BINANCE_WS_URL").unwrap_or_else(|_| {
+                if testnet {
+                    "wss://stream.testnet.binance.vision".into()
+                } else {
+                    "wss://stream.binance.com:9443".into()
+                }
+            })
+        };
+
         Self {
-            mode: env::var("SAQR_MODE").unwrap_or_else(|_| "demo".into()),
+            mode,
             require_integrated_demo: env_bool("SAQR_REQUIRE_INTEGRATED_DEMO", false),
             enable_trading: env_bool("SAQR_ENABLE_TRADING", true),
-            initial_balance_usd: env_f64("SAQR_INITIAL_BALANCE_USD", 500.0),
+            initial_balance_usd: env_f64("SAQR_INITIAL_BALANCE_USD", 5000.0),
             symbol: env::var("SAQR_SYMBOL").unwrap_or_else(|_| "BTCUSDT".into()),
             api_key: env::var("BINANCE_API_KEY").unwrap_or_default(),
             api_secret: env::var("BINANCE_API_SECRET").unwrap_or_default(),
@@ -77,6 +102,8 @@ impl SaqrSettings {
                     .unwrap_or(5000),
                 testnet,
             },
+            market_rest_url: market_rest,
+            market_ws_url: market_ws,
             telegram: TelegramSettings {
                 bot_token: env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default(),
                 chat_id: env::var("TELEGRAM_CHAT_ID").unwrap_or_default(),
@@ -89,9 +116,25 @@ impl SaqrSettings {
                 password: env::var("CLOUD_SERVER_PASSWORD").unwrap_or_default(),
                 public_dashboard_url: env::var("SAQR_PUBLIC_DASHBOARD_URL").unwrap_or_default(),
             },
-            web_bind_host: env::var("SAQR_WEB_BIND_HOST").unwrap_or_else(|_| "0.0.0.0".into()),
+            web_bind_host: env::var("SAQR_WEB_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
             web_bind_port: env_u16("SAQR_WEB_BIND_PORT", 8788),
         }
+    }
+
+    pub fn is_paper_trading(&self) -> bool {
+        Self::is_paper_mode_str(&self.mode)
+    }
+
+    fn is_paper_mode_str(mode: &str) -> bool {
+        matches!(
+            mode.to_lowercase().as_str(),
+            "paper" | "sandbox" | "sim" | "simulation"
+        )
+    }
+
+    /// تنفيذ أوامر حقيقية على Testnet/Live — معطّل في وضع Paper.
+    pub fn live_execution_enabled(&self) -> bool {
+        self.enable_trading && !self.is_paper_trading()
     }
 }
 

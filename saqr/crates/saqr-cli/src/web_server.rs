@@ -6,6 +6,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use crate::dashboard_api;
+use crate::market_api;
 use crate::runtime::SharedRuntime;
 
 pub async fn start_web(rt: SharedRuntime, web_root: &str) -> Result<(), std::io::Error> {
@@ -16,6 +17,9 @@ pub async fn start_web(rt: SharedRuntime, web_root: &str) -> Result<(), std::io:
         .route("/api/binance_mirror", get(dashboard_api::binance_mirror))
         .route("/api/report", get(dashboard_api::report))
         .route("/api/trades/history", get(dashboard_api::trades_history))
+        .route("/api/market/liquidity", get(market_api::liquidity))
+        .route("/api/market/signals", get(market_api::signals))
+        .route("/api/paper/enter", post(dashboard_api::paper_enter))
         .route("/api/control/bot_toggle", post(dashboard_api::bot_toggle))
         .route("/api/control/close_winners", post(dashboard_api::close_winners))
         .route("/api/control/close_losers", post(dashboard_api::close_losers))
@@ -56,6 +60,8 @@ async fn status(
         "mode": s.mode,
         "symbol": s.symbol,
         "enable_trading": s.enable_trading,
+        "paper_trading": s.is_paper_trading(),
+        "market_rest_url": s.market_rest_url,
         "require_integrated_demo": s.require_integrated_demo,
         "binance_testnet": s.binance.testnet,
         "binance_rest_url": s.binance.rest_base_url,

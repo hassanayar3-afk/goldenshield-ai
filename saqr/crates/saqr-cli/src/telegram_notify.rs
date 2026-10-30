@@ -57,6 +57,17 @@ pub async fn trade_exit(
     let _ = rt.telegram.send_text(&text).await;
 }
 
+pub async fn paper_trade_exit(rt: &SharedRuntime, symbol: &str, pnl_usd: f64, fraction: f64) {
+    if !rt.telegram.is_configured() {
+        return;
+    }
+    let text = format!(
+        "🔴 <b>إغلاق Paper</b> ({:.0}%)\nرمز: <code>{symbol}</code>\nPnL: <code>{pnl_usd:+.2} $</code>\n📡 أسعار: سوق Binance الحي",
+        fraction * 100.0
+    );
+    let _ = rt.telegram.send_text(&text).await;
+}
+
 pub async fn periodic_report(rt: &SharedRuntime) {
     if !rt.telegram.is_configured() {
         return;

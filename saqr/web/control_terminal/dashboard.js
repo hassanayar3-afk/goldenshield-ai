@@ -10,25 +10,9 @@ let mirrorPollTimer = null;
 
 let openPositions = [];
 
-let liquidityPairs = [
-  { pair: 'BTC / USDT', volume: 34.2 },
-  { pair: 'ETH / USDT', volume: 18.5 },
-  { pair: 'SOL / USDT', volume: 6.8 },
-  { pair: 'BNB / USDT', volume: 4.1 }
-];
-
-let tradeHistory = [
-  { pair: 'BTC / USDT', type: 'BUY', lot: '0.15', entry: 64250, exit: 65120, pnl: 210.00, day: 'السبت', time: '02:20:11 م' },
-  { pair: 'SOL / USDT', type: 'SELL', lot: '0.50', entry: 145.20, exit: 142.10, pnl: 85.50, day: 'السبت', time: '11:10:45 ص' },
-  { pair: 'ETH / USDT', type: 'BUY', lot: '1.00', entry: 3480, exit: 3465, pnl: -15.00, day: 'الجمعة', time: '10:05:00 م' }
-];
-
-let signals = [
-  { id: 101, pair: 'BTC/USDT', direction: 'BUY', strengthScore: 92, timeframe: '15m', rsi: '68', macd: 'إيجابي', executed: false },
-  { id: 102, pair: 'ETH/USDT', direction: 'BUY', strengthScore: 78, timeframe: '1h', rsi: '58', macd: 'إيجابي', executed: false },
-  { id: 103, pair: 'SOL/USDT', direction: 'SELL', strengthScore: 88, timeframe: '5m', rsi: '31', macd: 'سلبي', executed: false },
-  { id: 104, pair: 'AVAX/USDT', direction: 'SELL', strengthScore: 74, timeframe: '15m', rsi: '29', macd: 'سلبي', executed: false }
-];
+let liquidityPairs = [];
+let tradeHistory = [];
+let signals = [];
 
 async function apiPost(path, body) {
   const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
@@ -192,7 +176,7 @@ function calculateLotSize() {
   showToast('تم حساب حجم العقد بناءً على دستور كيلي الديناميكي 🧮');
 }
 
-function setReportPeriod(period) {
+async function setReportPeriod(period) {
   currentReportPeriod = period;
   const btnD = document.getElementById('btnDaily');
   const btnW = document.getElementById('btnWeekly');
@@ -201,25 +185,20 @@ function setReportPeriod(period) {
   btnD.className = base;
   btnW.className = base;
   btnM.className = base;
-  if (period === 'daily') {
-    btnD.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
-    document.getElementById('repWinAmt').innerText = '+183.43 $';
-    document.getElementById('repWinCount').innerText = '4 صفقات';
-    document.getElementById('repLossCount').innerText = '0 صفقات';
-    showToast('تم اختيار التقرير اليومي');
-  } else if (period === 'weekly') {
-    btnW.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
-    document.getElementById('repWinAmt').innerText = '+45.00 $';
-    document.getElementById('repWinCount').innerText = '24 صفقة';
-    document.getElementById('repLossCount').innerText = '2 صفقة';
-    showToast('تم اختيار التقرير الأسبوعي');
-  } else {
-    btnM.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
-    document.getElementById('repWinAmt').innerText = '+120.00 $';
-    document.getElementById('repWinCount').innerText = '114 صفقة';
-    document.getElementById('repLossCount').innerText = '5 صفقات';
-    showToast('تم اختيار التقرير الشهري');
-  }
+  if (period === 'daily') btnD.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  if (period === 'weekly') btnW.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  if (period === 'monthly') btnM.className = 'px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-600 text-white transition-all shadow-sm';
+  try {
+    const res = await fetch(`/api/report?period=${period}`);
+    const r = await res.json();
+    if (r.win_amount_usd != null) {
+      document.getElementById('repWinAmt').innerText = `+${Number(r.win_amount_usd).toFixed(2)} $`;
+      document.getElementById('repLossAmt').innerText = `-${Number(r.loss_amount_usd || 0).toFixed(2)} $`;
+      document.getElementById('repWinCount').innerText = `${r.win_count || 0} صفقات`;
+      document.getElementById('repLossCount').innerText = `${r.loss_count || 0} صفقات`;
+    }
+  } catch (_) {}
+  showToast('تم تحديث التقرير من المحرك');
 }
 
 function renderPositions() {
@@ -301,14 +280,30 @@ async function closeLosingTrades() {
   else showToast('لا توجد صفقات خاسرة لإغلاقها');
 }
 
+async function refreshLiquidity() {
+  try {
+    const res = await fetch('/api/market/liquidity');
+    const data = await res.json();
+    liquidityPairs = data.pairs || [];
+  } catch (_) {
+    liquidityPairs = [];
+  }
+  renderLiquidity();
+}
+
 function renderLiquidity() {
   const container = document.getElementById('liquidityList');
   if (!container) return;
   container.innerHTML = '';
+  if (!liquidityPairs.length) {
+    container.innerHTML = '<div class="text-center text-xs text-gray-500 py-2">جاري جلب السيولة من Binance…</div>';
+    return;
+  }
   liquidityPairs.forEach((item, index) => {
     const el = document.createElement('div');
     el.className = 'bg-[#121724]/90 p-2.5 rounded-xl border border-gray-800/60 flex items-center justify-between';
-    el.innerHTML = `<span class="font-bold text-gray-300 font-num">${index + 1}. ${item.pair}</span><span class="font-num text-amber-400/90 font-bold">${item.volume.toFixed(1)}B</span>`;
+    const vol = item.volume_b != null ? item.volume_b : (item.quote_volume_usd || 0) / 1e9;
+    el.innerHTML = `<span class="font-bold text-gray-300 font-num">${index + 1}. ${item.pair}</span><span class="font-num text-amber-400/90 font-bold">${Number(vol).toFixed(1)}B</span>`;
     container.appendChild(el);
   });
 }
@@ -355,36 +350,21 @@ function startSignalCountdown() {
   }, 1000);
 }
 
-function refreshSignals(isManual = false) {
+async function refreshSignals(isManual = false) {
   const icon = document.getElementById('refreshIcon');
   if (icon) icon.classList.add('fa-spin');
-  const pairs = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT'];
-  const timeframes = ['5m', '15m', '1h', '4h'];
-  signals = pairs.slice(0, 4).map((pair, idx) => {
-    const direction = Math.random() > 0.45 ? 'BUY' : 'SELL';
-    const strengthScore = Math.floor(72 + Math.random() * 25);
-    const timeframe = timeframes[Math.floor(Math.random() * timeframes.length)];
-    const rsi = Math.floor(direction === 'BUY' ? 50 + Math.random() * 25 : 20 + Math.random() * 25);
-    return {
-      id: Date.now() + idx,
-      pair,
-      direction,
-      strengthScore,
-      timeframe,
-      rsi: String(rsi),
-      macd: direction === 'BUY' ? 'إيجابي' : 'سلبي',
-      executed: false
-    };
-  });
-  /* التنفيذ الحي يتم عبر محرك Rust — لا محاكاة دخول وهمي على اللوحة */
-  setTimeout(() => {
-    renderSignals();
-    renderPositions();
-    if (icon) icon.classList.remove('fa-spin');
-    signalTimerSeconds = SIGNAL_REFRESH_INTERVAL;
-    updateSignalTimerUI();
-    if (isManual) showToast('تم تحديث الإشارات الفنية بنجاح 📡');
-  }, 200);
+  try {
+    const res = await fetch('/api/market/signals?interval=15m');
+    const data = await res.json();
+    signals = data.signals || [];
+  } catch (_) {
+    signals = [];
+  }
+  renderSignals();
+  if (icon) icon.classList.remove('fa-spin');
+  signalTimerSeconds = SIGNAL_REFRESH_INTERVAL;
+  updateSignalTimerUI();
+  if (isManual) showToast('تم تحديث الإشارات من شموع Binance الحية 📡');
 }
 
 function renderSignals() {
@@ -426,22 +406,19 @@ function renderSignals() {
   });
 }
 
-function executeTrade(signalId) {
-  const sig = signals.find(s => s.id === Number(signalId));
+async function executeTrade(signalId) {
+  const sig = signals.find(s => String(s.id) === String(signalId));
   if (!sig || sig.executed) return;
-  sig.executed = true;
-  openPositions.push({
-    id: Date.now(),
-    pair: sig.pair,
-    type: sig.direction,
-    lot: '0.10',
-    entry: sig.direction === 'BUY' ? 65000 : 64000,
-    current: sig.direction === 'BUY' ? 65100 : 63900,
-    pnl: 10.0
-  });
-  renderSignals();
-  renderPositions();
-  showToast(`🚀 تم فتح الصفقة بنجاح على ${sig.pair}`);
+  const symbol = (sig.symbol || sig.pair.replace('/', '')).toUpperCase();
+  const out = await apiPost('/api/paper/enter', { symbol, risk_pct: 2.0 });
+  if (out.ok) {
+    sig.executed = true;
+    renderSignals();
+    await refreshBinanceMirror();
+    showToast(`🚀 Paper: دخول ${sig.pair} @ سعر السوق الحي`);
+  } else {
+    showToast(out.error || 'فشل الدخول Paper');
+  }
 }
 
 async function emergencyCloseAll() {
@@ -483,19 +460,16 @@ async function loadTradeHistoryFromApi() {
   try {
     const res = await fetch('/api/trades/history');
     const data = await res.json();
-    if (!data.ok || !Array.isArray(data.trades) || !data.trades.length) return;
+    if (!data.ok || !Array.isArray(data.trades)) return;
     tradeHistory = data.trades.slice(-20).reverse().map(t => {
-      const isBuy = t.isBuyer;
-      const price = parseFloat(t.price) || 0;
-      const qty = parseFloat(t.qty) || 0;
-      const dt = new Date(t.time || Date.now());
+      const dt = new Date(t.closed_at_ms || t.time || Date.now());
       return {
-        pair: (t.symbol || 'BTCUSDT').replace('USDT', ' / USDT'),
-        type: isBuy ? 'BUY' : 'SELL',
-        lot: String(qty),
-        entry: price,
-        exit: price,
-        pnl: isBuy ? -qty * price * 0.001 : qty * price * 0.001,
+        pair: t.pair || (t.symbol || 'BTCUSDT').replace('USDT', ' / USDT'),
+        type: t.side || (t.isBuyer ? 'BUY' : 'SELL'),
+        lot: String(t.qty || t.lot || '0'),
+        entry: t.entry || parseFloat(t.price) || 0,
+        exit: t.exit || parseFloat(t.price) || 0,
+        pnl: t.pnl_usd != null ? t.pnl_usd : 0,
         day: dt.toLocaleDateString('ar-IQ', { weekday: 'long' }),
         time: dt.toLocaleTimeString('ar-IQ')
       };
@@ -507,7 +481,7 @@ async function loadTradeHistoryFromApi() {
 document.addEventListener('DOMContentLoaded', () => {
   renderSignals();
   renderPositions();
-  renderLiquidity();
+  refreshLiquidity();
   renderHistory();
   updateSignalTimerUI();
   startSignalCountdown();

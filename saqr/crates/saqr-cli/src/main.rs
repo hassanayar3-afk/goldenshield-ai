@@ -1,5 +1,6 @@
 mod dashboard_api;
 mod env_loader;
+mod market_api;
 mod gc_worker;
 mod hot_loop;
 mod integrations_bridge;
@@ -61,8 +62,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         settings.enable_trading
     );
 
-    if settings.require_integrated_demo {
-        tracing::info!("SAQR_REQUIRE_INTEGRATED_DEMO=true — Testnet integrated demo path active");
+    if settings.is_paper_trading() {
+        tracing::info!(
+            "Paper mode — live market {} · sandbox capital {:.2} USD",
+            settings.market_rest_url,
+            settings.initial_balance_usd
+        );
+    } else if settings.require_integrated_demo {
+        tracing::info!("SAQR_REQUIRE_INTEGRATED_DEMO=true — Testnet execution path");
     }
 
     integrations_bridge::spawn_integrations_bridge(settings.clone());
@@ -89,6 +96,8 @@ fn run_check(settings: &SaqrSettings) {
     println!("SAQR --check v6.2.3");
     println!("  mode: {}", settings.mode);
     println!("  SAQR_ENABLE_TRADING: {}", settings.enable_trading);
+    println!("  paper_trading: {}", settings.is_paper_trading());
+    println!("  market_rest: {}", settings.market_rest_url);
     println!("  web bind: {}:{}", settings.web_bind_host, settings.web_bind_port);
     println!(
         "  BINANCE_API_KEY: {}",

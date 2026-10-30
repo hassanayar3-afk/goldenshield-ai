@@ -3,6 +3,7 @@
 pub mod algorithms;
 pub mod binance;
 pub mod config;
+pub mod paper;
 pub mod conquest;
 pub mod core;
 pub mod ipc;
