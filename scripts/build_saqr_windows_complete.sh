@@ -45,11 +45,23 @@ if $INCLUDE_ENV; then
   # No blank lines: drop empty lines, keep KEY= even if value empty (e.g. TELEGRAM_SECONDARY_BOT_TOKEN=)
   awk 'NF || /^[[:space:]]*#/' "$ENV_SRC" | sed '/^[[:space:]]*$/d' > "$STAGE/.env"
   cp "$STAGE/.env" "$STAGE/saqr.env"
+  cp "$STAGE/.env" "$STAGE/ENV_جاهز_انسخ_إلى_dot_env.txt"
+  cat > "$STAGE/اقرأ_قبل_التشغيل.txt" << 'AR'
+هذه الحزمة فيها .env مكتمل (Binance + Telegram).
+لا تفتح env.template — استخدم ملف .env في نفس المجلد.
+شغّل SAQR_RUN.bat مباشرة.
+AR
   echo "[pack] embedded .env from $ENV_SRC (Binance + Telegram — local build only)"
 else
-  cp "$ROOT/saqr.env.template" "$STAGE/env.template"
-  sed '/^[[:space:]]*$/d' "$ROOT/saqr.env.template" > "$STAGE/env.template"
-  echo "[pack] env.template only (public release — fill .env on your PC)"
+  sed '/^[[:space:]]*$/d' "$ROOT/saqr.env.template" > "$STAGE/env.template.فارغ-عبّئ-المفاتيح.txt"
+  cat > "$STAGE/اقرأ_قبل_التشغيل.txt" << 'AR'
+⚠️ هذه حزمة GitHub العامة — المفاتيح فارغة عمداً (أمان).
+انسخ env.template.فارغ-عبّئ-المفاتيح.txt إلى .env وضع:
+  BINANCE_API_KEY / BINANCE_API_SECRET
+  TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+أو حمّل الحزمة configured من وكيل Cursor (فيها .env جاهز).
+AR
+  echo "[pack] template only (public GitHub — keys empty by design)"
 fi
 
 cat > "$STAGE/SAQR_RUN.bat" << 'BAT'
