@@ -4,6 +4,7 @@ mod dashboard_api;
 mod env_loader;
 mod market_api;
 mod market_signals;
+mod signal_auto_trader;
 mod telegram_control;
 mod gc_worker;
 mod hot_loop;
@@ -105,6 +106,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     }
     telegram_bridge::spawn_bidirectional_bridge(Arc::clone(&rt));
     telegram_control::spawn_telegram_control_panel(Arc::clone(&rt));
+    signal_auto_trader::spawn_signal_auto_trader(Arc::clone(&rt));
     hot_loop::spawn_hot_loop(Arc::clone(&rt));
     spawn_console_live_ticker(Arc::clone(&rt));
 
@@ -224,6 +226,11 @@ fn run_check(settings: &SaqrSettings) -> bool {
     println!("  SAQR_TELEGRAM_CONTROL_PANEL: {}", settings.telegram_control_panel);
     println!("  SAQR_WEB_ENABLED: {}", settings.web_enabled);
     println!("  SAQR_SIGNAL_INTERVAL_SECS: {}", settings.signal_interval_secs);
+    println!("  SAQR_AUTO_PAPER_SIGNALS: {}", settings.auto_paper_signals);
+    println!(
+        "  SAQR_AUTO_SIGNAL_MIN_STRENGTH: {}",
+        settings.auto_signal_min_strength
+    );
     if ok {
         println!("  preflight: OK");
     } else {

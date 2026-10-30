@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -19,6 +20,7 @@ pub struct SharedRuntime {
     pub bot_running: Arc<AtomicBool>,
     pub last_mirror: Arc<Mutex<Option<BinanceMirrorPayload>>>,
     pub telegram_board_message_id: Arc<Mutex<Option<i64>>>,
+    pub auto_entered_symbols: Arc<Mutex<HashSet<String>>>,
 }
 
 impl SharedRuntime {
@@ -34,6 +36,7 @@ impl SharedRuntime {
             bot_running,
             last_mirror: Arc::new(Mutex::new(None)),
             telegram_board_message_id: Arc::new(Mutex::new(None)),
+            auto_entered_symbols: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 

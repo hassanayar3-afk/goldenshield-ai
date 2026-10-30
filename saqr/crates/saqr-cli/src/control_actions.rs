@@ -87,6 +87,9 @@ pub async fn partial_close(
         };
         match rt.paper.close_symbol(&symbol, frac, px) {
             Ok(pnl) => {
+                if frac >= 0.99 {
+                    rt.auto_entered_symbols.lock().remove(&symbol);
+                }
                 telegram_notify::paper_trade_exit(rt, &symbol, pnl, frac).await;
                 bridge_sync::sync_after_trade_action(rt, source, "partial_close", 1).await;
                 (StatusCode::OK, json!({"ok": true, "paper": true, "pnl_usd": pnl}))
@@ -179,6 +182,7 @@ where
             }
             if let Ok(realized) = rt.paper.close_symbol(&p.symbol, 1.0, px) {
                 closed += 1;
+                rt.auto_entered_symbols.lock().remove(&p.symbol);
                 telegram_notify::paper_trade_exit(rt, &p.symbol, realized, 1.0).await;
             }
         }

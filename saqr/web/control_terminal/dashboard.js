@@ -19,6 +19,7 @@ let openPositions = [];
 let liquidityPairs = [];
 let tradeHistory = [];
 let signals = [];
+const autoEnteredSignalIds = new Set();
 
 async function apiPost(path, body) {
   const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
@@ -411,6 +412,17 @@ async function refreshSignals(isManual = false) {
     signals = [];
   }
   renderSignals();
+  for (const sig of signals) {
+    if (
+      sig.direction === 'BUY' &&
+      (sig.strengthScore || 0) >= 85 &&
+      !sig.executed &&
+      !autoEnteredSignalIds.has(String(sig.id))
+    ) {
+      autoEnteredSignalIds.add(String(sig.id));
+      executeTrade(sig.id);
+    }
+  }
   if (icon) icon.classList.remove('fa-spin');
   signalTimerSeconds = SIGNAL_REFRESH_INTERVAL;
   updateSignalTimerUI();

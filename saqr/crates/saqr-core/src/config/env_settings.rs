@@ -45,6 +45,10 @@ pub struct SaqrSettings {
     pub telegram_bridge_enabled: bool,
     pub telegram_control_panel: bool,
     pub signal_interval_secs: u64,
+    pub auto_paper_signals: bool,
+    pub auto_signal_min_strength: i32,
+    pub auto_signal_risk_pct: f64,
+    pub auto_max_open_positions: usize,
     pub integration_interval_secs: u64,
 }
 
@@ -106,6 +110,21 @@ impl SaqrSettings {
             .and_then(|v| v.parse().ok())
             .unwrap_or(if telegram_control_panel { 3 } else { 15 })
             .clamp(2, 300);
+        let auto_paper_signals = match env::var("SAQR_AUTO_PAPER_SIGNALS") {
+            Ok(_) => env_bool("SAQR_AUTO_PAPER_SIGNALS", false),
+            Err(_) => telegram_control_panel,
+        };
+        let auto_signal_min_strength = env::var("SAQR_AUTO_SIGNAL_MIN_STRENGTH")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(85)
+            .clamp(70, 99);
+        let auto_signal_risk_pct = env_f64("SAQR_AUTO_SIGNAL_RISK_PCT", 2.0);
+        let auto_max_open_positions = env::var("SAQR_AUTO_MAX_OPEN_POSITIONS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(5)
+            .clamp(1, 20);
 
         Self {
             mode,
@@ -145,6 +164,10 @@ impl SaqrSettings {
             telegram_control_panel,
             web_enabled,
             signal_interval_secs,
+            auto_paper_signals,
+            auto_signal_min_strength,
+            auto_signal_risk_pct,
+            auto_max_open_positions,
             integration_interval_secs: env::var("SAQR_INTEGRATION_INTERVAL_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
