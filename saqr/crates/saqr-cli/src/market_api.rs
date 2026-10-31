@@ -13,7 +13,7 @@ pub async fn liquidity(State(rt): State<SharedRuntime>) -> Json<serde_json::Valu
             for sym in market_signals::watch_symbols(&rt) {
                 if let Some(t) = all.iter().find(|x| x.symbol == sym) {
                     let vol: f64 = t.quote_volume.parse().unwrap_or(0.0);
-                    let base = sym.strip_suffix("USDT").unwrap_or(sym);
+                    let base = sym.strip_suffix("USDT").unwrap_or(sym.as_str());
                     rows.push(json!({
                         "pair": format!("{base} / USDT"),
                         "symbol": sym,
