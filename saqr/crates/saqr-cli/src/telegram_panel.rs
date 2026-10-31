@@ -6,35 +6,63 @@ use crate::control_actions;
 use crate::market_signals;
 use crate::runtime::SharedRuntime;
 
+/// Main control board (summary + action buttons only).
 pub async fn push_dashboard(rt: &SharedRuntime) -> Result<(), String> {
     let mid = *rt.telegram_board_message_id.lock();
-    push_dashboard_message(rt, mid).await
+    push_main_board(rt, mid).await
 }
 
-pub async fn push_dashboard_message(rt: &SharedRuntime, message_id: Option<i64>) -> Result<(), String> {
-    let section = rt.telegram_panel_section.lock().clone();
-    let text = build_dashboard_text(rt, &section).await?;
-    let keyboard = build_dashboard_keyboard(rt, &section);
+async fn push_main_board(rt: &SharedRuntime, message_id: Option<i64>) -> Result<(), String> {
+    let active = rt.telegram_panel_active_section.lock().clone();
+    let text = build_home_summary(rt).await?;
+    let keyboard = build_main_keyboard(rt, &active);
 
     if let Some(mid) = message_id {
         *rt.telegram_board_message_id.lock() = Some(mid);
-        rt.telegram.edit_dashboard(mid, &text, &keyboard).await?;
-        return Ok(());
+        return rt.telegram.edit_dashboard(mid, &text, &keyboard).await;
     }
 
-    let mid = *rt.telegram_board_message_id.lock();
-    if let Some(mid) = mid {
+    let existing_mid = *rt.telegram_board_message_id.lock();
+    if let Some(mid) = existing_mid {
         if rt.telegram.edit_dashboard(mid, &text, &keyboard).await.is_ok() {
             return Ok(());
         }
         *rt.telegram_board_message_id.lock() = None;
     }
-    match rt.telegram.send_dashboard(&text, &keyboard).await {
-        Ok(mid) => {
-            *rt.telegram_board_message_id.lock() = Some(mid);
-            Ok(())
+    let mid = rt.telegram.send_dashboard(&text, &keyboard).await?;
+    *rt.telegram_board_message_id.lock() = Some(mid);
+    Ok(())
+}
+
+/// Section content in its own Telegram message (edited in place per section).
+async fn push_section_panel(rt: &SharedRuntime, section: &str) -> Result<(), String> {
+    let text = build_section_body(rt, section).await?;
+    let keyboard = json!({
+        "inline_keyboard": [[
+            {"text": "🔄 تحديث", "callback_data": format!("view:{section}")},
+            {"text": "🏠 لوحة الرئيسية", "callback_data": "view:home"}
+        ]]
+    });
+
+    let section_mid = rt.telegram_section_messages.lock().get(section).copied();
+    if let Some(mid) = section_mid {
+        if rt.telegram.edit_dashboard(mid, &text, &keyboard).await.is_ok() {
+            return Ok(());
         }
-        Err(e) => Err(e),
+        rt.telegram_section_messages.lock().remove(section);
+    }
+
+    let mid = rt.telegram.send_dashboard(&text, &keyboard).await?;
+    rt.telegram_section_messages.lock().insert(section.to_string(), mid);
+    Ok(())
+}
+
+async fn refresh_open_sections(rt: &SharedRuntime) {
+    let keys: Vec<String> = rt.telegram_section_messages.lock().keys().cloned().collect();
+    for section in keys {
+        if let Err(e) = push_section_panel(rt, &section).await {
+            tracing::debug!("section refresh {section}: {e}");
+        }
     }
 }
 
@@ -42,7 +70,7 @@ pub async fn handle_callback(
     rt: &SharedRuntime,
     query_id: &str,
     data: &str,
-    message_id: Option<i64>,
+    main_message_id: Option<i64>,
 ) -> Result<(), String> {
     let toast = match data {
         "act:close_win" => {
@@ -62,7 +90,7 @@ pub async fn handle_callback(
         "act:emergency" => {
             let (_, b) = control_actions::emergency_close_all(rt, "telegram").await;
             format!(
-                "🚨 طوارئ: {} صفقة",
+                "🚨 طوارئ: {}",
                 b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
             )
         }
@@ -71,7 +99,7 @@ pub async fn handle_callback(
             if v.get("bot_running").and_then(|x| x.as_bool()).unwrap_or(true) {
                 "▶️ البوت نشط".into()
             } else {
-                "⏸ البوت متوقف".into()
+                "⏸ متوقف".into()
             }
         }
         "act:buy_btc" => {
@@ -82,95 +110,118 @@ pub async fn handle_callback(
             } else {
                 body.get("error")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("فشل الدخول")
+                    .unwrap_or("فشل")
                     .to_string()
             }
         }
-        "act:refresh" => "🔄 تحديث".into(),
+        "act:refresh" => {
+            refresh_open_sections(rt).await;
+            "🔄 تم".into()
+        }
         s if s.starts_with("view:") => {
             let view = s.strip_prefix("view:").unwrap_or("home");
-            *rt.telegram_panel_section.lock() = view.to_string();
-            match view {
-                "signals" => "📊 الإشارات",
-                "positions" => "📂 المراكز",
-                "liquidity" => "🔥 السيولة",
-                "report" => "📋 التقارير",
-                "history" => "🕐 السجل",
-                "calc" => "🧮 الحاسبة (استخدم /price)",
-                _ => "🏠 الرئيسية",
+            *rt.telegram_panel_active_section.lock() = view.to_string();
+            if view == "home" {
+                "🏠 اللوحة الرئيسية".into()
+            } else {
+                push_section_panel(rt, view).await?;
+                match view {
+                    "signals" => "📊 فُتحت الإشارات في رسالة منفصلة".into(),
+                    "positions" => "📂 فُتحت المراكز".into(),
+                    "liquidity" => "🔥 فُتحت السيولة".into(),
+                    "report" => "📋 فُتح التقرير".into(),
+                    "history" => "🕐 فُتح السجل".into(),
+                    _ => "✓".into(),
+                }
             }
-            .to_string()
         }
-        _ => "زر غير معروف".into(),
+        _ => "—".into(),
     };
 
     let _ = rt.telegram.answer_callback(query_id, Some(&toast)).await;
-    push_dashboard_message(rt, message_id).await?;
+    push_main_board(rt, main_message_id).await?;
     Ok(())
 }
 
-async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<String, String> {
+async fn build_home_summary(rt: &SharedRuntime) -> Result<String, String> {
     let mirror = rt.refresh_mirror().await;
     let clock = tactical_clock_utc3();
-    let bot = if rt.bot_is_running() {
-        "🟢 ONLINE"
-    } else {
-        "⏸ PAUSED"
-    };
-    let mode_label = if rt.settings.is_paper_trading() {
+    let bot = if rt.bot_is_running() { "🟢 ONLINE" } else { "⏸ PAUSED" };
+    let mode = if rt.settings.is_paper_trading() {
         "Paper"
     } else if rt.settings.is_testnet_execution() {
-        "Testnet ✅"
+        "Testnet"
     } else {
-        "LIVE ⚠️"
+        "LIVE"
     };
 
-    let mut out = format!(
-        "🦅 <b>GoldenShield — صقر v6.2.3</b> · <code>{mode_label}</code>\n\
-┏━━━━━━━━━━━━━━━━━━━━━━┓\n\
-💎 <b>الرصيد الإجمالي</b>  <code>{bal} $</code>\n\
-📈 <b>أرباح اليوم</b>  <code>{day:+.2}%</code>\n\
-┗━━━━━━━━━━━━━━━━━━━━━━┛\n\
-📊 <b>صفقات مفتوحة</b> <code>{open}</code>\n\
-🟢 رابحة <code>+{win:.2} $</code> · 🔴 خاسرة <code>-{lose:.2} $</code>\n\
-🕐 <code>{clock}</code> · {bot}\n\
-━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
+    Ok(format!(
+        "<b>🦅 SAQR · لوحة التحكم</b>  <code>v6.2.3</code>\n\
+<code>{mode}</code> · Binance ⇄ Telegram\n\n\
+<b>الرصيد الإجمالي</b>\n\
+<code>{bal} USDT</code>\n\n\
+<b>أرباح اليوم</b>\n\
+<code>{day:+.2}%</code>\n\n\
+<b>الصفقات المفتوحة</b>  <code>{open}</code>\n\
+<b>رابحة</b> <code>+{win:.2}</code>  ·  <b>خاسرة</b> <code>-{lose:.2}</code>\n\n\
+<b>السيرفر</b> <code>{clock}</code>  ·  {bot}\n\n\
+<i>📌 الإشارات والمراكز تظهر في <b>رسالة منفصلة</b> عند الضغط على القسم</i>",
         bal = fmt_money(mirror.total_balance_usd),
         day = mirror.daily_profit_pct,
         open = mirror.open_positions_count,
         win = mirror.winning_pnl_usd,
         lose = mirror.losing_pnl_usd,
-    );
+    ))
+}
 
+async fn build_section_body(rt: &SharedRuntime, section: &str) -> Result<String, String> {
+    let mirror = rt.refresh_mirror().await;
     match section {
         "signals" => {
-            out.push_str("<b>📊 الإشارات الفنية</b> (15m · Binance)\n");
+            let mut out = String::from(
+                "<b>📊 الإشارات الفنية</b>\n\
+<code>Binance · 15m · 7 أزواج</code>\n\
+────────────────\n",
+            );
             let signals = market_signals::fetch_live_signals(rt, "15m").await;
             if signals.is_empty() {
-                out.push_str("<i>لا بيانات — تحقق REST/Testnet</i>\n");
+                out.push_str("<i>لا بيانات — تحقق الاتصال</i>\n");
             }
-            for s in signals.iter().take(10) {
-                let tag = if s.direction == "BUY" { "🟢" } else { "🔴" };
+            for s in signals {
+                let side = if s.direction == "BUY" {
+                    "🟢 BUY"
+                } else {
+                    "🔴 SELL"
+                };
                 out.push_str(&format!(
-                    "{tag} <code>{}</code> · <code>{:.4}</code> · {}% RSI{}\n",
-                    s.pair, s.price, s.strength, s.rsi as i32
+                    "<b>{}</b>\n  {side} · <code>{:.4}</code>\n  قوة <code>{}%</code> · RSI <code>{:.0}</code>\n\n",
+                    s.pair, s.price, s.strength, s.rsi
                 ));
             }
+            Ok(out)
         }
         "positions" => {
-            out.push_str("<b>📂 مراكزي المفتوحة</b>\n");
+            let mut out = String::from(
+                "<b>📂 مراكزي المفتوحة</b>\n\
+────────────────\n",
+            );
             if mirror.positions.is_empty() {
-                out.push_str("<i>لا مراكز — جرّب «دخول BTC»</i>\n");
+                out.push_str("<i>لا توجد مراكز مفتوحة</i>\n");
             }
             for p in &mirror.positions {
                 out.push_str(&format!(
-                    "• <code>{}</code> lot <code>{}</code> · PnL <code>{:+.2}$</code>\n",
-                    p.pair, p.lot, p.pnl
+                    "<b>{}</b>\n  lot <code>{}</code>\n  دخول <code>{:.4}</code> · الآن <code>{:.4}</code>\n  PnL <code>{:+.2} USDT</code>\n\n",
+                    p.pair, p.lot, p.entry, p.current, p.pnl
                 ));
             }
+            Ok(out)
         }
         "liquidity" => {
-            out.push_str("<b>🔥 الأعلى سيولة (24h)</b>\n");
+            let mut out = String::from(
+                "<b>🔥 الأعلى سيولة</b>\n\
+<code>حجم 24h (مليار USDT)</code>\n\
+────────────────\n",
+            );
             match rt.market.tickers_24h().await {
                 Ok(all) => {
                     for sym in market_signals::watch_symbols(rt) {
@@ -178,52 +229,61 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
                             let vol: f64 = t.quote_volume.parse().unwrap_or(0.0) / 1e9;
                             let base = sym.strip_suffix("USDT").unwrap_or(sym.as_str());
                             out.push_str(&format!(
-                                "• <code>{base}/USDT</code> <code>{vol:.1}B</code>\n"
+                                "<b>{base}/USDT</b>  <code>{vol:.2}B</code>\n"
                             ));
                         }
                     }
                 }
                 Err(e) => out.push_str(&format!("<i>{e}</i>\n")),
             }
+            Ok(out)
         }
         "report" => {
-            out.push_str("<b>📋 تقارير اليوم</b>\n");
+            let mut out = String::from(
+                "<b>📋 التقارير</b>\n\
+────────────────\n",
+            );
             if rt.settings.is_paper_trading() {
                 let r = rt.paper.report("daily");
                 out.push_str(&format!(
-                    "فوز: <code>{}</code> · خسارة: <code>{}</code>\n",
+                    "رصيد: <code>{:.2}</code>\nفوز: <code>{}</code> · خسارة: <code>{}</code>\n",
+                    mirror.total_balance_usd,
                     r.get("win_count").and_then(|v| v.as_u64()).unwrap_or(0),
                     r.get("loss_count").and_then(|v| v.as_u64()).unwrap_or(0),
                 ));
             } else {
                 out.push_str(&format!(
-                    "USDT free: <code>{:.2}</code> · locked: <code>{:.2}</code>\n",
-                    mirror.usdt_free, mirror.usdt_locked
+                    "رصيد إجمالي: <code>{:.2}</code>\nUSDT حر: <code>{:.2}</code>\nUSDT مقفل: <code>{:.2}</code>\n",
+                    mirror.total_balance_usd, mirror.usdt_free, mirror.usdt_locked
                 ));
             }
+            Ok(out)
         }
         "history" => {
-            out.push_str("<b>🕐 سجل الصفقات</b>\n");
+            let mut out = String::from(
+                "<b>🕐 سجل الصفقات</b>\n\
+────────────────\n",
+            );
             if rt.settings.is_paper_trading() {
                 let rows = rt.paper.history();
                 if rows.is_empty() {
-                    out.push_str("<i>لا سجل Paper بعد</i>\n");
+                    out.push_str("<i>لا سجل بعد</i>\n");
                 }
-                for t in rows.iter().rev().take(8) {
+                for t in rows.iter().rev().take(12) {
                     out.push_str(&format!(
-                        "• <code>{}</code> <code>{:+.2}$</code>\n",
+                        "<code>{}</code>  PnL <code>{:+.2}</code>\n",
                         t.pair, t.pnl_usd
                     ));
                 }
             } else {
                 let sym = rt.settings.symbol.clone();
                 match rt.binance.my_trades(&sym, None).await {
-                    Ok(rows) if rows.is_empty() => out.push_str("<i>لا trades على Testnet بعد</i>\n"),
+                    Ok(rows) if rows.is_empty() => out.push_str("<i>لا صفقات Testnet بعد</i>\n"),
                     Ok(rows) => {
-                        for t in rows.iter().rev().take(8) {
+                        for t in rows.iter().rev().take(12) {
                             let side = if t.isBuyer { "BUY" } else { "SELL" };
                             out.push_str(&format!(
-                                "• <code>{sym}</code> {side} <code>{}</code>\n",
+                                "<code>{sym}</code> {side} @ <code>{}</code>\n",
                                 t.price
                             ));
                         }
@@ -231,33 +291,21 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
                     Err(e) => out.push_str(&format!("<i>{e}</i>\n")),
                 }
             }
+            Ok(out)
         }
-        "calc" => {
-            out.push_str("<b>🧮 حاسبة العقود</b>\n");
-            out.push_str("أرسل: <code>/price ETHUSDT</code>\n");
-            out.push_str("دخول 2%: زر «دخول BTC» أو <code>/buy SOLUSDT</code>\n");
-        }
-        _ => {
-            out.push_str("<b>🎛 اضغط زراً بالأسفل</b>\n");
-            out.push_str(&format!(
-                "<i>تحديث كل {}ث · {} · الأزرار على <b>آخر لوحة</b></i>\n",
-                rt.settings.signal_interval_secs, mode_label
-            ));
-        }
+        _ => Ok("<b>قسم غير معروف</b>".into()),
     }
-
-    Ok(out)
 }
 
-fn build_dashboard_keyboard(rt: &SharedRuntime, section: &str) -> serde_json::Value {
+fn build_main_keyboard(rt: &SharedRuntime, active: &str) -> serde_json::Value {
     let pause = if rt.bot_is_running() {
-        "⏸ إيقاف"
+        "⏸ إيقاف مؤقت"
     } else {
         "▶️ تشغيل"
     };
-    let mk = |key: &str, label: &str| {
-        if section == key {
-            format!("▸{label}")
+    let tag = |key: &str, label: &str| {
+        if active == key {
+            format!("• {label}")
         } else {
             label.to_string()
         }
@@ -272,21 +320,18 @@ fn build_dashboard_keyboard(rt: &SharedRuntime, section: &str) -> serde_json::Va
                 {"text": pause, "callback_data": "act:toggle"},
                 {"text": "🟢 دخول BTC", "callback_data": "act:buy_btc"}
             ],
+            [{"text": "🚨 إغلاق طوارئ للكل", "callback_data": "act:emergency"}],
             [
-                {"text": "🚨 إغلاق طوارئ", "callback_data": "act:emergency"},
-                {"text": "🔄", "callback_data": "act:refresh"}
+                {"text": tag("signals", "📊 الإشارات"), "callback_data": "view:signals"},
+                {"text": tag("positions", "📂 المراكز"), "callback_data": "view:positions"}
             ],
             [
-                {"text": mk("signals", "📊إشارات"), "callback_data": "view:signals"},
-                {"text": mk("positions", "📂مراكز"), "callback_data": "view:positions"}
+                {"text": tag("liquidity", "🔥 السيولة"), "callback_data": "view:liquidity"},
+                {"text": tag("report", "📋 التقارير"), "callback_data": "view:report"}
             ],
             [
-                {"text": mk("liquidity", "🔥سيولة"), "callback_data": "view:liquidity"},
-                {"text": mk("report", "📋تقارير"), "callback_data": "view:report"}
-            ],
-            [
-                {"text": mk("history", "🕐سجل"), "callback_data": "view:history"},
-                {"text": mk("home", "🏠رئيسية"), "callback_data": "view:home"}
+                {"text": tag("history", "🕐 السجل"), "callback_data": "view:history"},
+                {"text": "🔄 تحديث الكل", "callback_data": "act:refresh"}
             ]
         ]
     })
@@ -304,8 +349,7 @@ fn fmt_money(n: f64) -> String {
         }
         with_commas.push(c);
     }
-    let int_fmt: String = with_commas.chars().rev().collect();
-    format!("{int_fmt}.{frac}")
+    format!("{}.{}", with_commas.chars().rev().collect::<String>(), frac)
 }
 
 fn tactical_clock_utc3() -> String {
@@ -314,22 +358,30 @@ fn tactical_clock_utc3() -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0)
         + 3 * 3600;
-    let h = (secs / 3600) % 24;
-    let m = (secs / 60) % 60;
-    let s = secs % 60;
-    format!("{h:02}:{m:02}:{s:02}")
+    format!(
+        "{:02}:{:02}:{:02}",
+        (secs / 3600) % 24,
+        (secs / 60) % 60,
+        secs % 60
+    )
 }
 
 pub fn spawn_panel_refresh(rt: Arc<SharedRuntime>) {
     tokio::spawn(async move {
         let _ = push_dashboard(&rt).await;
-        let secs = rt.settings.signal_interval_secs.max(2);
+        let secs = rt.settings.signal_interval_secs.max(3);
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(secs));
         loop {
             tick.tick().await;
             if let Err(e) = push_dashboard(&rt).await {
-                tracing::debug!("telegram panel refresh: {e}");
+                tracing::debug!("main board: {e}");
             }
+            refresh_open_sections(&rt).await;
         }
     });
+}
+
+// Legacy name used by /panel
+pub async fn push_dashboard_message(rt: &SharedRuntime, message_id: Option<i64>) -> Result<(), String> {
+    push_main_board(rt, message_id).await
 }

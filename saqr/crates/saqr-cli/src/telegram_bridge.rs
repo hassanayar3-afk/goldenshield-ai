@@ -96,7 +96,7 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
 
     let reply = match cmd {
         "/start" | "/panel" | "/لوحة" => {
-            *rt.telegram_panel_section.lock() = "home".into();
+            *rt.telegram_panel_active_section.lock() = "home".into();
             let _ = telegram_panel::push_dashboard(rt).await;
             return Ok(());
         }
