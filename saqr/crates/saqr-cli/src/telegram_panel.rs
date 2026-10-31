@@ -7,16 +7,27 @@ use crate::market_signals;
 use crate::runtime::SharedRuntime;
 
 pub async fn push_dashboard(rt: &SharedRuntime) -> Result<(), String> {
+    let mid = *rt.telegram_board_message_id.lock();
+    push_dashboard_message(rt, mid).await
+}
+
+pub async fn push_dashboard_message(rt: &SharedRuntime, message_id: Option<i64>) -> Result<(), String> {
     let section = rt.telegram_panel_section.lock().clone();
     let text = build_dashboard_text(rt, &section).await?;
     let keyboard = build_dashboard_keyboard(rt, &section);
+
+    if let Some(mid) = message_id {
+        *rt.telegram_board_message_id.lock() = Some(mid);
+        rt.telegram.edit_dashboard(mid, &text, &keyboard).await?;
+        return Ok(());
+    }
+
     let mid = *rt.telegram_board_message_id.lock();
     if let Some(mid) = mid {
-        if rt.telegram.edit_dashboard(mid, &text, &keyboard).await.is_err() {
-            *rt.telegram_board_message_id.lock() = None;
-        } else {
+        if rt.telegram.edit_dashboard(mid, &text, &keyboard).await.is_ok() {
             return Ok(());
         }
+        *rt.telegram_board_message_id.lock() = None;
     }
     match rt.telegram.send_dashboard(&text, &keyboard).await {
         Ok(mid) => {
@@ -27,19 +38,33 @@ pub async fn push_dashboard(rt: &SharedRuntime) -> Result<(), String> {
     }
 }
 
-pub async fn handle_callback(rt: &SharedRuntime, query_id: &str, data: &str) -> Result<(), String> {
+pub async fn handle_callback(
+    rt: &SharedRuntime,
+    query_id: &str,
+    data: &str,
+    message_id: Option<i64>,
+) -> Result<(), String> {
     let toast = match data {
         "act:close_win" => {
             let (_, b) = control_actions::close_winners(rt, "telegram").await;
-            format!("إغلاق الرابحة: {}", b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0))
+            format!(
+                "💰 أغلقت {} رابحة",
+                b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
+            )
         }
         "act:close_loss" => {
             let (_, b) = control_actions::close_losers(rt, "telegram").await;
-            format!("إغلاق الخاسرة: {}", b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0))
+            format!(
+                "📉 أغلقت {} خاسرة",
+                b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
+            )
         }
         "act:emergency" => {
             let (_, b) = control_actions::emergency_close_all(rt, "telegram").await;
-            format!("طوارئ: {}", b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0))
+            format!(
+                "🚨 طوارئ: {} صفقة",
+                b.get("closed").and_then(|v| v.as_u64()).unwrap_or(0)
+            )
         }
         "act:toggle" => {
             let v = control_actions::toggle_bot(rt).await;
@@ -51,33 +76,36 @@ pub async fn handle_callback(rt: &SharedRuntime, query_id: &str, data: &str) -> 
         }
         "act:buy_btc" => {
             let sym = rt.settings.symbol.clone();
-            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0, "telegram").await;
+            let (code, body) = control_actions::enter_market(rt, &sym, 2.0, "telegram").await;
             if code.is_success() {
                 format!("🟢 دخول {sym}")
             } else {
                 body.get("error")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("فشل")
+                    .unwrap_or("فشل الدخول")
                     .to_string()
             }
         }
+        "act:refresh" => "🔄 تحديث".into(),
         s if s.starts_with("view:") => {
             let view = s.strip_prefix("view:").unwrap_or("home");
             *rt.telegram_panel_section.lock() = view.to_string();
             match view {
-                "signals" => "📊 الإشارات الفنية",
-                "positions" => "📂 مراكزي المفتوحة",
-                "liquidity" => "🔥 الأعلى سيولة",
+                "signals" => "📊 الإشارات",
+                "positions" => "📂 المراكز",
+                "liquidity" => "🔥 السيولة",
                 "report" => "📋 التقارير",
-                "history" => "🕐 سجل الصفقات",
+                "history" => "🕐 السجل",
+                "calc" => "🧮 الحاسبة (استخدم /price)",
                 _ => "🏠 الرئيسية",
             }
             .to_string()
         }
-        _ => "—".into(),
+        _ => "زر غير معروف".into(),
     };
+
     let _ = rt.telegram.answer_callback(query_id, Some(&toast)).await;
-    push_dashboard(rt).await?;
+    push_dashboard_message(rt, message_id).await?;
     Ok(())
 }
 
@@ -89,20 +117,23 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
     } else {
         "⏸ PAUSED"
     };
+    let mode_label = if rt.settings.is_paper_trading() {
+        "Paper"
+    } else if rt.settings.is_testnet_execution() {
+        "Testnet ✅"
+    } else {
+        "LIVE ⚠️"
+    };
 
     let mut out = format!(
-        "🦅 <b>GoldenShield — صقر v6.2.3</b>\n\
+        "🦅 <b>GoldenShield — صقر v6.2.3</b> · <code>{mode_label}</code>\n\
 ┏━━━━━━━━━━━━━━━━━━━━━━┓\n\
-💎 <b>الرصيد الإجمالي</b>\n\
-   <code>{bal} $</code>\n\
+💎 <b>الرصيد الإجمالي</b>  <code>{bal} $</code>\n\
 📈 <b>أرباح اليوم</b>  <code>{day:+.2}%</code>\n\
-┗━━━━━━━━━━━━━━━━━━━━━━┛\n\n\
-📊 <b>الصفقات المفتوحة حالياً</b>  <code>{open}</code>\n\
-┌──────────────┬──────────────┐\n\
-│ 🟢 رابحة     │ 🔴 خاسرة     │\n\
-│ <code>+{win:.2} $</code> │ <code>-{lose:.2} $</code> │\n\
-└──────────────┴──────────────┘\n\
-🕐 <b>زمن السيرفر التكتيكي</b> <code>{clock}</code> · {bot}\n\
+┗━━━━━━━━━━━━━━━━━━━━━━┛\n\
+📊 <b>صفقات مفتوحة</b> <code>{open}</code>\n\
+🟢 رابحة <code>+{win:.2} $</code> · 🔴 خاسرة <code>-{lose:.2} $</code>\n\
+🕐 <code>{clock}</code> · {bot}\n\
 ━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
         bal = fmt_money(mirror.total_balance_usd),
         day = mirror.daily_profit_pct,
@@ -113,15 +144,15 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
 
     match section {
         "signals" => {
-            out.push_str("<b>📊 الإشارات الفنية</b> (Binance 15m)\n");
+            out.push_str("<b>📊 الإشارات الفنية</b> (15m · Binance)\n");
             let signals = market_signals::fetch_live_signals(rt, "15m").await;
             if signals.is_empty() {
-                out.push_str("<i>جاري الاتصال بالسوق…</i>\n");
+                out.push_str("<i>لا بيانات — تحقق REST/Testnet</i>\n");
             }
             for s in signals.iter().take(10) {
-                let tag = if s.direction == "BUY" { "🟢 شراء" } else { "🔴 بيع" };
+                let tag = if s.direction == "BUY" { "🟢" } else { "🔴" };
                 out.push_str(&format!(
-                    "• <code>{}</code> {tag} · <code>{:.2}</code> · {}% · RSI {}\n",
+                    "{tag} <code>{}</code> · <code>{:.4}</code> · {}% RSI{}\n",
                     s.pair, s.price, s.strength, s.rsi as i32
                 ));
             }
@@ -129,17 +160,17 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
         "positions" => {
             out.push_str("<b>📂 مراكزي المفتوحة</b>\n");
             if mirror.positions.is_empty() {
-                out.push_str("<i>لا توجد صفقات مفتوحة</i>\n");
+                out.push_str("<i>لا مراكز — جرّب «دخول BTC»</i>\n");
             }
             for p in &mirror.positions {
                 out.push_str(&format!(
-                    "• <code>{}</code> {} · دخول <code>{:.4}</code> · PnL <code>{:+.2} $</code>\n",
-                    p.pair, p.lot, p.entry, p.pnl
+                    "• <code>{}</code> lot <code>{}</code> · PnL <code>{:+.2}$</code>\n",
+                    p.pair, p.lot, p.pnl
                 ));
             }
         }
         "liquidity" => {
-            out.push_str("<b>🔥 الأعلى سيولة</b>\n");
+            out.push_str("<b>🔥 الأعلى سيولة (24h)</b>\n");
             match rt.market.tickers_24h().await {
                 Ok(all) => {
                     for sym in market_signals::watch_symbols(rt) {
@@ -147,7 +178,7 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
                             let vol: f64 = t.quote_volume.parse().unwrap_or(0.0) / 1e9;
                             let base = sym.strip_suffix("USDT").unwrap_or(sym.as_str());
                             out.push_str(&format!(
-                                "• <code>{base}/USDT</code> · <code>{vol:.1}B</code>\n"
+                                "• <code>{base}/USDT</code> <code>{vol:.1}B</code>\n"
                             ));
                         }
                     }
@@ -156,40 +187,61 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
             }
         }
         "report" => {
-            let r = rt.paper.report("daily");
-            out.push_str("<b>📋 تقرير اليوم</b>\n");
-            out.push_str(&format!(
-                "رصيد: <code>{:.2} $</code>\nفوز: <code>{}</code> · خسارة: <code>{}</code>\n",
-                mirror.total_balance_usd,
-                r.get("win_count").and_then(|v| v.as_u64()).unwrap_or(0),
-                r.get("loss_count").and_then(|v| v.as_u64()).unwrap_or(0),
-            ));
-        }
-        "history" => {
-            out.push_str("<b>🕐 سجل الصفقات</b>\n");
-            let rows = rt.paper.history();
-            if rows.is_empty() {
-                out.push_str("<i>لا يوجد سجل بعد</i>\n");
-            }
-            for t in rows.iter().rev().take(8) {
+            out.push_str("<b>📋 تقارير اليوم</b>\n");
+            if rt.settings.is_paper_trading() {
+                let r = rt.paper.report("daily");
                 out.push_str(&format!(
-                    "• <code>{}</code> PnL <code>{:+.2} $</code>\n",
-                    t.pair, t.pnl_usd
+                    "فوز: <code>{}</code> · خسارة: <code>{}</code>\n",
+                    r.get("win_count").and_then(|v| v.as_u64()).unwrap_or(0),
+                    r.get("loss_count").and_then(|v| v.as_u64()).unwrap_or(0),
+                ));
+            } else {
+                out.push_str(&format!(
+                    "USDT free: <code>{:.2}</code> · locked: <code>{:.2}</code>\n",
+                    mirror.usdt_free, mirror.usdt_locked
                 ));
             }
         }
-        _ => {
-            out.push_str("<b>🎛 لوحة التحكم</b> — اختر قسماً من الأزرار ↓\n");
-            let exec = if rt.settings.is_paper_trading() {
-                "Paper Sandbox"
-            } else if rt.settings.is_testnet_execution() {
-                "Binance Spot Testnet (أوامر حقيقية)"
+        "history" => {
+            out.push_str("<b>🕐 سجل الصفقات</b>\n");
+            if rt.settings.is_paper_trading() {
+                let rows = rt.paper.history();
+                if rows.is_empty() {
+                    out.push_str("<i>لا سجل Paper بعد</i>\n");
+                }
+                for t in rows.iter().rev().take(8) {
+                    out.push_str(&format!(
+                        "• <code>{}</code> <code>{:+.2}$</code>\n",
+                        t.pair, t.pnl_usd
+                    ));
+                }
             } else {
-                "Binance Spot LIVE"
-            };
+                let sym = rt.settings.symbol.clone();
+                match rt.binance.my_trades(&sym, None).await {
+                    Ok(rows) if rows.is_empty() => out.push_str("<i>لا trades على Testnet بعد</i>\n"),
+                    Ok(rows) => {
+                        for t in rows.iter().rev().take(8) {
+                            let side = if t.isBuyer { "BUY" } else { "SELL" };
+                            out.push_str(&format!(
+                                "• <code>{sym}</code> {side} <code>{}</code>\n",
+                                t.price
+                            ));
+                        }
+                    }
+                    Err(e) => out.push_str(&format!("<i>{e}</i>\n")),
+                }
+            }
+        }
+        "calc" => {
+            out.push_str("<b>🧮 حاسبة العقود</b>\n");
+            out.push_str("أرسل: <code>/price ETHUSDT</code>\n");
+            out.push_str("دخول 2%: زر «دخول BTC» أو <code>/buy SOLUSDT</code>\n");
+        }
+        _ => {
+            out.push_str("<b>🎛 اضغط زراً بالأسفل</b>\n");
             out.push_str(&format!(
-                "<i>تحديث كل {}ث · {exec}</i>\n",
-                rt.settings.signal_interval_secs
+                "<i>تحديث كل {}ث · {} · الأزرار على <b>آخر لوحة</b></i>\n",
+                rt.settings.signal_interval_secs, mode_label
             ));
         }
     }
@@ -199,13 +251,13 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
 
 fn build_dashboard_keyboard(rt: &SharedRuntime, section: &str) -> serde_json::Value {
     let pause = if rt.bot_is_running() {
-        "⏸ إيقاف مؤقت"
+        "⏸ إيقاف"
     } else {
-        "▶️ تشغيل البوت"
+        "▶️ تشغيل"
     };
     let mk = |key: &str, label: &str| {
         if section == key {
-            format!("▸ {label}")
+            format!("▸{label}")
         } else {
             label.to_string()
         }
@@ -221,19 +273,20 @@ fn build_dashboard_keyboard(rt: &SharedRuntime, section: &str) -> serde_json::Va
                 {"text": "🟢 دخول BTC", "callback_data": "act:buy_btc"}
             ],
             [
-                {"text": "🚨 إغلاق طوارئ — الكل", "callback_data": "act:emergency"}
+                {"text": "🚨 إغلاق طوارئ", "callback_data": "act:emergency"},
+                {"text": "🔄", "callback_data": "act:refresh"}
             ],
             [
-                {"text": mk("signals", "📊 إشارات"), "callback_data": "view:signals"},
-                {"text": mk("positions", "📂 مراكز"), "callback_data": "view:positions"}
+                {"text": mk("signals", "📊إشارات"), "callback_data": "view:signals"},
+                {"text": mk("positions", "📂مراكز"), "callback_data": "view:positions"}
             ],
             [
-                {"text": mk("liquidity", "🔥 سيولة"), "callback_data": "view:liquidity"},
-                {"text": mk("report", "📋 تقارير"), "callback_data": "view:report"}
+                {"text": mk("liquidity", "🔥سيولة"), "callback_data": "view:liquidity"},
+                {"text": mk("report", "📋تقارير"), "callback_data": "view:report"}
             ],
             [
-                {"text": mk("history", "🕐 السجل"), "callback_data": "view:history"},
-                {"text": mk("home", "🏠 الرئيسية"), "callback_data": "view:home"}
+                {"text": mk("history", "🕐سجل"), "callback_data": "view:history"},
+                {"text": mk("home", "🏠رئيسية"), "callback_data": "view:home"}
             ]
         ]
     })
@@ -269,9 +322,9 @@ fn tactical_clock_utc3() -> String {
 
 pub fn spawn_panel_refresh(rt: Arc<SharedRuntime>) {
     tokio::spawn(async move {
+        let _ = push_dashboard(&rt).await;
         let secs = rt.settings.signal_interval_secs.max(2);
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(secs));
-        tick.tick().await;
         loop {
             tick.tick().await;
             if let Err(e) = push_dashboard(&rt).await {

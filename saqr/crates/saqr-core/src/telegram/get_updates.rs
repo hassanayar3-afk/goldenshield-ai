@@ -12,6 +12,7 @@ pub struct TelegramCallbackQuery {
     pub update_id: i64,
     pub query_id: String,
     pub chat_id: String,
+    pub message_id: Option<i64>,
     pub data: String,
 }
 
@@ -56,6 +57,7 @@ struct TgFrom {
 
 #[derive(Deserialize)]
 struct TgCallbackMessage {
+    message_id: i64,
     chat: TgChat,
 }
 
@@ -85,6 +87,7 @@ pub fn parse_updates(body: &str) -> Result<TelegramPollBatch, String> {
                     update_id: item.update_id,
                     query_id: cb.id,
                     chat_id,
+                    message_id: cb.message.as_ref().map(|m| m.message_id),
                     data,
                 });
             }

@@ -48,9 +48,20 @@ async fn run_bridge_loop(rt: Arc<SharedRuntime>) {
                     if !rt.telegram.chat_is_authorized(&cb.chat_id) {
                         continue;
                     }
-                    if let Err(e) = telegram_panel::handle_callback(&rt, &cb.query_id, &cb.data).await
+                    tracing::info!("telegram callback {} from {}", cb.data, cb.chat_id);
+                    if let Err(e) = telegram_panel::handle_callback(
+                        &rt,
+                        &cb.query_id,
+                        &cb.data,
+                        cb.message_id,
+                    )
+                    .await
                     {
                         tracing::warn!("telegram callback: {e}");
+                        let _ = rt
+                            .telegram
+                            .answer_callback(&cb.query_id, Some("⚠️ خطأ — أرسل /panel"))
+                            .await;
                     }
                 }
                 for msg in batch.messages {
@@ -119,9 +130,9 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
         }
         "/buy" | "/enter" | "/دخول" | "دخول" => {
             let sym = parse_symbol_arg(text).unwrap_or_else(|| rt.settings.symbol.clone());
-            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0, "telegram").await;
+            let (code, body) = control_actions::enter_market(rt, &sym, 2.0, "telegram").await;
             if code.is_success() {
-                format!("🟢 Paper دخول <code>{sym}</code> @ سعر Binance الحي")
+                format!("🟢 دخول <code>{sym}</code> @ Binance")
             } else {
                 body.get("error")
                     .and_then(|v| v.as_str())
@@ -152,9 +163,9 @@ async fn handle_command(rt: &SharedRuntime, raw: &str) -> Result<(), String> {
         }
         _ if lower.starts_with("/buy ") => {
             let sym = parse_symbol_arg(text).unwrap_or_else(|| "BTCUSDT".into());
-            let (code, body) = control_actions::paper_enter(rt, &sym, 2.0, "telegram").await;
+            let (code, body) = control_actions::enter_market(rt, &sym, 2.0, "telegram").await;
             if code.is_success() {
-                format!("🟢 Paper دخول <code>{sym}</code>")
+                format!("🟢 دخول <code>{sym}</code>")
             } else {
                 body.get("error")
                     .and_then(|v| v.as_str())

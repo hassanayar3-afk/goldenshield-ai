@@ -157,12 +157,15 @@ impl TelegramClient {
             .send()
             .await
             .map_err(|e| e.to_string())?;
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(format!("Telegram edit HTTP {status}: {body}"));
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            return Ok(());
         }
-        Ok(())
+        if body.contains("message is not modified") {
+            return Ok(());
+        }
+        Err(format!("Telegram edit HTTP {status}: {body}"))
     }
 
     pub async fn answer_callback(&self, query_id: &str, text: Option<&str>) -> Result<(), String> {
@@ -190,7 +193,13 @@ impl TelegramClient {
         if allowed.is_empty() {
             return false;
         }
-        chat_id.trim() == allowed.trim()
+        if chat_id.trim() == allowed.trim() {
+            return true;
+        }
+        match (allowed.parse::<i64>(), chat_id.parse::<i64>()) {
+            (Ok(a), Ok(c)) => a != 0 && a == c,
+            _ => false,
+        }
     }
 
     /// Long-poll messages + inline keyboard callbacks.
