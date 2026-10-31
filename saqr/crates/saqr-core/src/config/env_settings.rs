@@ -49,6 +49,7 @@ pub struct SaqrSettings {
     pub auto_signal_min_strength: i32,
     pub auto_signal_risk_pct: f64,
     pub auto_max_open_positions: usize,
+    pub watch_symbols: Vec<String>,
     pub integration_interval_secs: u64,
 }
 
@@ -125,6 +126,7 @@ impl SaqrSettings {
             .and_then(|v| v.parse().ok())
             .unwrap_or(5)
             .clamp(1, 20);
+        let watch_symbols = parse_watch_symbols(env::var("SAQR_WATCH_SYMBOLS").ok());
 
         Self {
             mode,
@@ -168,6 +170,7 @@ impl SaqrSettings {
             auto_signal_min_strength,
             auto_signal_risk_pct,
             auto_max_open_positions,
+            watch_symbols,
             integration_interval_secs: env::var("SAQR_INTEGRATION_INTERVAL_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -194,6 +197,20 @@ impl SaqrSettings {
     pub fn live_execution_enabled(&self) -> bool {
         self.enable_trading && !self.is_paper_trading()
     }
+}
+
+const DEFAULT_WATCH: &[&str] = &[
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT",
+];
+
+fn parse_watch_symbols(raw: Option<String>) -> Vec<String> {
+    let Some(raw) = raw.filter(|s| !s.trim().is_empty()) else {
+        return DEFAULT_WATCH.iter().map(|s| (*s).to_string()).collect();
+    };
+    raw.split(',')
+        .map(|p| p.trim().to_uppercase().replace('/', ""))
+        .filter(|s| !s.is_empty() && s.ends_with("USDT"))
+        .collect()
 }
 
 fn env_bool(key: &str, default: bool) -> bool {

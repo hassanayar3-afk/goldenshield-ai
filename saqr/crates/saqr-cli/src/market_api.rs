@@ -3,15 +3,15 @@ use axum::Json;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::market_signals::{self, WATCH_SYMBOLS};
+use crate::market_signals;
 use crate::runtime::SharedRuntime;
 
 pub async fn liquidity(State(rt): State<SharedRuntime>) -> Json<serde_json::Value> {
     match rt.market.tickers_24h().await {
         Ok(all) => {
             let mut rows: Vec<serde_json::Value> = Vec::new();
-            for sym in WATCH_SYMBOLS {
-                if let Some(t) = all.iter().find(|x| x.symbol == *sym) {
+            for sym in market_signals::watch_symbols(&rt) {
+                if let Some(t) = all.iter().find(|x| x.symbol == sym) {
                     let vol: f64 = t.quote_volume.parse().unwrap_or(0.0);
                     let base = sym.strip_suffix("USDT").unwrap_or(sym);
                     rows.push(json!({

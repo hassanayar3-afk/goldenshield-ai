@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde_json::json;
 
 use crate::control_actions;
-use crate::market_signals::{self, WATCH_SYMBOLS};
+use crate::market_signals;
 use crate::runtime::SharedRuntime;
 
 pub async fn push_dashboard(rt: &SharedRuntime) -> Result<(), String> {
@@ -118,7 +118,7 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
             if signals.is_empty() {
                 out.push_str("<i>جاري الاتصال بالسوق…</i>\n");
             }
-            for s in signals.iter().take(6) {
+            for s in signals.iter().take(10) {
                 let tag = if s.direction == "BUY" { "🟢 شراء" } else { "🔴 بيع" };
                 out.push_str(&format!(
                     "• <code>{}</code> {tag} · <code>{:.2}</code> · {}% · RSI {}\n",
@@ -142,10 +142,10 @@ async fn build_dashboard_text(rt: &SharedRuntime, section: &str) -> Result<Strin
             out.push_str("<b>🔥 الأعلى سيولة</b>\n");
             match rt.market.tickers_24h().await {
                 Ok(all) => {
-                    for sym in WATCH_SYMBOLS {
-                        if let Some(t) = all.iter().find(|x| x.symbol == *sym) {
+                    for sym in market_signals::watch_symbols(rt) {
+                        if let Some(t) = all.iter().find(|x| x.symbol == sym) {
                             let vol: f64 = t.quote_volume.parse().unwrap_or(0.0) / 1e9;
-                            let base = sym.strip_suffix("USDT").unwrap_or(sym);
+                            let base = sym.strip_suffix("USDT").unwrap_or(sym.as_str());
                             out.push_str(&format!(
                                 "• <code>{base}/USDT</code> · <code>{vol:.1}B</code>\n"
                             ));

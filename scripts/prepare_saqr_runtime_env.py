@@ -17,6 +17,7 @@ GROUPS = [
         "SAQR_ENABLE_LIVE_ACK",
         "SAQR_INITIAL_BALANCE_USD",
         "SAQR_SYMBOL",
+        "SAQR_WATCH_SYMBOLS",
         "SAQR_HOLD_CONSOLE",
     ],
     [
